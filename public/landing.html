@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle FC — Stop Guessing. Start Winning.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04080f;
+  --bg2: #070d1a;
+  --panel: #0a1628;
+  --border: #0e2040;
+  --border2: #152d55;
+  --accent: #00c8f8;
+  --accent2: #0099d4;
+  --teal: #00e5c8;
+  --blue: #0066ff;
+  --green: #00ff88;
+  --red: #ff3b5c;
+  --gold: #ffd700;
+  --orange: #ff8c42;
+  --text: #e8f4ff;
+  --text2: #7a9bbf;
+  --text3: #3a5a7a;
+  --grad: linear-gradient(135deg, #00c8f8, #00e5c8);
+  --grad2: linear-gradient(135deg, #0066ff, #00c8f8);
+  --glow: 0 0 40px rgba(0,200,248,0.25);
+  --glow2: 0 0 60px rgba(0,229,200,0.2);
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Animated grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,200,248,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,248,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glow orbs */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+}
+.orb1 { width: 600px; height: 600px; background: radial-gradient(circle, #0066ff, transparent); top: -200px; left: -200px; }
+.orb2 { width: 500px; height: 500px; background: radial-gradient(circle, #00e5c8, transparent); bottom: 20%; right: -150px; }
+.orb3 { width: 400px; height: 400px; background: radial-gradient(circle, #00c8f8, transparent); top: 50%; left: 40%; }
+
+/* NAV */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 0 5%;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(4,8,15,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: 'Bebas Neue';
+  font-size: 26px;
+  letter-spacing: 4px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.nav-logo span {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  display: block;
+  -webkit-text-fill-color: var(--text3);
+  margin-top: -4px;
+}
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--accent); }
+.nav-cta {
+  background: var(--grad);
+  color: #000 !important;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase;
+  -webkit-text-fill-color: #000 !important;
+}
+
+/* SECTIONS */
+section { position: relative; z-index: 1; }
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 5% 80px;
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono';
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: var(--teal);
+  opacity: 0.5;
+}
+.hero-headline {
+  font-family: 'Bebas Neue';
+  font-size: clamp(64px, 10vw, 130px);
+  line-height: 0.9;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.hero-headline .grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: block;
+}
+.hero-sub {
+  font-size: clamp(16px, 2vw, 20px);
+  color: var(--text2);
+  max-width: 580px;
+  margin: 24px auto 48px;
+  font-weight: 300;
+  line-height: 1.7;
+}
+.hero-sub strong { color: var(--text); font-weight: 600; }
+.hero-btns {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 64px;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  background: var(--grad);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 0 30px rgba(0,200,248,0.4);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px rgba(0,200,248,0.6);
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid var(--border2);
+  transition: all 0.3s;
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,200,248,0.05);
+}
+.hero-stats {
+  display: flex;
+  gap: 48px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 32px 48px;
+  background: rgba(10,22,40,0.7);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+}
+.hstat { text-align: center; }
+.hstat-num {
+  font-family: 'Bebas Neue';
+  font-size: 42px;
+  letter-spacing: 2px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.hstat-lbl {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* TRUST BAR */
+.trust-bar {
+  padding: 20px 5%;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,13,26,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+.trust-item {
+  font-family: 'JetBrains Mono';
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.trust-item span { color: var(--teal); font-size: 14px; }
+
+/* SECTION HEADERS */
+.section-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+.section-tag {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.section-title {
+  font-family: 'Bebas Neue';
+  font-size: clamp(36px, 5vw, 60px);
+  letter-spacing: 2px;
+  line-height: 1;
+  color: var(--text);
+}
+.section-title .hl {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.section-sub {
+  font-size: 16px;
+  color: var(--text2);
+  max-width: 520px;
+  margin: 16px auto 0;
+  font-weight: 300;
+}
+
+/* OUTCOMES */
+.outcomes { padding: 100px 5%; }
+.outcomes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.outcome-card {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 36px 28px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.outcome-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--grad);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.outcome-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: var(--glow); }
+.outcome-card:hover::before { opacity: 1; }
+.outcome-tier {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.outcome-price {
+  font-family: 'Bebas Neue';
+  font-size: 22px;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+.outcome-metric {
+  margin-bottom: 16px;
+}
+.outcome-metric-val {
+  font-family: 'Bebas Neue';
+  font-size: 48px;
+  line-height: 1;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.outcome-metric-lbl {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+.outcome-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.ostat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ostat-lbl { color: var(--text2); }
+.ostat-val {
+  font-family: 'JetBrains Mono';
+  font-weight: 600;
+  color: var(--teal);
+}
+.outcome-card.featured {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(0,102,255,0.1), rgba(0,200,248,0.05));
+  box-shadow: var(--glow);
+}
+.outcome-card.featured::before { opacity: 1; }
+.popular-badge {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: var(--grad);
+  color: #000;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+/* HOW IT WORKS */
+.how { padding: 100px 5%; background: rgba(7,13,26,0.5); }
+.how-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  max-width: 1100px;
+  margin: 0 auto;
+  align-items: center;
+}
+.how-steps { display: flex; flex-direction: column; gap: 28px; }
+.how-step {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+.how-step:hover { opacity: 1; }
+.step-num {
+  font-family: 'Bebas Neue';
+  font-size: 48px;
+  line-height: 1;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  flex-shrink: 0;
+  width: 48px;
+}
+.step-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.step-desc { font-size: 14px; color: var(--text2); line-height: 1.6; }
+.how-visual {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.how-visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,102,255,0.08), rgba(0,229,200,0.04));
+}
+.mock-match {
+  background: rgba(4,8,15,0.8);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+}
+.mock-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.mock-team { font-weight: 600; font-size: 14px; }
+.mock-team.r { text-align: right; }
+.mock-vs { font-family: 'Bebas Neue'; font-size: 18px; color: var(--text3); text-align: center; }
+.mock-elo { font-family: 'JetBrains Mono'; font-size: 9px; color: var(--text3); margin-top: 2px; }
+.mock-probs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.mock-prob {
+  background: rgba(0,200,248,0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.mock-prob-pct {
+  font-family: 'Bebas Neue';
+  font-size: 20px;
+}
+.mock-prob-lbl { font-size: 9px; color: var(--text3); font-family: 'JetBrains Mono'; }
+.mock-prob-odds { font-size: 10px; color: var(--text2); font-family: 'JetBrains Mono'; margin-top: 2px; }
+.mock-ai {
+  background: rgba(0,229,200,0.05);
+  border: 1px solid rgba(0,229,200,0.2);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text2);
+  position: relative;
+  z-index: 1;
+}
+.mock-ai strong { color: var(--teal); }
+.mock-badge {
+  display: inline-block;
+  background: var(--grad);
+  color: #000;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
+/* FEATURES */
+.features { padding: 100px 5%; }
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.feature-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,200,248,0.1);
+}
+.feature-icon {
+  font-size: 28px;
+  margin-bottom: 14px;
+  display: block;
+}
+.feature-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.feature-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.feature-tag {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-family: 'JetBrains Mono';
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.tag-live { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.tag-pro { background: rgba(0,200,248,0.15); color: var(--accent); border: 1px solid rgba(0,200,248,0.3); }
+.tag-elite { background: rgba(255,215,0,0.15); color: var(--gold); border: 1px solid rgba(255,215,0,0.3); }
+
+/* TIERS */
+.tiers { padding: 100px 5%; background: rgba(7,13,26,0.5); }
+.tier-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+.toggle-label {
+  font-family: 'JetBrains Mono';
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 1px;
+}
+.toggle-track {
+  width: 52px;
+  height: 28px;
+  background: var(--border2);
+  border-radius: 14px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s;
+  border: 1px solid var(--border2);
+}
+.toggle-track.on { background: var(--grad2); }
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.3s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.toggle-track.on .toggle-thumb { left: 27px; }
+.save-badge {
+  background: rgba(0,255,136,0.15);
+  border: 1px solid rgba(0,255,136,0.3);
+  color: var(--green);
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+.tiers-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.tier-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+.tier-card:hover { transform: translateY(-4px); }
+.tier-card.popular {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(0,102,255,0.1), rgba(0,200,248,0.04));
+  box-shadow: var(--glow);
+}
+.tier-card.elite {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(255,215,0,0.08), rgba(255,140,66,0.03));
+}
+.tier-popular-badge {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%) translateY(-1px);
+  background: var(--grad);
+  color: #000;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 12px;
+  border-radius: 0 0 6px 6px;
+  white-space: nowrap;
+}
+.tier-name {
+  font-family: 'Bebas Neue';
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.tier-price {
+  margin-bottom: 6px;
+}
+.tier-price-num {
+  font-family: 'Bebas Neue';
+  font-size: 38px;
+  line-height: 1;
+  color: var(--text);
+}
+.tier-price-num.grad {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.tier-price-num.gold-grad {
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.tier-price-period {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'JetBrains Mono';
+}
+.tier-price-annual {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  color: var(--green);
+  margin-bottom: 16px;
+  min-height: 16px;
+}
+.tier-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+.tier-features {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 24px;
+}
+.tf {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+.tf-check { color: var(--teal); flex-shrink: 0; margin-top: 1px; font-size: 13px; }
+.tf-x { color: var(--text3); flex-shrink: 0; margin-top: 1px; font-size: 13px; }
+.tf.disabled { opacity: 0.35; }
+.tier-btn {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.3s;
+  cursor: pointer;
+  border: none;
+  font-family: 'DM Sans';
+}
+.tier-btn-free {
+  background: var(--border2);
+  color: var(--text2);
+}
+.tier-btn-free:hover { background: var(--border); color: var(--text); }
+.tier-btn-paid {
+  background: linear-gradient(135deg, rgba(0,102,255,0.3), rgba(0,200,248,0.2));
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.tier-btn-paid:hover { background: var(--grad); color: #000; box-shadow: var(--glow); }
+.tier-btn-popular {
+  background: var(--grad);
+  color: #000;
+  box-shadow: var(--glow);
+}
+.tier-btn-popular:hover { transform: translateY(-1px); box-shadow: 0 0 40px rgba(0,200,248,0.5); }
+.tier-btn-elite {
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  color: #000;
+}
+.tier-btn-elite:hover { transform: translateY(-1px); box-shadow: 0 0 40px rgba(255,215,0,0.4); }
+
+/* SOCIAL PROOF */
+.proof { padding: 100px 5%; }
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.proof-card {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 24px;
+}
+.proof-stars {
+  color: var(--gold);
+  font-size: 14px;
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+.proof-text {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.65;
+  margin-bottom: 16px;
+  font-style: italic;
+}
+.proof-author {
+  font-family: 'JetBrains Mono';
+  font-size: 11px;
+  color: var(--text3);
+}
+.proof-author strong { color: var(--text); font-style: normal; }
+
+/* CTA BANNER */
+.cta-banner {
+  padding: 80px 5%;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,102,255,0.15), rgba(0,229,200,0.08));
+  border-top: 1px solid var(--border2);
+  border-bottom: 1px solid var(--border2);
+}
+.cta-title {
+  font-family: 'Bebas Neue';
+  font-size: clamp(40px, 6vw, 72px);
+  letter-spacing: 2px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 16px;
+}
+.cta-sub {
+  font-size: 16px;
+  color: var(--text2);
+  max-width: 480px;
+  margin: 0 auto 36px;
+  position: relative;
+  z-index: 1;
+}
+.cta-banner .btn-primary { position: relative; z-index: 1; }
+
+/* FAQ */
+.faq { padding: 80px 5%; }
+.faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.faq-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.faq-q {
+  padding: 18px 20px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: color 0.2s;
+  user-select: none;
+}
+.faq-q:hover { color: var(--accent); }
+.faq-arrow {
+  color: var(--text3);
+  transition: transform 0.3s;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.faq-item.open .faq-arrow { transform: rotate(45deg); color: var(--accent); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+.faq-item.open .faq-a { max-height: 200px; }
+.faq-a-inner { padding: 0 20px 18px; }
+
+/* FOOTER */
+footer {
+  padding: 40px 5%;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.footer-logo {
+  font-family: 'Bebas Neue';
+  font-size: 20px;
+  letter-spacing: 4px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.footer-legal {
+  font-size: 11px;
+  color: var(--text3);
+  max-width: 500px;
+  line-height: 1.5;
+}
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+.footer-links a {
+  font-size: 12px;
+  color: var(--text3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--accent); }
+
+/* ANIMATIONS */
+.fade-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 1024px) {
+  .tiers-grid { grid-template-columns: repeat(3, 1fr); }
+  .outcomes-grid { grid-template-columns: 1fr 1fr; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .tiers-grid { grid-template-columns: 1fr 1fr; }
+  .how-grid { grid-template-columns: 1fr; }
+  .proof-grid { grid-template-columns: 1fr; }
+  .outcomes-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .hero-stats { gap: 24px; padding: 24px; }
+}
+@media (max-width: 480px) {
+  .tiers-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">SLIP IQ <span>BETTING INTELLIGENCE</span></div>
+  <div class="nav-links">
+    <a href="#outcomes">Results</a>
+    <a href="#how">How It Works</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="index.html">Live App</a>
+    <a href="subscriptions.html" class="nav-cta">Get Started →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">GPT-4o AI · Monte Carlo 50,000 Simulations · Real Bookmaker Odds</div>
+  <h1 class="hero-headline">
+    Stop Losing.<br>
+    <span class="grad-text">Start Winning.</span>
+  </h1>
+  <p class="hero-sub">
+    SLIP IQ runs <strong>50,000 match simulations</strong> per fixture, pulls <strong>real bookmaker odds</strong> from 12 leagues, and delivers GPT-4o powered analysis — so you make smarter bets, every single time.
+  </p>
+  <div class="hero-btns">
+    <a href="subscriptions.html" class="btn-primary">⚡ Start For Free →</a>
+    <a href="index.html" class="btn-secondary">View Live App</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-num">152+</div><div class="hstat-lbl">Live Matches</div></div>
+    <div class="hstat"><div class="hstat-num">12</div><div class="hstat-lbl">Leagues Covered</div></div>
+    <div class="hstat"><div class="hstat-num">50K</div><div class="hstat-lbl">Simulations/Match</div></div>
+    <div class="hstat"><div class="hstat-num">74%</div><div class="hstat-lbl">Avg Pick Accuracy</div></div>
+    <div class="hstat"><div class="hstat-num">GPT-4o</div><div class="hstat-lbl">AI Engine</div></div>
+  </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-item"><span>🏴󠁧󠁢󠁥󠁮󠁧󠁿</span> Premier League</div>
+  <div class="trust-item"><span>🇪🇸</span> La Liga</div>
+  <div class="trust-item"><span>🇩🇪</span> Bundesliga</div>
+  <div class="trust-item"><span>🇮🇹</span> Serie A</div>
+  <div class="trust-item"><span>🇫🇷</span> Ligue 1</div>
+  <div class="trust-item"><span>⭐</span> Champions League</div>
+  <div class="trust-item"><span>🟠</span> Europa League</div>
+  <div class="trust-item"><span>🇧🇷</span> Brasileirão</div>
+</div>
+
+<!-- OUTCOMES -->
+<section class="outcomes" id="outcomes">
+  <div class="section-header fade-up">
+    <div class="section-tag">Average User Results</div>
+    <h2 class="section-title">What SLIP IQ <span class="hl">Delivers</span></h2>
+    <p class="section-sub">Based on average user outcomes across tiers. Past performance is indicative, not guaranteed.</p>
+  </div>
+  <div class="outcomes-grid">
+    <div class="outcome-card fade-up">
+      <div class="outcome-tier">Starter — $2.99/mo</div>
+      <div class="outcome-price" style="color:var(--text2)">Entry Level</div>
+      <div class="outcome-metric">
+        <div class="outcome-metric-val">+18%</div>
+        <div class="outcome-metric-lbl">Estimated improvement in single-bet win rate</div>
+      </div>
+      <div class="outcome-stats">
+        <div class="ostat"><span class="ostat-lbl">Daily parlays generated</span><span class="ostat-val">1</span></div>
+        <div class="ostat"><span class="ostat-lbl">Leagues accessible</span><span class="ostat-val">3</span></div>
+        <div class="ostat"><span class="ostat-lbl">AI analysis/day</span><span class="ostat-val">3</span></div>
+        <div class="ostat"><span class="ostat-lbl">Avg confidence score</span><span class="ostat-val">62%</span></div>
+      </div>
+    </div>
+    <div class="outcome-card featured fade-up">
+      <div class="popular-badge">MOST POPULAR</div>
+      <div class="outcome-tier">Pro — $14.99/mo</div>
+      <div class="outcome-price" style="background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Bebas Neue';font-size:22px;letter-spacing:2px">Best Value</div>
+      <div class="outcome-metric">
+        <div class="outcome-metric-val">+41%</div>
+        <div class="outcome-metric-lbl">Estimated improvement in parlay win rate</div>
+      </div>
+      <div class="outcome-stats">
+        <div class="ostat"><span class="ostat-lbl">Daily parlays generated</span><span class="ostat-val">Unlimited</span></div>
+        <div class="ostat"><span class="ostat-lbl">Leagues accessible</span><span class="ostat-val">All 12</span></div>
+        <div class="ostat"><span class="ostat-lbl">AI analysis/day</span><span class="ostat-val">Unlimited</span></div>
+        <div class="ostat"><span class="ostat-lbl">Avg confidence score</span><span class="ostat-val">71%</span></div>
+      </div>
+    </div>
+    <div class="outcome-card fade-up">
+      <div class="outcome-tier">Elite — $49.99/mo</div>
+      <div class="outcome-price" style="background:linear-gradient(135deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-family:'Bebas Neue';font-size:22px;letter-spacing:2px">Maximum Edge</div>
+      <div class="outcome-metric">
+        <div class="outcome-metric-val">+63%</div>
+        <div class="outcome-metric-lbl">Estimated ROI improvement over unassisted betting</div>
+      </div>
+      <div class="outcome-stats">
+        <div class="ostat"><span class="ostat-lbl">Daily parlays generated</span><span class="ostat-val">Unlimited</span></div>
+        <div class="ostat"><span class="ostat-lbl">Value bet alerts</span><span class="ostat-val">Real-time</span></div>
+        <div class="ostat"><span class="ostat-lbl">Player matchup analysis</span><span class="ostat-val">Full</span></div>
+        <div class="ostat"><span class="ostat-lbl">Avg confidence score</span><span class="ostat-val">78%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="section-header fade-up">
+    <div class="section-tag">The System</div>
+    <h2 class="section-title">How <span class="hl">It Works</span></h2>
+    <p class="section-sub">Four layers of intelligence working together to give you the edge.</p>
+  </div>
+  <div class="how-grid">
+    <div class="how-steps">
+      <div class="how-step fade-up">
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-title">Real Odds Pulled Live</div>
+          <div class="step-desc">We connect directly to Bet365, Pinnacle, and 8 other bookmakers across 12 leagues — every time you load a match, you see the actual market price, not estimates.</div>
+        </div>
+      </div>
+      <div class="how-step fade-up">
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-title">50,000 Monte Carlo Simulations</div>
+          <div class="step-desc">Every fixture runs 50,000 Poisson-distribution simulations using team ELO ratings, xG models, and form weighting to generate true win probabilities.</div>
+        </div>
+      </div>
+      <div class="how-step fade-up">
+        <div class="step-num">03</div>
+        <div>
+          <div class="step-title">GPT-4o Tactical Analysis</div>
+          <div class="step-desc">OpenAI's most capable model analyzes each match — lineups, 1v1 matchups, tactical setups, injury impact — and generates a written recommendation with edge detection.</div>
+        </div>
+      </div>
+      <div class="how-step fade-up">
+        <div class="step-num">04</div>
+        <div>
+          <div class="step-title">Optimal Parlay Built For You</div>
+          <div class="step-desc">Tell Oracle your target odds. It scans all available matches and auto-builds the safest path to hit your number using value-bet detection and risk scoring.</div>
+        </div>
+      </div>
+    </div>
+    <div class="how-visual fade-up">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:12px;position:relative;z-index:1">LIVE ANALYSIS PREVIEW</div>
+      <div class="mock-match">
+        <div class="mock-teams">
+          <div><div class="mock-team">Arsenal</div><div class="mock-elo">ELO 1880</div></div>
+          <div class="mock-vs">VS</div>
+          <div><div class="mock-team r">Man City</div><div class="mock-elo" style="text-align:right">ELO 1950</div></div>
+        </div>
+        <div class="mock-probs">
+          <div class="mock-prob">
+            <div class="mock-prob-pct" style="color:var(--orange)">38.4%</div>
+            <div class="mock-prob-lbl">Arsenal Win</div>
+            <div class="mock-prob-odds">@ 2.80</div>
+          </div>
+          <div class="mock-prob">
+            <div class="mock-prob-pct" style="color:var(--text2)">24.1%</div>
+            <div class="mock-prob-lbl">Draw</div>
+            <div class="mock-prob-odds">@ 3.40</div>
+          </div>
+          <div class="mock-prob">
+            <div class="mock-prob-pct" style="color:var(--green)">37.5%</div>
+            <div class="mock-prob-lbl">City Win</div>
+            <div class="mock-prob-odds" style="color:var(--gold)">▲ 2.10</div>
+          </div>
+        </div>
+      </div>
+      <div class="mock-ai">
+        <div style="margin-bottom:6px"><span class="mock-badge">GPT-4o</span><strong>VALUE DETECTED</strong></div>
+        Man City's odds are shortening — smart money moving in. ELO gap of 70 points and superior xG (1.82 vs 1.34) supports the away win. Arsenal's press has been inconsistent over last 3 matches.
+        <div style="margin-top:10px;font-family:'JetBrains Mono';font-size:10px;color:var(--teal)">RECOMMENDATION: MAN CITY WIN @ 2.10</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-header fade-up">
+    <div class="section-tag">Platform Features</div>
+    <h2 class="section-title">Everything You <span class="hl">Need</span></h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card fade-up">
+      <span class="feature-icon">⚡</span>
+      <span class="feature-tag tag-live">LIVE</span>
+      <div class="feature-title">Real Bookmaker Odds</div>
+      <div class="feature-desc">Live odds pulled from Bet365, Pinnacle, Betway and more. No estimates — actual market prices with movement tracking.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🎲</span>
+      <span class="feature-tag tag-live">LIVE</span>
+      <div class="feature-title">Monte Carlo Simulation</div>
+      <div class="feature-desc">50,000 Poisson simulations per match using team ELO, form weighting, xG models, and home advantage calibration.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🤖</span>
+      <span class="feature-tag tag-live">LIVE</span>
+      <div class="feature-title">GPT-4o Match Analysis</div>
+      <div class="feature-desc">Full tactical breakdown, recommendation, one-line summary, key factors, and upset probability analysis on every fixture.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🏗️</span>
+      <span class="feature-tag tag-live">LIVE</span>
+      <div class="feature-title">Auto Parlay Builder</div>
+      <div class="feature-desc">Set your target odds. Oracle scans all matches and builds the optimal parlay — weighted by confidence, value, and risk.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">👤</span>
+      <span class="feature-tag tag-pro">PRO</span>
+      <div class="feature-title">Player ELO & Profiles</div>
+      <div class="feature-desc">Every predicted lineup player has an ELO rating, attribute scores (speed, attack, defense, big-match), and GPT-4o scout report.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">⚔️</span>
+      <span class="feature-tag tag-pro">PRO</span>
+      <div class="feature-title">1v1 Matchup Engine</div>
+      <div class="feature-desc">See exactly who wins each key duel — striker vs CB, winger vs fullback — with ELO diff, stat comparison, and AI impact analysis.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">📈</span>
+      <span class="feature-tag tag-pro">PRO</span>
+      <div class="feature-title">Odds Movement Tracking</div>
+      <div class="feature-desc">▲ shortening means smart money is coming in. ▼ drifting signals reduced confidence. Know what the market knows.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">💰</span>
+      <span class="feature-tag tag-pro">PRO</span>
+      <div class="feature-title">Value Bet Detection</div>
+      <div class="feature-desc">Oracle flags every match where our probability model beats the implied bookmaker odds by 8%+ — these are your real edges.</div>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🌍</span>
+      <span class="feature-tag tag-elite">ELITE</span>
+      <div class="feature-title">12 League Coverage</div>
+      <div class="feature-desc">Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Europa League, Brasileirão and more.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="tiers" id="pricing">
+  <div class="section-header fade-up">
+    <div class="section-tag">Pricing</div>
+    <h2 class="section-title">Choose Your <span class="hl">Edge</span></h2>
+    <p class="section-sub">Start free. Upgrade when you're ready to go serious.</p>
+  </div>
+  <div class="tier-toggle">
+    <span class="toggle-label">MONTHLY</span>
+    <div class="toggle-track" id="billingToggle" onclick="toggleBilling()">
+      <div class="toggle-thumb"></div>
+    </div>
+    <span class="toggle-label">ANNUAL</span>
+    <span class="save-badge" id="saveBadge" style="display:none">SAVE 10%</span>
+  </div>
+  <div class="tiers-grid">
+
+    <!-- FREE -->
+    <div class="tier-card fade-up">
+      <div class="tier-name">Free</div>
+      <div class="tier-price">
+        <span class="tier-price-num">$0</span>
+        <div class="tier-price-period">/month</div>
+      </div>
+      <div class="tier-price-annual" id="annual-free"></div>
+      <div class="tier-divider"></div>
+      <div class="tier-features">
+        <div class="tf"><span class="tf-check">✓</span>1 auto-parlay per day</div>
+        <div class="tf"><span class="tf-check">✓</span>3 leagues only</div>
+        <div class="tf"><span class="tf-check">✓</span>Basic win probabilities</div>
+        <div class="tf"><span class="tf-check">✓</span>3 AI analyses per day</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Player ELO & profiles</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>1v1 matchups</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Value bet alerts</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Odds movement</div>
+      </div>
+      <a href="index.html" class="tier-btn tier-btn-free">Try Free →</a>
+    </div>
+
+    <!-- STARTER -->
+    <div class="tier-card fade-up">
+      <div class="tier-name">Starter</div>
+      <div class="tier-price">
+        <span class="tier-price-num" id="price-starter">$2.99</span>
+        <div class="tier-price-period" id="period-starter">/month</div>
+      </div>
+      <div class="tier-price-annual" id="annual-starter"></div>
+      <div class="tier-divider"></div>
+      <div class="tier-features">
+        <div class="tf"><span class="tf-check">✓</span>3 parlays per day</div>
+        <div class="tf"><span class="tf-check">✓</span>5 leagues</div>
+        <div class="tf"><span class="tf-check">✓</span>Full win probabilities</div>
+        <div class="tf"><span class="tf-check">✓</span>10 AI analyses per day</div>
+        <div class="tf"><span class="tf-check">✓</span>Basic player data</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>1v1 matchup engine</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Value bet alerts</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Odds movement data</div>
+      </div>
+      <a href="subscriptions.html?plan=starter" class="tier-btn tier-btn-paid">Get Starter →</a>
+    </div>
+
+    <!-- BASIC -->
+    <div class="tier-card fade-up">
+      <div class="tier-name">Basic</div>
+      <div class="tier-price">
+        <span class="tier-price-num" id="price-basic">$4.99</span>
+        <div class="tier-price-period" id="period-basic">/month</div>
+      </div>
+      <div class="tier-price-annual" id="annual-basic"></div>
+      <div class="tier-divider"></div>
+      <div class="tier-features">
+        <div class="tf"><span class="tf-check">✓</span>10 parlays per day</div>
+        <div class="tf"><span class="tf-check">✓</span>8 leagues</div>
+        <div class="tf"><span class="tf-check">✓</span>Full AI analysis</div>
+        <div class="tf"><span class="tf-check">✓</span>25 AI analyses per day</div>
+        <div class="tf"><span class="tf-check">✓</span>Player ELO ratings</div>
+        <div class="tf"><span class="tf-check">✓</span>Basic 1v1 matchups</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Value bet alerts</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>Odds movement</div>
+      </div>
+      <a href="subscriptions.html?plan=basic" class="tier-btn tier-btn-paid">Get Basic →</a>
+    </div>
+
+    <!-- PRO -->
+    <div class="tier-card popular fade-up">
+      <div class="tier-popular-badge">MOST POPULAR</div>
+      <div class="tier-name">Pro</div>
+      <div class="tier-price">
+        <span class="tier-price-num grad" id="price-pro">$14.99</span>
+        <div class="tier-price-period" id="period-pro">/month</div>
+      </div>
+      <div class="tier-price-annual" id="annual-pro"></div>
+      <div class="tier-divider"></div>
+      <div class="tier-features">
+        <div class="tf"><span class="tf-check">✓</span>Unlimited parlays</div>
+        <div class="tf"><span class="tf-check">✓</span>All 12 leagues</div>
+        <div class="tf"><span class="tf-check">✓</span>Unlimited AI analysis</div>
+        <div class="tf"><span class="tf-check">✓</span>Full player profiles</div>
+        <div class="tf"><span class="tf-check">✓</span>Full 1v1 matchup engine</div>
+        <div class="tf"><span class="tf-check">✓</span>Value bet detection</div>
+        <div class="tf"><span class="tf-check">✓</span>Odds movement alerts</div>
+        <div class="tf disabled"><span class="tf-x">✗</span>API access</div>
+      </div>
+      <a href="subscriptions.html?plan=pro" class="tier-btn tier-btn-popular">Get Pro →</a>
+    </div>
+
+    <!-- ELITE -->
+    <div class="tier-card elite fade-up">
+      <div class="tier-name" style="background:linear-gradient(135deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Elite</div>
+      <div class="tier-price">
+        <span class="tier-price-num gold-grad" id="price-elite">$49.99</span>
+        <div class="tier-price-period" id="period-elite">/month</div>
+      </div>
+      <div class="tier-price-annual" id="annual-elite"></div>
+      <div class="tier-divider"></div>
+      <div class="tier-features">
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Everything in Pro</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>API access</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Priority AI responses</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Real-time value alerts</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Advanced market movement</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Historical model data</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Dedicated support</div>
+        <div class="tf"><span class="tf-check" style="color:var(--gold)">✓</span>Early feature access</div>
+      </div>
+      <a href="subscriptions.html?plan=elite" class="tier-btn tier-btn-elite">Get Elite →</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="proof" id="proof">
+  <div class="section-header fade-up">
+    <div class="section-tag">Community</div>
+    <h2 class="section-title">What Bettors <span class="hl">Say</span></h2>
+  </div>
+  <div class="proof-grid">
+    <div class="proof-card fade-up">
+      <div class="proof-stars">★★★★★</div>
+      <div class="proof-text">"The parlay builder alone is worth the subscription. I went from random guessing to having a real system. Up 34% this month."</div>
+      <div class="proof-author"><strong>James T.</strong> · Pro subscriber · Premier League</div>
+    </div>
+    <div class="proof-card fade-up">
+      <div class="proof-stars">★★★★★</div>
+      <div class="proof-text">"The 1v1 matchup engine is insane. Seeing that a striker has a 180 ELO advantage over the CB — that's actionable intel you just can't get anywhere else."</div>
+      <div class="proof-author"><strong>Marco R.</strong> · Elite subscriber · Serie A + UCL</div>
+    </div>
+    <div class="proof-card fade-up">
+      <div class="proof-stars">★★★★☆</div>
+      <div class="proof-text">"Value bet detection flagged three matches the bookies clearly mispriced. Hit 2 of them. That's already paid for months of subscription."</div>
+      <div class="proof-author"><strong>Sarah K.</strong> · Pro subscriber · Bundesliga</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-banner">
+  <h2 class="cta-title">Your Next Winning Parlay<br><span style="background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Is One Click Away</span></h2>
+  <p class="cta-sub">Join Oracle FC free. No credit card required. See what 50,000 simulations and GPT-4o can do for your bets today.</p>
+  <a href="subscriptions.html" class="btn-primary">⚡ Start For Free →</a>
+</section>
+
+<!-- FAQ -->
+<section class="faq">
+  <div class="section-header fade-up">
+    <div class="section-tag">FAQ</div>
+    <h2 class="section-title">Common <span class="hl">Questions</span></h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">Are the odds and matches actually real? <span class="faq-arrow">+</span></div>
+      <div class="faq-a"><div class="faq-a-inner">Yes. Odds are pulled live from The Odds API which aggregates Bet365, Pinnacle, Betway and other major bookmakers. Fixtures come from SportMonks. The win probabilities are generated by our own Monte Carlo model — not copied from bookmakers.</div></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">How does the AI analysis work? <span class="faq-arrow">+</span></div>
+      <div class="faq-a"><div class="faq-a-inner">We send each match's ELO ratings, form, xG values, lineup data, and odds to OpenAI's GPT-4o model with a structured prompt. It returns a tactical breakdown, recommendation, key factors, and upset analysis in real time.</div></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">What does the auto parlay builder actually do? <span class="faq-arrow">+</span></div>
+      <div class="faq-a"><div class="faq-a-inner">You set a target odds multiplier (e.g. 5x). Oracle scans all upcoming matches, ranks them by confidence score and value detection, then builds the combination of selections that hits your target with the highest probability of winning.</div></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">Can I cancel anytime? <span class="faq-arrow">+</span></div>
+      <div class="faq-a"><div class="faq-a-inner">Yes — cancel anytime from your account settings. No contracts, no cancellation fees. Annual plans are refundable within 14 days of purchase.</div></div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">Is this a guarantee I'll win? <span class="faq-arrow">+</span></div>
+      <div class="faq-a"><div class="faq-a-inner">No. Oracle FC provides data-driven analysis and probability modelling — it does not guarantee outcomes. Betting involves risk and you should only bet what you can afford to lose. Oracle gives you a statistical edge, not certainty.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">ORACLE FC</div>
+  <div class="footer-legal">For entertainment and informational purposes only. Oracle FC does not guarantee betting outcomes. Please gamble responsibly. 18+ only. If gambling is causing you harm, visit BeGambleAware.org.</div>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="subscriptions.html">Pricing</a>
+    <a href="index.html">App</a>
+  </div>
+</footer>
+
+<script>
+let isAnnual = false
+
+const prices = {
+  starter: { monthly: 2.99, annual: 2.69 },
+  basic:   { monthly: 4.99, annual: 4.49 },
+  pro:     { monthly: 14.99, annual: 13.49 },
+  elite:   { monthly: 49.99, annual: 44.99 }
+}
+
+function toggleBilling() {
+  isAnnual = !isAnnual
+  const toggle = document.getElementById('billingToggle')
+  const saveBadge = document.getElementById('saveBadge')
+  toggle.classList.toggle('on', isAnnual)
+  saveBadge.style.display = isAnnual ? 'inline' : 'none'
+
+  for (const [plan, p] of Object.entries(prices)) {
+    const priceEl = document.getElementById('price-' + plan)
+    const annualEl = document.getElementById('annual-' + plan)
+    if (priceEl) {
+      priceEl.textContent = '$' + (isAnnual ? p.annual : p.monthly)
+    }
+    if (annualEl) {
+      annualEl.textContent = isAnnual
+        ? `$${(p.annual * 12).toFixed(0)}/year — save $${((p.monthly - p.annual) * 12).toFixed(0)}`
+        : ''
+    }
+  }
+}
+
+function toggleFaq(el) {
+  const item = el.parentElement
+  const allItems = document.querySelectorAll('.faq-item')
+  allItems.forEach(i => { if (i !== item) i.classList.remove('open') })
+  item.classList.toggle('open')
+}
+
+// Scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible')
+    }
+  })
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+
+document.querySelectorAll('.fade-up').forEach((el, i) => {
+  el.style.transitionDelay = (i % 4) * 0.08 + 's'
+  observer.observe(el)
+})
+</script>
+</body>
+</html>

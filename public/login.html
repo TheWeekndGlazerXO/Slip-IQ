@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIP IQ — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#050709;--bg2:#080c10;--panel:#0b1118;--border:#16222e;--border2:#1e2f40;--accent:#00d4ff;--accent2:#0090b8;--green:#00e87a;--red:#ff3355;--text:#ddeeff;--text2:#6a8aa8;--text3:#384d60;--purple:#9b6dff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(0,212,255,0.07),transparent),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(155,109,255,0.05),transparent);pointer-events:none}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+.auth-wrap{width:100%;max-width:420px;padding:20px;position:relative;z-index:1}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo .wordmark{font-family:'Bebas Neue';font-size:42px;color:var(--accent);letter-spacing:6px;text-shadow:0 0 40px rgba(0,212,255,0.4);display:block}
+.auth-logo .tagline{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:3px;margin-top:4px}
+.auth-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(0,212,255,0.05)}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr}
+.auth-tab{padding:14px;text-align:center;font-family:'DM Mono';font-size:11px;letter-spacing:2px;color:var(--text3);cursor:pointer;transition:all .2s;border-bottom:2px solid var(--border);text-transform:uppercase}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,212,255,0.04)}
+.auth-tab:hover:not(.active){color:var(--text2)}
+.auth-form{padding:28px;display:none}
+.auth-form.active{display:block}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:7px}
+.form-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:13px;font-family:'Outfit';outline:none;transition:all .2s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,0.08)}
+.form-input::placeholder{color:var(--text3)}
+.pw-wrap{position:relative}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px;transition:color .2s}
+.pw-toggle:hover{color:var(--text2)}
+.auth-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:#000;font-family:'Outfit';font-size:14px;font-weight:800;letter-spacing:0.5px;cursor:pointer;transition:all .2s;margin-top:8px;box-shadow:0 6px 24px rgba(0,212,255,0.25)}
+.auth-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,212,255,0.35)}
+.auth-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text3);font-size:11px;font-family:'DM Mono'}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.google-btn{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-family:'Outfit';font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px}
+.google-btn:hover{border-color:var(--border2);color:var(--text)}
+.auth-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none;line-height:1.5}
+.auth-msg.error{background:rgba(255,51,85,0.08);border:1px solid rgba(255,51,85,0.2);color:var(--red);display:block}
+.auth-msg.success{background:rgba(0,232,122,0.08);border:1px solid rgba(0,232,122,0.2);color:var(--green);display:block}
+.auth-footer{text-align:center;margin-top:16px;font-size:12px;color:var(--text3)}
+.auth-footer a{color:var(--accent);text-decoration:none;cursor:pointer}
+.auth-footer a:hover{text-decoration:underline}
+.plan-notice{background:rgba(155,109,255,0.08);border:1px solid rgba(155,109,255,0.2);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.plan-badge{background:rgba(155,109,255,0.15);color:var(--purple);font-family:'DM Mono';font-size:9px;letter-spacing:1px;padding:2px 7px;border-radius:4px;font-weight:700}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-logo">
+    <span class="wordmark">SLIP IQ</span>
+    <span class="tagline">PROFESSIONAL FOOTBALL INTELLIGENCE</span>
+  </div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-signin" onclick="switchTab('signin')">SIGN IN</div>
+      <div class="auth-tab" id="tab-signup" onclick="switchTab('signup')">SIGN UP</div>
+    </div>
+
+    <!-- SIGN IN -->
+    <div class="auth-form active" id="form-signin">
+      <div class="auth-msg" id="signin-msg"></div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" class="form-input" id="signin-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap">
+          <input type="password" class="form-input" id="signin-pw" placeholder="••••••••" autocomplete="current-password">
+          <button class="pw-toggle" onclick="togglePw('signin-pw',this)" type="button">👁</button>
+        </div>
+      </div>
+      <button class="auth-btn" id="signin-btn" onclick="signIn()">SIGN IN →</button>
+      <div class="auth-divider">or</div>
+      <button class="google-btn" onclick="signInGoogle()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-footer"><a onclick="showForgot()">Forgot password?</a> · <a href="index.html">Back to app</a></div>
+    </div>
+
+    <!-- SIGN UP -->
+    <div class="auth-form" id="form-signup">
+      <div id="plan-banner" class="plan-notice" style="display:none">
+        Signing up for <span class="plan-badge" id="plan-name-badge">PRO</span> — you'll be redirected to payment after account creation.
+      </div>
+      <div class="auth-msg" id="signup-msg"></div>
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" id="signup-name" placeholder="John Smith" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" class="form-input" id="signup-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap">
+          <input type="password" class="form-input" id="signup-pw" placeholder="Min 8 characters" autocomplete="new-password">
+          <button class="pw-toggle" onclick="togglePw('signup-pw',this)" type="button">👁</button>
+        </div>
+      </div>
+      <button class="auth-btn" id="signup-btn" onclick="signUp()">CREATE ACCOUNT →</button>
+      <div class="auth-divider">or</div>
+      <button class="google-btn" onclick="signInGoogle()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-footer">Already have an account? <a onclick="switchTab('signin')">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG — replace these two values ────────────────────────────────────────
+const SUPABASE_URL     = 'YOUR_SUPABASE_URL'       // https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY' // eyJ...
+const ADMIN_EMAILS     = ['your@email.com', 'cofounder@email.com']
+
+const STRIPE_LINKS = {
+  starter: 'https://buy.stripe.com/fZu6oA5ZW8ws5B67ak1wY04',
+  basic:   'https://buy.stripe.com/8x27sEbkgdQMe7C2U41wY05',
+  pro:     'https://buy.stripe.com/3cI14gewsaEAd3yamw1wY06',
+  elite:   'https://buy.stripe.com/9B69AM0FC4gce7CgKU1wY07'
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+const params = new URLSearchParams(window.location.search)
+const pendingPlan = params.get('plan')
+const redirectTo  = params.get('redirect') || 'index.html'
+
+if (pendingPlan && pendingPlan !== 'free') {
+  switchTab('signup')
+  document.getElementById('plan-banner').style.display = 'flex'
+  document.getElementById('plan-name-badge').textContent = pendingPlan.toUpperCase()
+}
+
+sb.auth.getSession().then(({ data: { session } }) => { if (session) redirectUser(session.user) })
+sb.auth.onAuthStateChange((event, session) => { if (event === 'SIGNED_IN' && session) redirectUser(session.user) })
+
+function redirectUser(user) {
+  if (ADMIN_EMAILS.includes(user.email)) { window.location.href = 'admin.html'; return }
+  if (pendingPlan && pendingPlan !== 'free' && STRIPE_LINKS[pendingPlan]) {
+    // Append user email to Stripe URL for pre-fill
+    window.location.href = STRIPE_LINKS[pendingPlan] + `?prefilled_email=${encodeURIComponent(user.email)}`
+    return
+  }
+  window.location.href = redirectTo
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-signin').classList.toggle('active', tab==='signin')
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup')
+  document.getElementById('form-signin').classList.toggle('active', tab==='signin')
+  document.getElementById('form-signup').classList.toggle('active', tab==='signup')
+  clearMsgs()
+}
+
+function clearMsgs() {
+  ['signin-msg','signup-msg'].forEach(id => { const el=document.getElementById(id); el.textContent=''; el.className='auth-msg' })
+}
+
+function showMsg(id, text, type='error') {
+  const el=document.getElementById(id); el.textContent=text; el.className=`auth-msg ${type}`
+}
+
+function setLoading(btnId, loading, label='SIGN IN →') {
+  const btn=document.getElementById(btnId)
+  if(loading){btn.disabled=true;btn.innerHTML='<span class="spin"></span>PLEASE WAIT...'}
+  else{btn.disabled=false;btn.innerHTML=label}
+}
+
+async function signIn() {
+  const email=document.getElementById('signin-email').value.trim()
+  const pw=document.getElementById('signin-pw').value
+  if(!email||!pw)return showMsg('signin-msg','Please fill in all fields.')
+  setLoading('signin-btn',true,'SIGN IN →')
+  const{error}=await sb.auth.signInWithPassword({email,password:pw})
+  setLoading('signin-btn',false,'SIGN IN →')
+  if(error)showMsg('signin-msg',error.message)
+}
+
+async function signUp() {
+  const name = document.getElementById('signup-name').value.trim()
+  const email = document.getElementById('signup-email').value.trim()
+  const pw = document.getElementById('signup-pw').value
+
+  if (!name || !email || !pw)
+    return showMsg('signup-msg','Please fill in all fields.')
+
+  if (pw.length < 8)
+    return showMsg('signup-msg','Password must be at least 8 characters.')
+
+  setLoading('signup-btn', true, 'CREATE ACCOUNT →')
+
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password: pw,
+    options: {
+      data: { full_name: name },
+      emailRedirectTo: `${window.location.origin}/login.html`
+    }
+  })
+
+  setLoading('signup-btn', false, 'CREATE ACCOUNT →')
+
+  if (error) return showMsg('signup-msg', error.message)
+
+  // 🔥 CREATE SUBSCRIPTION ROW
+  if (data.user) {
+    await sb.from('subscriptions').insert({
+      user_id: data.user.id,
+      email: email,
+      full_name: name,
+      plan: pendingPlan || 'free',
+      status: 'active'
+    })
+  }
+
+  if (!data.session) {
+    showMsg('signup-msg','✓ Check your email to confirm your account','success')
+  }
+}
+
+async function signInGoogle() {
+  const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:`${window.location.origin}/login.html${pendingPlan?'?plan='+pendingPlan:''}`}})
+  if(error)showMsg('signin-msg',error.message)
+}
+
+async function showForgot() {
+  const email=document.getElementById('signin-email').value.trim()
+  if(!email)return showMsg('signin-msg','Enter your email address above first.')
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:`${window.location.origin}/login.html`})
+  if(error)showMsg('signin-msg',error.message)
+  else showMsg('signin-msg','✓ Password reset email sent — check your inbox.','success')
+}
+
+function togglePw(id,btn){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password';btn.textContent=i.type==='password'?'👁':'🙈'}
+document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const f=document.querySelector('.auth-form.active').id;if(f==='form-signin')signIn();else signUp()})
+</script>
+</body>
+</html>

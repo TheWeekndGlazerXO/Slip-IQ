@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIP IQ — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#050709;--bg2:#080c10;--panel:#0b1118;--border:#16222e;--border2:#1e2f40;--accent:#00d4ff;--accent2:#0090b8;--green:#00e87a;--red:#ff3355;--orange:#ff8c00;--gold:#ffcc00;--purple:#9b6dff;--text:#ddeeff;--text2:#6a8aa8;--text3:#384d60}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:9999}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.sidebar-logo .wordmark{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:0 0 20px rgba(0,212,255,0.4);display:block}
+.sidebar-logo .sub{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;margin-top:2px}
+.sidebar-nav{padding:16px 10px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:0.5px;transition:all 0.2s;margin-bottom:2px;text-decoration:none;border:1px solid transparent}
+.nav-item:hover{background:rgba(0,212,255,0.05);color:var(--text);border-color:var(--border)}
+.nav-item.active{background:rgba(0,212,255,0.1);color:var(--accent);border-color:rgba(0,212,255,0.25)}
+.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.nav-section{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;padding:14px 12px 6px;text-transform:uppercase}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.founder-pills{display:flex;flex-direction:column;gap:6px}
+.founder-pill{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;font-size:11px}
+.fp-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}
+.fp-1{background:rgba(0,212,255,0.2);color:var(--accent)}.fp-2{background:rgba(155,109,255,0.2);color:var(--purple)}
+.fp-name{color:var(--text2);font-size:10px;font-weight:600}.fp-share{margin-left:auto;font-family:'DM Mono';font-size:9px;color:var(--green)}
+.main{margin-left:220px;min-height:100vh}
+.topbar{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:12px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
+.tb-title{font-family:'Bebas Neue';font-size:18px;color:var(--text);letter-spacing:2px}
+.tb-live{display:flex;align-items:center;gap:6px;font-family:'DM Mono';font-size:10px;color:var(--green);background:rgba(0,232,122,0.08);border:1px solid rgba(0,232,122,0.2);padding:4px 10px;border-radius:20px}
+.live-pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;box-shadow:0 0 6px var(--green)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.tb-date{margin-left:auto;font-family:'DM Mono';font-size:11px;color:var(--text3)}
+.tb-btn{height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;cursor:pointer;font-size:11px;font-family:'DM Mono';color:var(--text2);transition:all 0.2s;gap:5px;text-decoration:none;white-space:nowrap}
+.tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.content{padding:24px 28px}
+.load-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+.load-overlay.hidden{opacity:0;pointer-events:none}
+.load-spinner{width:40px;height:40px;border:2px solid var(--border);border-top:2px solid var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-text{font-family:'DM Mono';font-size:12px;color:var(--text2)}
+.err-banner{background:rgba(255,51,85,0.08);border:1px solid rgba(255,51,85,0.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--red);display:none;align-items:center;gap:10px;line-height:1.5}
+.err-banner.show{display:flex}
+.section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:28px}
+.section-hdr:first-child{margin-top:0}
+.section-hdr h2{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--text2)}
+.section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color 0.2s}
+.kpi-card:hover{border-color:var(--border2)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
+.kpi-card.accent::before{background:var(--accent)}.kpi-card.green::before{background:var(--green)}.kpi-card.gold::before{background:var(--gold)}.kpi-card.purple::before{background:var(--purple)}.kpi-card.orange::before{background:var(--orange)}.kpi-card.red::before{background:var(--red)}
+.kpi-label{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+.kpi-value{font-family:'Bebas Neue';font-size:36px;line-height:1;margin-bottom:4px}
+.kpi-card.accent .kpi-value{color:var(--accent)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.gold .kpi-value{color:var(--gold)}.kpi-card.purple .kpi-value{color:var(--purple)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}
+.kpi-sub{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.kpi-delta{font-family:'DM Mono';font-size:10px;padding:1px 5px;border-radius:3px}
+.delta-up{background:rgba(0,232,122,0.12);color:var(--green)}.delta-down{background:rgba(255,51,85,0.12);color:var(--red)}
+.sparkline{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:6px}
+.spark-bar{flex:1;border-radius:2px 2px 0 0;min-width:3px;opacity:0.7}
+.two-thirds{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.live-counter-card{background:linear-gradient(135deg,rgba(0,232,122,0.06) 0%,rgba(0,212,255,0.03) 100%);border:1px solid rgba(0,232,122,0.2);border-radius:12px;padding:18px 22px;display:flex;align-items:center;gap:20px}
+.lc-ring-wrap{position:relative;width:70px;height:70px;flex-shrink:0}
+.lc-ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.lc-ring-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue';font-size:22px;color:var(--green)}
+.lc-info{flex:1}
+.lc-title{font-family:'Bebas Neue';font-size:20px;color:var(--green);letter-spacing:2px}
+.lc-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.lc-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:10px;margin-top:8px}
+.lc-bar-lbl{color:var(--text3);font-family:'DM Mono';width:50px;flex-shrink:0}
+.lc-bar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.lc-bar-fill{height:100%;border-radius:2px;transition:width .6s}
+.lc-bar-val{color:var(--text2);font-family:'DM Mono';width:28px;text-align:right;flex-shrink:0}
+.chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative}
+.cp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.cp-title{font-family:'DM Mono';font-size:10px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:4px}
+.cp-value{font-family:'Bebas Neue';font-size:28px;color:var(--text)}
+.cp-badge{font-family:'DM Mono';font-size:9px;padding:3px 8px;border-radius:4px;letter-spacing:1px}
+.tier-grid{display:grid;gap:10px}
+.tier-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+.tier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tier-name{font-size:12px;font-weight:700;color:var(--text);width:60px;flex-shrink:0}
+.tier-bar-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.tier-bar-fill{height:100%;border-radius:3px}
+.tier-count{font-family:'DM Mono';font-size:11px;color:var(--text2);width:28px;text-align:right;flex-shrink:0}
+.tier-pct{font-family:'DM Mono';font-size:10px;color:var(--text3);width:32px;text-align:right;flex-shrink:0}
+.tier-rev{font-family:'DM Mono';font-size:11px;width:55px;text-align:right;flex-shrink:0;font-weight:600}
+.founder-split-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.founder-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.fc-avatar{width:40px;height:40px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:18px}
+.fc-1{background:rgba(0,212,255,0.12);color:var(--accent);border:2px solid rgba(0,212,255,0.3)}.fc-2{background:rgba(155,109,255,0.12);color:var(--purple);border:2px solid rgba(155,109,255,0.3)}
+.fc-name{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;font-family:'DM Mono';letter-spacing:0.5px}
+.fc-stat{margin-bottom:7px}
+.fc-stat-lbl{font-size:9px;color:var(--text3);font-family:'DM Mono';letter-spacing:1px;text-transform:uppercase;margin-bottom:2px}
+.fc-stat-val{font-family:'Bebas Neue';font-size:22px}
+.rev-table{width:100%;border-collapse:collapse}
+.rev-table th{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;text-align:left;padding:6px 10px 8px;border-bottom:1px solid var(--border)}
+.rev-table td{padding:8px 10px;font-size:12px;border-bottom:1px solid rgba(22,34,46,0.5);color:var(--text2)}
+.rev-table tr:last-child td{border-bottom:none}
+.rev-table tr:hover td{background:rgba(0,212,255,0.02)}
+.rev-table .mono{font-family:'DM Mono';font-size:11px}.rev-table .positive{color:var(--green)}.rev-table .col-month{color:var(--text);font-weight:600}
+.proj-card{background:linear-gradient(135deg,rgba(255,204,0,0.05),rgba(255,140,0,0.03));border:1px solid rgba(255,204,0,0.15);border-radius:12px;padding:18px 20px}
+.proj-header{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.proj-title{font-family:'Bebas Neue';font-size:18px;color:var(--gold);letter-spacing:1px}
+.proj-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.proj-item{background:rgba(0,0,0,0.2);border:1px solid rgba(255,204,0,0.08);border-radius:8px;padding:12px;text-align:center}
+.proj-item-lbl{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase}
+.proj-item-val{font-family:'Bebas Neue';font-size:26px;color:var(--gold)}
+.proj-item-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.cost-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cost-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.cost-name{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.cost-val{font-family:'DM Mono';font-size:14px;color:var(--red)}
+.cost-plan{font-size:10px;color:var(--text3);margin-top:2px}
+.growth-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}
+.growth-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.growth-bar-outer{width:100%;height:80px;background:var(--border);border-radius:4px;overflow:hidden;display:flex;align-items:flex-end}
+.growth-bar-fill{width:100%;border-radius:4px 4px 0 0}
+.growth-lbl{font-family:'DM Mono';font-size:9px;color:var(--text3)}
+.growth-val{font-family:'DM Mono';font-size:10px;font-weight:600}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.sidebar{display:none}.main{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="load-overlay" id="loadOverlay"><div class="load-spinner"></div><div class="load-text">LOADING LIVE DATA...</div></div>
+<div class="sidebar">
+  <div class="sidebar-logo"><span class="wordmark">SLIP IQ</span><span class="sub">ADMIN DASHBOARD</span></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a class="nav-item active" href="#overview"><span class="nav-icon">📊</span>Dashboard</a>
+    <a class="nav-item" href="#revenue"><span class="nav-icon">💰</span>Revenue</a>
+    <a class="nav-item" href="#subscribers"><span class="nav-icon">👥</span>Subscribers</a>
+    <div class="nav-section">Analytics</div>
+    <a class="nav-item" href="#growth"><span class="nav-icon">📈</span>Growth</a>
+    <a class="nav-item" href="#projections"><span class="nav-icon">🔮</span>Projections</a>
+    <a class="nav-item" href="#costs"><span class="nav-icon">⚙️</span>API Costs</a>
+    <div class="nav-section">Founders</div>
+    <a class="nav-item" href="#founders"><span class="nav-icon">⚡</span>Profit Split</a>
+  </div>
+  <div class="sidebar-footer">
+    <div class="founder-pills">
+      <div class="founder-pill"><div class="fp-avatar fp-1">Z</div><span class="fp-name">Zion</span><span class="fp-share">50%</span></div>
+      <div class="founder-pill"><div class="fp-avatar fp-2">R</div><span class="fp-name">Rapha</span><span class="fp-share">50%</span></div>
+    </div>
+  </div>
+</div>
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title">ADMIN DASHBOARD</div>
+    <div class="tb-live"><div class="live-pulse"></div>LIVE</div>
+    <div class="tb-date" id="tbDate">—</div>
+    <a class="tb-btn" href="index.html">← App</a>
+    <div class="tb-btn" onclick="loadAll()">↻ Refresh</div>
+    <div class="tb-btn" onclick="signOut()" style="color:var(--red);border-color:rgba(255,51,85,0.3)">Sign Out</div>
+  </div>
+  <div class="content">
+    <div class="err-banner" id="errBanner"><span>⚠️</span><span id="errText">—</span></div>
+    <div id="overview">
+      <div class="section-hdr"><h2>KEY METRICS</h2></div>
+      <div class="kpi-grid">
+        <div class="kpi-card accent"><div class="kpi-label">Total Active Subscribers</div><div class="kpi-value" id="kpi-subs">—</div><div class="kpi-sub" id="kpi-subs-sub">—</div><div class="sparkline" id="spark-subs"></div></div>
+        <div class="kpi-card green"><div class="kpi-label">Monthly Recurring Revenue</div><div class="kpi-value" id="kpi-mrr">—</div><div class="kpi-sub" id="kpi-mrr-sub">—</div><div class="sparkline" id="spark-mrr"></div></div>
+        <div class="kpi-card gold"><div class="kpi-label">Monthly Net Profit</div><div class="kpi-value" id="kpi-profit">—</div><div class="kpi-sub" id="kpi-profit-sub">—</div><div class="sparkline" id="spark-profit"></div></div>
+        <div class="kpi-card purple"><div class="kpi-label">Growth Rate (MoM)</div><div class="kpi-value" id="kpi-growth">—</div><div class="kpi-sub" id="kpi-growth-sub">—</div><div class="sparkline" id="spark-growth"></div></div>
+      </div>
+    </div>
+    <div class="two-thirds" style="margin-top:12px">
+      <div class="live-counter-card">
+        <div class="lc-ring-wrap"><svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="28" fill="none" stroke="rgba(0,232,122,0.1)" stroke-width="5"/><circle cx="35" cy="35" r="28" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="175.9" id="liveRing"/></svg><div class="lc-ring-num" id="liveRingNum">—</div></div>
+        <div class="lc-info">
+          <div class="lc-title">LIVE SUBSCRIBER COUNT</div>
+          <div class="lc-sub">Realtime from Supabase · <span id="lastUpdated">—</span></div>
+          <div class="lc-bar-row"><span class="lc-bar-lbl">Paid</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-paid" style="width:0%;background:var(--green)"></div></div><span class="lc-bar-val" style="color:var(--green)" id="val-paid">—</span></div>
+          <div class="lc-bar-row"><span class="lc-bar-lbl">Free</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-free" style="width:0%;background:var(--text3)"></div></div><span class="lc-bar-val" style="color:var(--text3)" id="val-free">—</span></div>
+          <div class="lc-bar-row"><span class="lc-bar-lbl">Churned</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-churned" style="width:0%;background:var(--red)"></div></div><span class="lc-bar-val" style="color:var(--red)" id="val-churned">—</span></div>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="cp-header"><div><div class="cp-title">New Subscribers Today</div><div class="cp-value" id="todaySubs">—</div></div><div class="cp-badge delta-up" id="todayBadge">—</div></div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Last 7 days</div>
+        <div class="growth-row" id="weekBars"></div>
+      </div>
+    </div>
+    <div id="revenue">
+      <div class="section-hdr"><h2>REVENUE BREAKDOWN</h2></div>
+      <div class="kpi-grid">
+        <div class="kpi-card green"><div class="kpi-label">This Month Revenue</div><div class="kpi-value" id="rev-month">—</div><div class="kpi-sub" id="rev-month-sub">—</div></div>
+        <div class="kpi-card gold"><div class="kpi-label">This Year Revenue</div><div class="kpi-value" id="rev-year">—</div><div class="kpi-sub" id="rev-year-sub">—</div></div>
+        <div class="kpi-card accent"><div class="kpi-label">All-Time Revenue</div><div class="kpi-value" id="rev-alltime">—</div><div class="kpi-sub">Since launch</div></div>
+        <div class="kpi-card orange"><div class="kpi-label">Avg Revenue Per User</div><div class="kpi-value" id="rev-arpu">—</div><div class="kpi-sub">Blended ARPU</div></div>
+      </div>
+      <div class="chart-panel" style="margin-top:12px">
+        <div class="cp-header"><div><div class="cp-title">Monthly Revenue History</div><div class="cp-value">All Months</div></div></div>
+        <table class="rev-table"><thead><tr><th>Month</th><th>Subscribers</th><th>Gross Revenue</th><th>API Costs</th><th>Net Profit</th><th>Growth</th><th>Per Founder</th></tr></thead><tbody id="revBody"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;font-family:'DM Mono';font-size:11px">Loading...</td></tr></tbody></table>
+      </div>
+    </div>
+    <div id="subscribers">
+      <div class="section-hdr"><h2>TIER BREAKDOWN</h2></div>
+      <div class="two-thirds">
+        <div class="chart-panel">
+          <div class="cp-header"><div><div class="cp-title">Subscribers by Plan</div><div class="cp-value" id="tier-paid-total">—</div></div><div style="font-size:11px;color:var(--text3)" id="tier-free-note">—</div></div>
+          <div class="tier-grid" id="tierGrid"><div style="text-align:center;color:var(--text3);font-family:'DM Mono';font-size:11px;padding:20px">Loading...</div></div>
+        </div>
+        <div class="chart-panel">
+          <div class="cp-header"><div><div class="cp-title">Revenue by Tier</div><div class="cp-value" id="donut-total">—</div></div></div>
+          <canvas id="donutChart" height="180"></canvas>
+        </div>
+      </div>
+    </div>
+    <div id="growth">
+      <div class="section-hdr"><h2>GROWTH ANALYTICS</h2></div>
+      <div class="kpi-grid">
+        <div class="kpi-card green"><div class="kpi-label">MoM Growth Rate</div><div class="kpi-value" id="grow-mom">—</div><div class="kpi-sub">Subscriber growth</div></div>
+        <div class="kpi-card accent"><div class="kpi-label">Churn Rate</div><div class="kpi-value" id="grow-churn">—</div><div class="kpi-sub">Monthly churn</div></div>
+        <div class="kpi-card orange"><div class="kpi-label">LTV (avg)</div><div class="kpi-value" id="grow-ltv">—</div><div class="kpi-sub">Lifetime value per user</div></div>
+        <div class="kpi-card purple"><div class="kpi-label">Free → Paid Conv.</div><div class="kpi-value" id="grow-conv">—</div><div class="kpi-sub">Conversion rate</div></div>
+      </div>
+      <div class="chart-panel" style="margin-top:12px">
+        <div class="cp-header"><div><div class="cp-title">Subscriber Growth</div><div class="cp-value" id="grow-chart-label">—</div></div><div class="cp-badge delta-up" id="grow-pct">—</div></div>
+        <canvas id="growthChart" height="150"></canvas>
+      </div>
+    </div>
+    <div id="projections">
+      <div class="section-hdr"><h2>PROJECTIONS</h2></div>
+      <div class="proj-card">
+        <div class="proj-header"><span style="font-size:18px">🔮</span><span class="proj-title">END OF YEAR FORECAST</span><span style="font-family:'DM Mono';font-size:9px;color:var(--text3);margin-left:auto">Based on actual MoM growth rate</span></div>
+        <div class="proj-grid">
+          <div class="proj-item"><div class="proj-item-lbl">Projected Subscribers</div><div class="proj-item-val" id="proj-subs">—</div><div class="proj-item-sub">by Dec</div></div>
+          <div class="proj-item"><div class="proj-item-lbl">Projected MRR</div><div class="proj-item-val" id="proj-mrr">—</div><div class="proj-item-sub">Dec</div></div>
+          <div class="proj-item"><div class="proj-item-lbl">Projected ARR</div><div class="proj-item-val" id="proj-arr">—</div><div class="proj-item-sub">Full year</div></div>
+          <div class="proj-item"><div class="proj-item-lbl">Projected Net Profit</div><div class="proj-item-val" id="proj-profit">—</div><div class="proj-item-sub">After API costs</div></div>
+          <div class="proj-item"><div class="proj-item-lbl">Per Founder (Annual)</div><div class="proj-item-val" id="proj-founder">—</div><div class="proj-item-sub">50/50 split</div></div>
+          <div class="proj-item"><div class="proj-item-lbl">Months to $10k MRR</div><div class="proj-item-val" id="proj-months">—</div><div class="proj-item-sub">at current growth</div></div>
+        </div>
+      </div>
+      <div class="chart-panel" style="margin-top:12px">
+        <div class="cp-header"><div><div class="cp-title">Revenue Projection — Now → Dec</div><div class="cp-value">Actual growth rate</div></div></div>
+        <canvas id="projChart" height="150"></canvas>
+      </div>
+    </div>
+    <div id="costs">
+      <div class="section-hdr"><h2>API COSTS BREAKDOWN</h2></div>
+      <div class="chart-panel">
+        <div class="cp-header"><div><div class="cp-title">Monthly Estimated API Spend</div><div class="cp-value" style="color:var(--red)" id="cost-total-hdr">~$175–$325/mo</div></div><div style="text-align:right;font-size:11px;color:var(--text3)" id="cost-pct-label">—% of revenue</div></div>
+        <div class="cost-grid">
+          <div class="cost-item"><div class="cost-name">Odds API</div><div class="cost-val">$39/mo</div><div class="cost-plan">Pro plan</div></div>
+          <div class="cost-item"><div class="cost-name">SportMonks</div><div class="cost-val">$29/mo</div><div class="cost-plan">Growth plan</div></div>
+          <div class="cost-item"><div class="cost-name">NewsAPI</div><div class="cost-val">$12/mo</div><div class="cost-plan">Business plan</div></div>
+          <div class="cost-item"><div class="cost-name">GitHub Models (GPT-4o)</div><div class="cost-val">$0–$150/mo</div><div class="cost-plan">Usage-based</div></div>
+          <div class="cost-item"><div class="cost-name">Railway Hosting</div><div class="cost-val">$10/mo</div><div class="cost-plan">Starter plan</div></div>
+          <div class="cost-item"><div class="cost-name">Domain + SSL</div><div class="cost-val">~$5/mo</div><div class="cost-plan">Amortized</div></div>
+          <div class="cost-item"><div class="cost-name">Stripe Fees</div><div class="cost-val" id="cost-stripe">~$55/mo</div><div class="cost-plan">2.9% + 30¢/txn</div></div>
+          <div class="cost-item"><div class="cost-name">Supabase</div><div class="cost-val">$25/mo</div><div class="cost-plan">Pro plan</div></div>
+          <div class="cost-item" style="border-color:rgba(255,51,85,0.2)"><div class="cost-name" style="color:var(--text)">Total Monthly</div><div class="cost-val" style="font-size:18px" id="cost-total">—</div><div class="cost-plan" style="color:var(--green)" id="cost-profit-note">Net profit: loading...</div></div>
+        </div>
+      </div>
+    </div>
+    <div id="founders">
+      <div class="section-hdr"><h2>FOUNDER PROFIT SPLIT — 50 / 50</h2></div>
+      <div class="kpi-grid">
+        <div class="kpi-card accent"><div class="kpi-label">This Month (Each)</div><div class="kpi-value" id="f-month">—</div><div class="kpi-sub" id="f-month-sub">After costs</div></div>
+        <div class="kpi-card green"><div class="kpi-label">This Year (Each)</div><div class="kpi-value" id="f-year">—</div><div class="kpi-sub" id="f-year-sub">—</div></div>
+        <div class="kpi-card gold"><div class="kpi-label">All-Time (Each)</div><div class="kpi-value" id="f-alltime">—</div><div class="kpi-sub">Since launch</div></div>
+        <div class="kpi-card purple"><div class="kpi-label">Projected 2026 (Each)</div><div class="kpi-value" id="f-projected">—</div><div class="kpi-sub">At current growth rate</div></div>
+      </div>
+      <div class="founder-split-grid" style="margin-top:12px">
+        <div class="founder-card"><div class="fc-avatar fc-1">Z</div><div class="fc-name">ZION</div>
+          <div class="fc-stat"><div class="fc-stat-lbl">This Month</div><div class="fc-stat-val" style="color:var(--accent)" id="z-month">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">This Year</div><div class="fc-stat-val" style="color:var(--green)" id="z-year">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">All Time</div><div class="fc-stat-val" style="color:var(--gold)" id="z-alltime">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">Projected Dec/mo</div><div class="fc-stat-val" style="color:var(--purple)" id="z-proj">—</div></div>
+        </div>
+        <div class="founder-card"><div class="fc-avatar fc-2">R</div><div class="fc-name">RAPHA</div>
+          <div class="fc-stat"><div class="fc-stat-lbl">This Month</div><div class="fc-stat-val" style="color:var(--accent)" id="r-month">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">This Year</div><div class="fc-stat-val" style="color:var(--green)" id="r-year">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">All Time</div><div class="fc-stat-val" style="color:var(--gold)" id="r-alltime">—</div></div>
+          <div class="fc-stat"><div class="fc-stat-lbl">Projected Dec/mo</div><div class="fc-stat-val" style="color:var(--purple)" id="r-proj">—</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="height:40px"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL'
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
+const ADMIN_EMAILS      = ['your@email.com','cofounder@email.com']
+const API_COSTS_FIXED   = 175   // fixed costs: hosting + APIs (excl. Stripe)
+const PLAN_PRICES = { free:0, starter:2.99, basic:4.99, pro:14.99, elite:49.99 }
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+async function authGuard() {
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session) { window.location.href='login.html'; return false }
+  if (!ADMIN_EMAILS.includes(session.user.email)) { window.location.href='index.html'; return false }
+  return true
+}
+
+async function signOut() { await sb.auth.signOut(); window.location.href='login.html' }
+
+async function loadAll() {
+  document.getElementById('tbDate').textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
+  try {
+    const [subs, revenue, daily] = await Promise.all([fetchSubs(), fetchRevenue(), fetchDaily()])
+    render(subs, revenue, daily)
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString()
+  } catch(err) {
+    showErr(err.message)
+    console.error(err)
+  } finally {
+    document.getElementById('loadOverlay').classList.add('hidden')
+  }
+}
+
+async function fetchSubs() {
+  const { data, error } = await sb.from('subscriptions').select('*').order('created_at', { ascending: false })
+  if (error) throw new Error('subscriptions: ' + error.message)
+  return data || []
+}
+
+async function fetchRevenue() {
+  const { data, error } = await sb.from('revenue_history').select('*').order('month', { ascending: true }).limit(24)
+  if (error) throw new Error('revenue_history: ' + error.message)
+  return data || []
+}
+
+async function fetchDaily() {
+  const since = new Date(); since.setDate(since.getDate()-7)
+  const { data, error } = await sb.from('subscriptions').select('created_at,plan').gte('created_at', since.toISOString())
+  if (error) throw new Error('daily: ' + error.message)
+  return data || []
+}
+
+function render(subs, revenue, daily) {
+  const now = new Date()
+  const thisMonth = now.toISOString().slice(0,7)
+  const thisYear  = now.getFullYear()
+
+  const active  = subs.filter(s => s.status === 'active')
+  const paid    = active.filter(s => s.plan !== 'free')
+  const free    = active.filter(s => s.plan === 'free')
+  const churned = subs.filter(s => s.status === 'cancelled' || s.status === 'churned')
+  const total   = active.length
+
+  const mrr       = paid.reduce((s, x) => s + (PLAN_PRICES[x.plan]||0), 0)
+  const stripeFee = mrr * 0.029 + paid.length * 0.30
+  const totalCost = API_COSTS_FIXED + stripeFee
+  const net       = mrr - totalCost
+
+  const tierCounts = {}, tierRev = {}
+  Object.keys(PLAN_PRICES).forEach(p => { tierCounts[p]=0; tierRev[p]=0 })
+  active.forEach(s => { tierCounts[s.plan]=(tierCounts[s.plan]||0)+1; tierRev[s.plan]=(tierRev[s.plan]||0)+(PLAN_PRICES[s.plan]||0) })
+
+  const last2 = revenue.slice(-2)
+  const mom = last2.length>=2 && last2[0].subscribers>0 ? ((last2[1].subscribers-last2[0].subscribers)/last2[0].subscribers*100) : 0
+  const churnRate = total>0 ? (churned.length/(total+churned.length)*100).toFixed(1) : 0
+  const convRate  = total>0 ? (paid.length/total*100).toFixed(0) : 0
+  const ltv       = mom>0 ? Math.round((mrr/Math.max(total,1))/(mom/100)) : 0
+
+  const yearRevRows = revenue.filter(r => r.month?.startsWith(thisYear))
+  const yearRev   = yearRevRows.reduce((s,r) => s+(r.gross||0), 0)
+  const allTimeRev = revenue.reduce((s,r) => s+(r.gross||0), 0)
+  const yearProfit = yearRevRows.reduce((s,r) => s+(r.net||0), 0) || (net * (now.getMonth()+1))
+  const alltimeProfit = revenue.reduce((s,r) => s+(r.net||0), 0) || net
+  const arpu = paid.length > 0 ? (mrr/paid.length).toFixed(2) : '0'
+
+  // KPIs
+  s('kpi-subs', fm(total))
+  s('kpi-mrr', '$'+fmo(mrr))
+  s('kpi-profit', '$'+fmo(net))
+  s('kpi-growth', Math.round(mom)+'%')
+  s('kpi-subs-sub', `<span class="kpi-delta delta-${mom>=0?'up':'down'}">${mom>=0?'+':''}${Math.round(mom)}%</span> vs last month`)
+  s('kpi-mrr-sub', `$${arpu} ARPU · ${paid.length} paid`)
+  s('kpi-profit-sub', `After $${Math.round(totalCost)} costs`)
+  s('kpi-growth-sub', `${convRate}% free→paid conv`)
+
+  // Live counter
+  s('liveRingNum', fm(total))
+  ring('liveRing', total, Math.max(total+50,200))
+  bar('bar-paid','val-paid',paid.length,total)
+  bar('bar-free','val-free',free.length,total)
+  bar('bar-churned','val-churned',churned.length,total+churned.length)
+
+  // Today
+  const tod = new Date().toDateString(), ysd = new Date(Date.now()-86400000).toDateString()
+  const tc = daily.filter(d=>new Date(d.created_at).toDateString()===tod).length
+  const yc = daily.filter(d=>new Date(d.created_at).toDateString()===ysd).length
+  s('todaySubs', fm(tc))
+  s('todayBadge', tc>=yc ? `↑ +${tc-yc} vs yesterday` : `↓ ${yc-tc} vs yesterday`)
+  renderWeekBars(daily)
+
+  // Revenue
+  s('rev-month', '$'+fmo(revenue.find(r=>r.month?.slice(0,7)===thisMonth)?.gross || mrr))
+  s('rev-month-sub', now.toLocaleDateString('en-GB',{month:'long',year:'numeric'}))
+  s('rev-year', '$'+fmo(yearRev || mrr))
+  s('rev-year-sub', `Jan–${now.toLocaleDateString('en-GB',{month:'short'})} ${thisYear}`)
+  s('rev-alltime', '$'+fmo(allTimeRev || mrr))
+  s('rev-arpu', '$'+arpu)
+  renderRevTable(revenue, totalCost)
+
+  // Tiers
+  renderTiers(tierCounts, tierRev, paid.length, free.length)
+  s('tier-paid-total', `${paid.length} Paid`); s('tier-free-note', `+${free.length} Free tier`)
+  s('donut-total', '$'+fmo(mrr)); drawDonut(tierRev, mrr)
+
+  // Growth
+  const revD = revenue.slice(-6).map(r=>r.subscribers||0)
+  const revL = revenue.slice(-6).map(r=>r.month?.slice(0,7)||'')
+  s('grow-mom', Math.round(mom)+'%'); s('grow-churn', churnRate+'%')
+  s('grow-ltv', ltv>0?'$'+ltv:'—'); s('grow-conv', convRate+'%')
+  if(revD.length>=2){s('grow-chart-label',`${revD[0]} → ${revD[revD.length-1]}`);const pct=revD[0]>0?Math.round((revD[revD.length-1]-revD[0])/revD[0]*100):0;s('grow-pct',`+${pct}%`)}
+  drawGrowthChart(revD, revL)
+
+  // Projections
+  const mLeft = 12 - now.getMonth()
+  const rate  = 1 + Math.max(0.01, mom/100)
+  const pSubs = Math.round(total * Math.pow(rate, mLeft))
+  const pMrr  = Math.round(mrr * Math.pow(rate, mLeft))
+  const pArr  = Math.round(pMrr * 12)
+  const pProfit = Math.round((pMrr - totalCost) * 12)
+  const mToGoal = mrr>0&&mrr<10000 ? Math.ceil(Math.log(10000/mrr)/Math.log(rate)) : mrr>=10000?0:'—'
+  s('proj-subs',fm(pSubs)); s('proj-mrr','$'+fmo(pMrr)); s('proj-arr','$'+fmo(pArr))
+  s('proj-profit','$'+fmo(pProfit)); s('proj-founder','$'+fmo(pProfit/2))
+  s('proj-months', typeof mToGoal==='number'?mToGoal+' mo':mToGoal)
+  const pData = Array.from({length:mLeft+1},(_,i)=>Math.round(mrr*Math.pow(rate,i)))
+  const pLabels = Array.from({length:mLeft+1},(_,i)=>{const d=new Date(now);d.setMonth(d.getMonth()+i);return d.toLocaleDateString('en-GB',{month:'short'})})
+  drawProjChart(pData, pLabels)
+
+  // Costs
+  s('cost-pct-label', mrr>0 ? (totalCost/mrr*100).toFixed(1)+'% of revenue' : '—')
+  s('cost-stripe', '$'+Math.round(stripeFee)+'/mo')
+  s('cost-total', '$'+Math.round(totalCost)+'/mo')
+  s('cost-profit-note', 'Net profit: $'+fmo(net)+'/mo')
+
+  // Founders
+  s('f-month','$'+fmo(net/2)); s('f-month-sub','This month · After costs')
+  s('f-year','$'+fmo(yearProfit/2)); s('f-year-sub',`Jan–${now.toLocaleDateString('en-GB',{month:'short'})} ${thisYear}`)
+  s('f-alltime','$'+fmo(alltimeProfit/2)); s('f-projected','$'+fmo(pProfit/2))
+  ;['z','r'].forEach(p=>{s(p+'-month','$'+fmo(net/2));s(p+'-year','$'+fmo(yearProfit/2));s(p+'-alltime','$'+fmo(alltimeProfit/2));s(p+'-proj','$'+fmo(pMrr/2)+'/mo')})
+
+  // Sparklines
+  const rData = revenue.slice(-8).map(r=>r.subscribers||0).concat(total)
+  buildSparkline('spark-subs', rData, 'var(--accent)')
+  buildSparkline('spark-mrr', revenue.slice(-8).map(r=>r.gross||0).concat(mrr), 'var(--green)')
+  buildSparkline('spark-profit', revenue.slice(-8).map(r=>r.net||0).concat(net), 'var(--gold)')
+  buildSparkline('spark-growth', revenue.slice(-8).map((_,i,a)=>i>0&&a[i-1].subscribers>0?Math.round((a[i].subscribers-a[i-1].subscribers)/a[i-1].subscribers*100):0), 'var(--purple)')
+}
+
+function renderRevTable(revenue, costs) {
+  const rows = revenue.slice(-12)
+  if (!rows.length) { s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — add rows to revenue_history table</td></tr>'); return }
+  s('revBody', rows.map((r,i,arr)=>{
+    const growth = i>0&&arr[i-1].subscribers>0 ? Math.round((r.subscribers-arr[i-1].subscribers)/arr[i-1].subscribers*100) : null
+    const rnet = (r.gross||0)-(r.costs||costs)
+    const isCur = r.month?.slice(0,7)===new Date().toISOString().slice(0,7)
+    return `<tr${isCur?' style="background:rgba(0,232,122,0.03)"':''}>
+      <td class="col-month"${isCur?' style="color:var(--green)"'}>${fmMonth(r.month)}${isCur?' ●':''}</td>
+      <td class="mono"${isCur?' style="color:var(--green)"'}>${fm(r.subscribers||0)}</td>
+      <td class="mono positive">$${fmo(r.gross||0)}</td>
+      <td class="mono" style="color:var(--red)">$${fmo(r.costs||Math.round(costs))}</td>
+      <td class="mono positive">$${fmo(rnet)}</td>
+      <td class="mono">${growth!==null?`<span class="kpi-delta delta-${growth>=0?'up':'down'}">${growth>=0?'+':''}${growth}%</span>`:'—'}</td>
+      <td class="mono positive">$${fmo(rnet/2)}</td>
+    </tr>`
+  }).join(''))
+}
+
+function renderTiers(counts, revenues, paidN, freeN) {
+  const total = Object.values(counts).reduce((s,v)=>s+v,0)||1
+  const maxC  = Math.max(...Object.values(counts),1)
+  const tiers = [{key:'free',label:'Free',color:'var(--text3)'},{key:'starter',label:'Starter',color:'var(--accent)'},{key:'basic',label:'Basic',color:'var(--green)'},{key:'pro',label:'Pro',color:'var(--purple)'},{key:'elite',label:'Elite',color:'var(--gold)'}]
+  s('tierGrid', tiers.map(t=>`<div class="tier-row">
+    <div class="tier-dot" style="background:${t.color}"></div>
+    <div class="tier-name">${t.label}</div>
+    <div class="tier-bar-track"><div class="tier-bar-fill" style="width:${(counts[t.key]||0)/maxC*100}%;background:${t.color}"></div></div>
+    <div class="tier-count">${counts[t.key]||0}</div>
+    <div class="tier-pct">${((counts[t.key]||0)/total*100).toFixed(0)}%</div>
+    <div class="tier-rev" style="color:${t.color}">$${fmo(revenues[t.key]||0)}</div>
+  </div>`).join(''))
+}
+
+function renderWeekBars(daily) {
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], now=new Date()
+  const counts=Array(7).fill(0)
+  for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const ds=d.toDateString();counts[6-i]=daily.filter(x=>new Date(x.created_at).toDateString()===ds).length}
+  const labels=Array(7).fill(0).map((_,i)=>{const d=new Date(now);d.setDate(now.getDate()-(6-i));const dw=d.getDay();return days[dw===0?6:dw-1]})
+  const maxV=Math.max(...counts,1)
+  s('weekBars',counts.map((v,i)=>`<div class="growth-bar-wrap"><div class="growth-val" style="color:${i===6?'var(--green)':'var(--accent)'};font-size:10px">${v}</div><div class="growth-bar-outer"><div class="growth-bar-fill" style="height:${(v/maxV)*80}px;background:${i===6?'var(--green)':'var(--accent)'}"></div></div><div class="growth-lbl">${labels[i]}</div></div>`).join(''))
+}
+
+function drawDonut(tierRev, totalMrr) {
+  const c=document.getElementById('donutChart'); if(!c)return
+  const ctx=c.getContext('2d'); c.width=c.offsetWidth||200; c.height=180
+  const cx=c.width/2,cy=90,r=65,inner=42
+  const tiers=[{key:'free',color:'#384d60'},{key:'starter',color:'#00d4ff'},{key:'basic',color:'#00e87a'},{key:'pro',color:'#9b6dff'},{key:'elite',color:'#ffcc00'}]
+  const tot=Object.values(tierRev).reduce((s,v)=>s+v,0)||1
+  let angle=-Math.PI/2
+  tiers.forEach(t=>{const v=tierRev[t.key]||0;if(!v)return;const sw=(v/tot)*Math.PI*2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sw);ctx.closePath();ctx.fillStyle=t.color;ctx.fill();angle+=sw})
+  ctx.beginPath();ctx.arc(cx,cy,inner,0,Math.PI*2);ctx.fillStyle='#0b1118';ctx.fill()
+  ctx.fillStyle='#ddeeff';ctx.font='bold 16px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$'+fmo(totalMrr),cx,cy-7)
+  ctx.fillStyle='#6a8aa8';ctx.font='10px DM Mono';ctx.fillText('MRR',cx,cy+10)
+}
+
+function drawGrowthChart(data, labels) {
+  const c=document.getElementById('growthChart'); if(!c||!data.length)return
+  const ctx=c.getContext('2d'); c.width=c.offsetWidth||600; c.height=150
+  const pad={left:40,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom
+  const maxV=Math.max(...data)*1.1||10
+  ctx.strokeStyle='#16222e'; ctx.lineWidth=1
+  for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke()}
+  if(data.length>1){
+    const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+h); grad.addColorStop(0,'rgba(0,232,122,0.3)'); grad.addColorStop(1,'rgba(0,232,122,0)')
+    ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=grad; ctx.fill()
+    ctx.beginPath(); ctx.strokeStyle='#00e87a'; ctx.lineWidth=2.5; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke()
+  }
+  data.forEach((v,i)=>{const x=pad.left+(data.length>1?(i/(data.length-1))*w:w/2),y=pad.top+h-((v/maxV)*h);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#00e87a';ctx.fill();ctx.fillStyle='#6a8aa8';ctx.font='9px DM Mono';ctx.textAlign='center';ctx.fillText(labels[i]||'',x,c.height-6);ctx.fillStyle='#ddeeff';ctx.font='bold 10px Outfit';ctx.fillText(v,x,y-10)})
+}
+
+function drawProjChart(data, labels) {
+  const c=document.getElementById('projChart'); if(!c||!data.length)return
+  const ctx=c.getContext('2d'); c.width=c.offsetWidth||600; c.height=150
+  const pad={left:50,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom
+  const maxV=Math.max(...data)*1.1||100
+  ctx.strokeStyle='#16222e'; ctx.lineWidth=1
+  for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke();ctx.fillStyle='#384d60';ctx.font='9px DM Mono';ctx.textAlign='right';ctx.fillText('$'+Math.round((maxV-(maxV/4)*i)/1000)+'k',pad.left-6,y+3)}
+  if(data.length>1){
+    const gradP=ctx.createLinearGradient(0,pad.top,0,pad.top+h); gradP.addColorStop(0,'rgba(255,204,0,0.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)')
+    ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=gradP; ctx.fill()
+    ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle='#ffcc00'; ctx.lineWidth=2; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke(); ctx.setLineDash([])
+  }
+  data.forEach((v,i)=>{const x=pad.left+(data.length>1?(i/(data.length-1))*w:w/2);ctx.fillStyle='#6a8aa8';ctx.font='9px DM Mono';ctx.textAlign='center';ctx.fillText(labels[i]||'',x,c.height-6)})
+}
+
+function s(id, html) { const el=document.getElementById(id); if(el) el.innerHTML=html }
+function fm(n) { return Number(n).toLocaleString() }
+function fmo(n) { n=Math.round(n); if(n>=10000)return(n/1000).toFixed(1)+'k'; return n.toLocaleString() }
+function fmMonth(m) { if(!m)return'—'; const d=new Date(m+'T00:00:00'); return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) }
+function buildSparkline(id, data, color) {
+  const el=document.getElementById(id); if(!el)return
+  const max=Math.max(...data.filter(v=>v>0),1)
+  el.innerHTML=data.map((v,i)=>`<div class="spark-bar" style="height:${Math.max(4,(v/max)*28)}px;background:${color};opacity:${0.3+(i/data.length)*0.7}"></div>`).join('')
+}
+function ring(id, val, max) { const el=document.getElementById(id); if(!el)return; const c=175.9; el.style.strokeDashoffset=c-(c*Math.min(val/max,1)) }
+function bar(barId, valId, count, total) {
+  const b=document.getElementById(barId),v=document.getElementById(valId)
+  if(b) b.style.width=(total>0?(count/total*100).toFixed(0):'0')+'%'
+  if(v) v.textContent=fm(count)
+}
+function showErr(msg) { const el=document.getElementById('errBanner'); document.getElementById('errText').textContent=msg; el.classList.add('show') }
+
+// Realtime — re-render when any subscription changes
+function subscribeRealtime() {
+  sb.channel('admin-rt')
+    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, () => { console.log('🔄 Change detected'); loadAll() })
+    .subscribe()
+}
+
+window.addEventListener('resize', () => { setTimeout(()=>{ drawDonut({},0); drawGrowthChart([],[]); drawProjChart([],[]) }, 100) })
+
+authGuard().then(ok => { if(ok) { loadAll(); subscribeRealtime() } })
+</script>
+</body>
+</html>
