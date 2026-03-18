@@ -150,14 +150,14 @@ async function savePlayer(name, team, d) {
 
 // ── ELO SYSTEM ───────────────────────────────────────────────────────────
 const ELO_BASE = {
-  "Manchester City":1950,"Arsenal":1880,"Liverpool":1900,"Chelsea":1820,
-  "Manchester United":1810,"Tottenham Hotspur":1780,"Tottenham":1780,
+  "Manchester City":1850,"Arsenal":1980,"Liverpool":1900,"Chelsea":1820,
+  "Manchester United":1810,"Tottenham Hotspur":1780,"Tottenham":1480,
   "Newcastle United":1740,"Newcastle":1740,"Aston Villa":1750,
   "West Ham United":1700,"West Ham":1700,"Brighton":1710,"Brighton & Hove Albion":1710,
   "Crystal Palace":1640,"Wolverhampton Wanderers":1650,"Wolves":1650,"Fulham":1630,
   "Bournemouth":1610,"Brentford":1620,"Everton":1590,"Leicester City":1600,
   "Nottingham Forest":1650,"Ipswich Town":1540,"Southampton":1520,
-  "Real Madrid":1980,"Barcelona":1940,"Atletico Madrid":1870,"Sevilla":1760,
+  "Real Madrid":1900,"Barcelona":1905,"Atletico Madrid":1870,"Sevilla":1760,
   "Real Sociedad":1740,"Villarreal":1730,"Athletic Club":1720,"Athletic Bilbao":1720,
   "Real Betis":1710,"Valencia":1680,"Girona":1700,"Osasuna":1640,
   "Celta Vigo":1630,"Rayo Vallecano":1600,"Getafe":1590,"Alaves":1570,
