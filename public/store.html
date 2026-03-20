@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIP IQ — Store & Pricing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#070a0f;--bg2:#0d1117;--panel:#0f1822;--border:#1e2d3d;--border2:#243547;--accent:#00d4ff;--accent2:#0099cc;--green:#00ff88;--red:#ff3b5c;--orange:#ff8c42;--gold:#ffd700;--text:#e8f0fe;--text2:#8899aa;--text3:#556677;--glow:0 0 20px rgba(0,212,255,0.3)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1000}
+  .header{background:linear-gradient(180deg,#050810 0%,transparent 100%);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+  .logo{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:var(--glow);text-decoration:none}
+  .nav-link{padding:5px 13px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .2s;text-transform:uppercase;color:var(--text2);text-decoration:none;font-family:'JetBrains Mono'}
+  .nav-link:hover{color:var(--accent)}
+  .content{max-width:1100px;margin:0 auto;padding:40px 24px}
+  .page-hero{text-align:center;margin-bottom:48px}
+  .page-hero h1{font-family:'Bebas Neue';font-size:52px;color:var(--text);letter-spacing:3px;margin-bottom:8px}
+  .page-hero p{font-size:14px;color:var(--text2);max-width:500px;margin:0 auto}
+  .section-label{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;color:var(--text2);text-align:center;margin-bottom:24px;margin-top:48px}
+  .plans-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:48px}
+  .plan-card{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:20px 16px;position:relative;transition:all .2s;overflow:hidden}
+  .plan-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:13px 13px 0 0}
+  .plan-card.featured{border-color:var(--accent);box-shadow:var(--glow)}
+  .plan-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+  .plan-card.c-free::before{background:var(--text3)}
+  .plan-card.c-starter::before{background:var(--accent)}
+  .plan-card.c-basic::before{background:var(--green)}
+  .plan-card.c-pro::before{background:#9b6dff}
+  .plan-card.c-elite::before{background:var(--gold)}
+  .popular-badge{position:absolute;top:10px;right:10px;background:var(--accent);color:#000;font-size:8px;font-weight:800;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono';letter-spacing:1px}
+  .plan-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;margin-bottom:4px}
+  .c-free .plan-name{color:var(--text3)}
+  .c-starter .plan-name{color:var(--accent)}
+  .c-basic .plan-name{color:var(--green)}
+  .c-pro .plan-name{color:#9b6dff}
+  .c-elite .plan-name{color:var(--gold)}
+  .plan-price{font-family:'Bebas Neue';font-size:36px;margin:10px 0 4px}
+  .plan-period{font-size:10px;color:var(--text3);font-family:'JetBrains Mono'}
+  .plan-features{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+  .plan-feature{font-size:11px;color:var(--text2);display:flex;align-items:flex-start;gap:6px}
+  .plan-feature::before{content:'✓';color:var(--green);flex-shrink:0;margin-top:1px}
+  .plan-feature.locked::before{content:'✗';color:var(--text3)}
+  .plan-feature.locked{color:var(--text3)}
+  .plan-btn{display:block;width:100%;margin-top:16px;padding:10px;border-radius:7px;font-family:'Space Grotesk';font-size:12px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;transition:all .2s;letter-spacing:.5px;border:none}
+  .c-free .plan-btn{background:rgba(85,102,119,.2);color:var(--text2)}
+  .c-starter .plan-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
+  .c-basic .plan-btn{background:linear-gradient(135deg,var(--green),#00cc66);color:#000}
+  .c-pro .plan-btn{background:linear-gradient(135deg,#9b6dff,#7b4dcc);color:#fff}
+  .c-elite .plan-btn{background:linear-gradient(135deg,var(--gold),var(--orange));color:#000}
+  .plan-btn:hover{opacity:.9;transform:translateY(-1px)}
+  .credits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px}
+  .credit-pack{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:20px;text-align:center;transition:all .2s}
+  .credit-pack:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .credit-pack-icon{font-size:32px;margin-bottom:10px}
+  .credit-pack-name{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent);margin-bottom:6px}
+  .credit-pack-amount{font-family:'Bebas Neue';font-size:42px;color:var(--text);margin-bottom:4px}
+  .credit-pack-type{font-size:10px;color:var(--text3);font-family:'JetBrains Mono';letter-spacing:1px;margin-bottom:12px}
+  .credit-pack-price{font-family:'Bebas Neue';font-size:28px;color:var(--gold);margin-bottom:4px}
+  .credit-pack-desc{font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+  .credit-pack-btn{display:block;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,153,204,.1));border:1px solid var(--accent);color:var(--accent);padding:9px;border-radius:7px;font-family:'Space Grotesk';font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s}
+  .credit-pack-btn:hover{background:rgba(0,212,255,.2)}
+  .addon-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .addon-card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:18px;display:flex;gap:14px;align-items:flex-start;transition:all .2s}
+  .addon-card:hover{border-color:var(--border2)}
+  .addon-icon{font-size:28px;flex-shrink:0}
+  .addon-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+  .addon-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+  .addon-price{font-family:'JetBrains Mono';font-size:14px;color:var(--gold);margin-bottom:10px}
+  .addon-btn{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold);padding:7px 14px;border-radius:6px;font-size:11px;font-family:'JetBrains Mono';cursor:pointer;transition:all .2s;text-decoration:none;display:inline-block}
+  .addon-btn:hover{background:rgba(255,215,0,.18)}
+  .faq{margin-top:48px}
+  .faq-item{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:16px 18px;margin-bottom:8px}
+  .faq-q{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .faq-a{font-size:12px;color:var(--text2);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="index.html" class="logo">SLIP IQ</a>
+  <div style="display:flex;gap:8px">
+    <a href="index.html" class="nav-link">← Predictions</a>
+    <a href="profile.html" class="nav-link">Profile</a>
+  </div>
+</div>
+
+<div class="content">
+  <div class="page-hero">
+    <h1>PLANS & PRICING</h1>
+    <p>Professional sports intelligence powered by real data, AI analysis, and Monte Carlo simulations.</p>
+  </div>
+
+  <!-- SUBSCRIPTION PLANS -->
+  <div class="section-label">SUBSCRIPTION PLANS</div>
+  <div class="plans-grid">
+
+    <div class="plan-card c-free">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-period">forever</div>
+      <div class="plan-features">
+        <div class="plan-feature">Football predictions</div>
+        <div class="plan-feature">Basic match analysis</div>
+        <div class="plan-feature">5 AI credits / month</div>
+        <div class="plan-feature">3 parlay credits / month</div>
+        <div class="plan-feature locked">NFL / NBA / NHL / Tennis</div>
+        <div class="plan-feature locked">Save unlimited slips</div>
+        <div class="plan-feature locked">Real bookmaker odds</div>
+      </div>
+      <a href="index.html" class="plan-btn">Get Started</a>
+    </div>
+
+    <div class="plan-card c-starter">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">$2.99</div>
+      <div class="plan-period">per month</div>
+      <div class="plan-features">
+        <div class="plan-feature">Football predictions</div>
+        <div class="plan-feature">Full match analysis</div>
+        <div class="plan-feature">25 AI credits / month</div>
+        <div class="plan-feature">15 parlay credits / month</div>
+        <div class="plan-feature">Save up to 25 slips</div>
+        <div class="plan-feature locked">NFL / NBA / NHL / Tennis</div>
+        <div class="plan-feature">Real bookmaker odds</div>
+      </div>
+      <!-- Replace href with your Stripe payment link -->
+      <a href="#stripe-starter" class="plan-btn">Subscribe →</a>
+    </div>
+
+    <div class="plan-card c-basic">
+      <div class="plan-name">Basic</div>
+      <div class="plan-price">$4.99</div>
+      <div class="plan-period">per month</div>
+      <div class="plan-features">
+        <div class="plan-feature">Football + NFL</div>
+        <div class="plan-feature">Full match analysis</div>
+        <div class="plan-feature">75 AI credits / month</div>
+        <div class="plan-feature">30 parlay credits / month</div>
+        <div class="plan-feature">Save unlimited slips</div>
+        <div class="plan-feature">Player ELO profiles</div>
+        <div class="plan-feature locked">NBA / NHL / Tennis</div>
+      </div>
+      <a href="#stripe-basic" class="plan-btn">Subscribe →</a>
+    </div>
+
+    <div class="plan-card c-pro featured">
+      <div class="popular-badge">MOST POPULAR</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">$14.99</div>
+      <div class="plan-period">per month</div>
+      <div class="plan-features">
+        <div class="plan-feature">All 6 sports</div>
+        <div class="plan-feature">Full AI analysis</div>
+        <div class="plan-feature">300 AI credits / month</div>
+        <div class="plan-feature">100 parlay credits / month</div>
+        <div class="plan-feature">Unlimited slips</div>
+        <div class="plan-feature">Value bet alerts</div>
+        <div class="plan-feature">Player 1v1 matchups</div>
+      </div>
+      <a href="#stripe-pro" class="plan-btn">Subscribe →</a>
+    </div>
+
+    <div class="plan-card c-elite">
+      <div class="plan-name">Elite</div>
+      <div class="plan-price">$49.99</div>
+      <div class="plan-period">per month</div>
+      <div class="plan-features">
+        <div class="plan-feature">Everything in Pro</div>
+        <div class="plan-feature">Unlimited AI credits</div>
+        <div class="plan-feature">Unlimited parlays</div>
+        <div class="plan-feature">Priority data refresh</div>
+        <div class="plan-feature">Custom league access</div>
+        <div class="plan-feature">Export predictions CSV</div>
+        <div class="plan-feature">Early access features</div>
+      </div>
+      <a href="#stripe-elite" class="plan-btn">Subscribe →</a>
+    </div>
+
+  </div>
+
+  <!-- CREDIT PACKS -->
+  <div class="section-label">CREDIT PACKS (one-time)</div>
+  <div class="credits-grid">
+
+    <div class="credit-pack">
+      <div class="credit-pack-icon">⚡</div>
+      <div class="credit-pack-name">AI Analysis Pack</div>
+      <div class="credit-pack-amount">50</div>
+      <div class="credit-pack-type">AI ANALYSIS CREDITS</div>
+      <div class="credit-pack-price">$4.99</div>
+      <div class="credit-pack-desc">50 deep AI match analyses with player-level breakdowns, tactical insights, and value bet detection.</div>
+      <!-- Replace with Stripe link -->
+      <a href="#stripe-ai-50" class="credit-pack-btn">Buy 50 AI Credits →</a>
+    </div>
+
+    <div class="credit-pack">
+      <div class="credit-pack-icon">🎯</div>
+      <div class="credit-pack-name">Parlay Builder Pack</div>
+      <div class="credit-pack-amount">25</div>
+      <div class="credit-pack-type">AI PARLAY CREDITS</div>
+      <div class="credit-pack-price">$3.99</div>
+      <div class="credit-pack-desc">25 AI-optimized auto-parlay builds with Monte Carlo simulation and full value edge scoring.</div>
+      <a href="#stripe-parlay-25" class="credit-pack-btn">Buy 25 Parlay Credits →</a>
+    </div>
+
+    <div class="credit-pack">
+      <div class="credit-pack-icon">📦</div>
+      <div class="credit-pack-name">Mega Bundle</div>
+      <div class="credit-pack-amount">200</div>
+      <div class="credit-pack-type">MIXED CREDITS</div>
+      <div class="credit-pack-price">$14.99</div>
+      <div class="credit-pack-desc">150 AI analysis + 50 AI parlay credits. Best value for power users who want full coverage.</div>
+      <a href="#stripe-bundle" class="credit-pack-btn">Buy Mega Bundle →</a>
+    </div>
+
+  </div>
+
+  <!-- ADD-ONS -->
+  <div class="section-label">ADD-ONS & EXTRAS</div>
+  <div class="addon-grid">
+
+    <div class="addon-card">
+      <div class="addon-icon">🏈</div>
+      <div>
+        <div class="addon-name">Additional Sport — NFL / NBA / NHL</div>
+        <div class="addon-desc">Add a single sport to your Starter or Basic plan. Includes full predictions, player ELOs, and AI analysis for that sport.</div>
+        <div class="addon-price">$1.99 / month per sport</div>
+        <a href="#stripe-sport-addon" class="addon-btn">Add Sport →</a>
+      </div>
+    </div>
+
+    <div class="addon-card">
+      <div class="addon-icon">🎾</div>
+      <div>
+        <div class="addon-name">Tennis + NCAA Bundle</div>
+        <div class="addon-desc">ATP, WTA, and NCAA Basketball & Football predictions with player matchup analysis and tournament tracking.</div>
+        <div class="addon-price">$2.99 / month</div>
+        <a href="#stripe-tennis-ncaa" class="addon-btn">Add Bundle →</a>
+      </div>
+    </div>
+
+    <div class="addon-card">
+      <div class="addon-icon">📊</div>
+      <div>
+        <div class="addon-name">Extended League Pack</div>
+        <div class="addon-desc">Unlock 20+ additional football leagues: Eredivisie, Primeira Liga, Brasileirão, Super Lig, and more.</div>
+        <div class="addon-price">$1.49 / month</div>
+        <a href="#stripe-leagues" class="addon-btn">Add Leagues →</a>
+      </div>
+    </div>
+
+    <div class="addon-card">
+      <div class="addon-icon">🔔</div>
+      <div>
+        <div class="addon-name">Value Bet Alerts</div>
+        <div class="addon-desc">Real-time push notifications when our model detects a 5%+ edge vs bookmaker odds. Never miss a value bet.</div>
+        <div class="addon-price">$0.99 / month</div>
+        <a href="#stripe-alerts" class="addon-btn">Add Alerts →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq">
+    <div class="section-label">FAQ</div>
+    <div class="faq-item"><div class="faq-q">How do credits work?</div><div class="faq-a">Credits are consumed when you use AI features. 1 AI Analysis credit = 1 deep match analysis. 1 Parlay credit = 1 auto-built AI parlay. Monthly plan credits reset each billing cycle. Purchased credit packs never expire.</div></div>
+    <div class="faq-item"><div class="faq-q">Can I use a referral code?</div><div class="faq-a">Yes — enter a referral code when signing up to get 25% off your first month. If you refer 3 friends to Pro, you get 1 month of Pro free.</div></div>
+    <div class="faq-item"><div class="faq-q">What payment methods do you accept?</div><div class="faq-a">All major credit cards via Stripe. Secure, encrypted payments. Cancel anytime from your profile.</div></div>
+    <div class="faq-item"><div class="faq-q">Is the data really live?</div><div class="faq-a">Yes. We pull live fixtures, lineups, odds, and player stats from Sportmonks v3 and The Odds API. ELOs update from real Sportmonks team rankings. Odds refresh every 5 minutes.</div></div>
+    <div class="faq-item"><div class="faq-q">How is the AI trained?</div><div class="faq-a">We use GitHub Models (GPT-4o / GPT-5) combined with our own Monte Carlo simulation engine (40,000+ iterations per match), real xG models, and Sportmonks probability predictions. The AI has context of real player names, stats, ELOs, and bookmaker odds for every analysis.</div></div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL'
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
+const {createClient} = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// You can add Stripe redirect logic here when you have payment links
+// e.g. document.querySelectorAll('a[href^="#stripe-"]').forEach(...)
+</script>
+</body>
+</html>

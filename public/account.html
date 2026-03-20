@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slip IQ — My Account</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;
+  --accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;
+  --text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;
+  --grad:linear-gradient(135deg,#00c8f8,#00e5c8);--sidebar-w:220px
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body{display:flex;flex-direction:column}
+
+/* NAV RAIL */
+.nav-rail{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border2);display:flex;flex-direction:column;z-index:100;overflow:hidden}
+.nav-logo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.nav-logo-text{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-logo-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
+.nav-section-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;padding:12px 14px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;color:var(--text2);font-size:13px;font-weight:500;text-decoration:none}
+.nav-item:hover{background:rgba(0,200,248,.06);color:var(--text)}
+.nav-item.active{background:rgba(0,200,248,.1);border-left-color:var(--accent);color:var(--accent)}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.nav-divider{height:1px;background:var(--border);margin:6px 0}
+.nav-bottom{margin-top:auto;padding:10px;border-top:1px solid var(--border)}
+.upgrade-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:9px;border-radius:7px;border:none;cursor:pointer;transition:all .2s;display:block;width:100%;text-align:center;text-decoration:none}
+.upgrade-btn:hover{opacity:.9}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);display:flex;flex-direction:column;min-height:100vh}
+
+/* TOPBAR */
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.tb-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;color:var(--text)}
+.tb-right{display:flex;align-items:center;gap:10px}
+.btn-sm{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:5px 12px;border-radius:4px;cursor:pointer;text-decoration:none}
+.btn-sm:hover{background:rgba(0,200,248,.2)}
+
+/* CONTENT */
+.content{flex:1;padding:24px;max-width:1100px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:20px}
+
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:20px}
+.card-title{font-family:'JetBrains Mono';font-size:10px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.card-title span{color:var(--accent)}
+
+/* PROFILE HERO */
+.profile-hero{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px}
+.avatar-wrap{position:relative}
+.avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#0066ff,#00c8f8);display:flex;align-items:center;justify-content:center;font-size:28px;font-family:'Bebas Neue';color:#000;flex-shrink:0;border:2px solid var(--accent)}
+.avatar-edit{position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:#000}
+.profile-info{display:flex;flex-direction:column;gap:4px}
+.profile-name{font-family:'Bebas Neue';font-size:28px;letter-spacing:2px;color:var(--text);line-height:1}
+.profile-id{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px}
+.plan-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;margin-top:4px}
+.plan-free{background:rgba(122,155,191,.1);border:1px solid var(--border2);color:var(--text2)}
+.plan-starter{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent)}
+.plan-basic{background:rgba(0,200,248,.15);border:1px solid rgba(0,200,248,.4);color:var(--accent)}
+.plan-pro{background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);color:var(--teal)}
+.plan-elite{background:rgba(255,215,0,.12);border:1px solid rgba(255,215,0,.35);color:var(--gold)}
+.profile-actions{display:flex;flex-direction:column;gap:8px}
+
+/* EDIT ROW */
+.edit-row{display:flex;flex-direction:column;gap:4px}
+.edit-lbl{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px}
+.edit-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:5px;font-family:'DM Sans';font-size:13px;padding:8px 10px;outline:none;transition:border-color .2s;width:100%}
+.edit-input:focus{border-color:var(--accent)}
+.edit-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:9px 18px;border-radius:6px;border:none;cursor:pointer;transition:all .2s}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:'JetBrains Mono';font-size:10px;letter-spacing:1px;padding:8px 16px;border-radius:6px;cursor:pointer;transition:all .2s}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:14px;text-align:center}
+.stat-box.accent-green{border-color:rgba(0,255,136,.25);background:rgba(0,255,136,.04)}
+.stat-box.accent-red{border-color:rgba(255,59,92,.2);background:rgba(255,59,92,.03)}
+.stat-box.accent-gold{border-color:rgba(255,215,0,.25);background:rgba(255,215,0,.04)}
+.stat-box.accent-blue{border-color:rgba(0,200,248,.2);background:rgba(0,200,248,.03)}
+.stat-num{font-family:'Bebas Neue';font-size:36px;line-height:1}
+.stat-num.green{color:var(--green)}.stat-num.red{color:var(--red)}.stat-num.gold{color:var(--gold)}.stat-num.accent{color:var(--accent)}.stat-num.orange{color:var(--orange)}
+.stat-lbl{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-top:4px}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* WIN RATE BAR */
+.win-rate-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.win-rate-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--teal));transition:width .8s ease}
+
+/* REFERRAL CARD */
+.referral-hero{background:linear-gradient(135deg,rgba(0,102,255,.15),rgba(0,200,248,.08));border:1px solid rgba(0,200,248,.3);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.referral-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--text)}
+.referral-sub{font-size:13px;color:var(--text2);line-height:1.6}
+.referral-sub strong{color:var(--accent)}
+.ref-progress{display:flex;flex-direction:column;gap:6px}
+.ref-progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.ref-progress-fill{height:100%;background:var(--grad);border-radius:4px;transition:width .6s ease}
+.ref-progress-lbl{font-family:'JetBrains Mono';font-size:10px;color:var(--text2);display:flex;justify-content:space-between}
+.code-box{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.code-text{font-family:'JetBrains Mono';font-size:18px;letter-spacing:3px;color:var(--accent);font-weight:700}
+.code-empty{font-family:'JetBrains Mono';font-size:12px;color:var(--text3);letter-spacing:1px}
+.btn-copy{background:rgba(0,200,248,.12);border:1px solid rgba(0,200,248,.3);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:6px 12px;border-radius:5px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-copy:hover{background:rgba(0,200,248,.25)}
+.btn-generate{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:10px 20px;border-radius:7px;border:none;cursor:pointer;transition:all .2s;align-self:flex-start}
+.btn-generate:hover{opacity:.9;transform:translateY(-1px)}
+.btn-generate:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.ref-how{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:4px}
+.ref-step{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.ref-step-num{font-family:'Bebas Neue';font-size:28px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.ref-step-txt{font-size:12px;color:var(--text2);margin-top:4px;line-height:1.4}
+
+/* REFERRAL USES TABLE */
+.uses-table{width:100%;border-collapse:collapse;font-size:12px}
+.uses-table th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.uses-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2)}
+.uses-table tr:last-child td{border-bottom:none}
+.uses-table tr:hover td{background:rgba(0,200,248,.03)}
+.reward-tag{background:rgba(0,229,200,.1);border:1px solid rgba(0,229,200,.3);color:var(--teal);font-family:'JetBrains Mono';font-size:8px;padding:2px 6px;border-radius:3px;letter-spacing:1px}
+.pending-tag{background:rgba(122,155,191,.1);border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:8px;padding:2px 6px;border-radius:3px;letter-spacing:1px}
+
+/* RECENT PARLAYS */
+.parlay-mini-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px}
+.parlay-mini-row:last-child{margin-bottom:0}
+.parlay-mini-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.st-won-dot{background:var(--green)}.st-lost-dot{background:var(--red)}.st-pending-dot{background:var(--text3)}
+.parlay-mini-info{flex:1;min-width:0}
+.parlay-mini-name{font-size:12px;color:var(--text);font-weight:500}
+.parlay-mini-meta{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:1px}
+.parlay-mini-odds{font-family:'Bebas Neue';font-size:18px;color:var(--gold);line-height:1}
+.parlay-mini-score{font-family:'JetBrains Mono';font-size:10px;text-align:right}
+.parlay-mini-score.won{color:var(--green)}.parlay-mini-score.lost{color:var(--red)}.parlay-mini-score.pending{color:var(--text3)}
+
+/* PLAN GRANTS */
+.grant-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.2);border-radius:7px;margin-bottom:6px}
+.grant-info{display:flex;flex-direction:column;gap:2px}
+.grant-plan{font-family:'JetBrains Mono';font-size:10px;color:var(--teal);font-weight:700;letter-spacing:1px}
+.grant-reason{font-size:11px;color:var(--text3)}
+.grant-exp{font-family:'JetBrains Mono';font-size:10px;color:var(--text2);text-align:right}
+
+/* ACCOUNT DANGER ZONE */
+.danger-zone{border-color:rgba(255,59,92,.25);background:rgba(255,59,92,.03)}
+.danger-zone .card-title{color:var(--red)}
+
+/* LOADING */
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-ctr{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:14px;color:var(--text3);font-family:'JetBrains Mono';font-size:11px;letter-spacing:1px}
+.empty-note{font-family:'JetBrains Mono';font-size:11px;color:var(--text3);text-align:center;padding:20px;letter-spacing:.5px}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono';font-size:11px;letter-spacing:1px;padding:10px 20px;border-radius:6px;z-index:500;animation:toastIn .3s ease}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .nav-rail{display:none}
+  .main{margin-left:0}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .ref-how{grid-template-columns:1fr}
+  .edit-form{grid-template-columns:1fr}
+  .profile-hero{grid-template-columns:auto 1fr;grid-template-rows:auto auto}
+  .profile-actions{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV RAIL -->
+<div class="nav-rail">
+  <div class="nav-logo">
+    <div>
+      <div class="nav-logo-text">SLIP IQ</div>
+      <div class="nav-logo-sub">BETTING INTELLIGENCE</div>
+    </div>
+  </div>
+  <div class="nav-section-lbl">MAIN</div>
+  <a class="nav-item" href="home.html"><span class="nav-icon">⚽</span>Matches</a>
+  <a class="nav-item" href="home.html#news"><span class="nav-icon">📰</span>News</a>
+  <a class="nav-item" href="home.html#parlays"><span class="nav-icon">🎯</span>My Parlays</a>
+  <div class="nav-divider"></div>
+  <div class="nav-section-lbl">ACCOUNT</div>
+  <a class="nav-item active" href="account.html"><span class="nav-icon">👤</span>My Profile</a>
+  <a class="nav-item" href="subscriptions.html"><span class="nav-icon">💎</span>Store</a>
+  <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span>Landing Page</a>
+  <div class="nav-bottom">
+    <a href="subscriptions.html" class="upgrade-btn">⚡ UPGRADE PLAN</a>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title">MY ACCOUNT</div>
+    <div class="tb-right">
+      <a href="home.html" class="btn-sm">← BACK TO APP</a>
+      <a href="subscriptions.html" class="btn-sm" style="background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.3);color:var(--gold)">⚡ UPGRADE</a>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+    <div class="loading-ctr">
+      <div class="spinner"></div>
+      LOADING PROFILE...
+    </div>
+  </div>
+</div>
+
+<script>
+const API = ""
+const USER_ID = "slip_iq_user_" + (localStorage.getItem("slip_iq_uid") || (() => {
+  const id = Date.now().toString(36); localStorage.setItem("slip_iq_uid", id); return id
+})())
+
+let profileData = null
+
+async function init() {
+  try {
+    const res = await fetch(`${API}/profile/${USER_ID}`)
+    if (!res.ok) throw new Error("Profile load failed")
+    profileData = await res.json()
+  } catch(e) {
+    // Build local profile from localStorage if server unavailable
+    const localParlays = JSON.parse(localStorage.getItem("slip_iq_parlays") || "[]")
+    profileData = {
+      id: USER_ID, display_name: "Bettor", plan: "free",
+      stats: {
+        total: localParlays.length,
+        won: localParlays.filter(p => p.status === "won").length,
+        lost: localParlays.filter(p => p.status === "lost").length,
+        pending: localParlays.filter(p => p.status === "pending").length,
+        winRate: 0, biggestOdds: localParlays.reduce((m,p) => Math.max(m, p.combined_odds||0), 0), avgConf: 0,
+        totalLegs: localParlays.reduce((s,p) => s + (p.leg_count||0), 0)
+      },
+      referralCode: null, activeGrants: [], recentParlays: localParlays.slice(0,10),
+      joined_at: null, last_seen_at: new Date().toISOString()
+    }
+  }
+  renderPage()
+}
+
+function renderPage() {
+  const p = profileData
+  const s = p.stats || {}
+  const winRate = s.winRate || (s.won+s.lost > 0 ? Math.round(s.won/(s.won+s.lost)*100) : 0)
+  const initial = (p.display_name || "B")[0].toUpperCase()
+
+  document.getElementById("content").innerHTML = `
+
+  <!-- PROFILE HERO -->
+  <div class="card">
+    <div class="profile-hero">
+      <div class="avatar-wrap">
+        <div class="avatar">${p.avatar_url ? `<img src="${p.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : initial}</div>
+        <div class="avatar-edit" title="Change avatar">✏️</div>
+      </div>
+      <div class="profile-info">
+        <div class="profile-name">${p.display_name || "Bettor"}</div>
+        <div class="profile-id">ID: ${USER_ID}</div>
+        <div class="plan-badge plan-${p.plan || 'free'}">${planIcon(p.plan)} ${(p.plan||"free").toUpperCase()}${p.plan_expires_at ? ` · expires ${fmtDate(p.plan_expires_at)}` : ""}</div>
+        ${p.email ? `<div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3);margin-top:4px">${p.email}</div>` : ""}
+      </div>
+      <div class="profile-actions">
+        <button class="btn-primary" onclick="showEditForm()">✏️ EDIT PROFILE</button>
+        <a href="subscriptions.html" class="btn-ghost" style="text-align:center;display:block;text-decoration:none">⚡ UPGRADE PLAN</a>
+      </div>
+    </div>
+    <div id="editForm" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+      <div class="card-title">EDIT PROFILE</div>
+      <div class="edit-form">
+        <div class="edit-row"><div class="edit-lbl">DISPLAY NAME</div><input class="edit-input" id="inp-name" value="${p.display_name||""}" placeholder="Your name"></div>
+        <div class="edit-row"><div class="edit-lbl">EMAIL</div><input class="edit-input" id="inp-email" type="email" value="${p.email||""}" placeholder="your@email.com"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-primary" onclick="saveProfile()">SAVE CHANGES</button>
+        <button class="btn-ghost" onclick="document.getElementById('editForm').style.display='none'">CANCEL</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap">
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)">JOINED <strong style="color:var(--text2)">${fmtDate(p.joined_at) || "—"}</strong></div>
+      <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)">LAST SEEN <strong style="color:var(--text2)">${fmtDate(p.last_seen_at) || "Today"}</strong></div>
+      ${p.referred_by_code ? `<div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)">REFERRED BY <strong style="color:var(--accent)">${p.referred_by_code}</strong></div>` : ""}
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="card">
+    <div class="card-title">BETTING PERFORMANCE <span>${s.total || 0} TOTAL PARLAYS</span></div>
+    <div class="stats-grid">
+      <div class="stat-box accent-green">
+        <div class="stat-num green">${s.won || 0}</div>
+        <div class="stat-lbl">PARLAYS WON</div>
+        <div class="stat-sub">${winRate}% win rate</div>
+      </div>
+      <div class="stat-box accent-red">
+        <div class="stat-num red">${s.lost || 0}</div>
+        <div class="stat-lbl">PARLAYS LOST</div>
+        <div class="stat-sub">${s.pending || 0} pending</div>
+      </div>
+      <div class="stat-box accent-gold">
+        <div class="stat-num gold">${s.biggestOdds ? s.biggestOdds.toFixed(2)+"x" : "—"}</div>
+        <div class="stat-lbl">BIGGEST ODDS</div>
+        <div class="stat-sub">best parlay</div>
+      </div>
+      <div class="stat-box accent-blue">
+        <div class="stat-num accent">${s.totalLegs || 0}</div>
+        <div class="stat-lbl">TOTAL LEGS</div>
+        <div class="stat-sub">${s.avgConf ? s.avgConf+"% avg conf" : "across all parlays"}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;display:flex;justify-content:space-between"><span>WIN RATE</span><span style="color:${winRate>=60?'var(--green)':winRate>=40?'var(--orange)':'var(--red)'}">${winRate}%</span></div>
+      <div class="win-rate-bar"><div class="win-rate-fill" style="width:${winRate}%"></div></div>
+    </div>
+    ${p.activeGrants?.length ? `
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--teal);letter-spacing:2px;margin-bottom:10px">ACTIVE PLAN GRANTS</div>
+      ${p.activeGrants.map(g=>`<div class="grant-row"><div class="grant-info"><div class="grant-plan">${(g.plan||"PRO").toUpperCase()} · ${g.months} MONTHS</div><div class="grant-reason">${g.reason === "referral_reward" ? "🎁 Earned from referrals" : g.reason || "Grant"}</div></div><div class="grant-exp"><div style="font-size:10px">Expires</div><div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text)">${fmtDate(g.expires_at)}</div></div></div>`).join("")}
+    </div>` : ""}
+  </div>
+
+  <!-- REFERRAL CARD -->
+  <div class="card">
+    <div class="card-title">🎁 REFERRAL PROGRAM <span>3 REFERRALS = 3 MONTHS FREE PRO</span></div>
+    <div class="referral-hero">
+      <div>
+        <div class="referral-title">SHARE YOUR CODE. EARN FREE PRO.</div>
+        <div class="referral-sub">Refer <strong>3 friends</strong> who sign up with your code and you get <strong>3 months of Pro completely free</strong>. Every 3 referrals unlocks another 3 months — no limit.</div>
+      </div>
+      <div class="ref-how">
+        <div class="ref-step"><div class="ref-step-num">01</div><div class="ref-step-txt">Generate your unique code below</div></div>
+        <div class="ref-step"><div class="ref-step-num">02</div><div class="ref-step-txt">Share with friends who bet on football</div></div>
+        <div class="ref-step"><div class="ref-step-num">03</div><div class="ref-step-txt">Every 3 sign-ups = 3 months Pro free</div></div>
+      </div>
+      <div id="refCodeSection">${renderRefCodeSection(p.referralCode)}</div>
+    </div>
+    <div id="refUsesSection" style="margin-top:14px">${renderRefUses(p.referralCode)}</div>
+  </div>
+
+  <!-- RECENT PARLAYS -->
+  <div class="card">
+    <div class="card-title">RECENT PARLAYS <span><a href="home.html" onclick="localStorage.setItem('openPage','parlays')" style="color:var(--accent);text-decoration:none;font-size:9px">VIEW ALL →</a></span></div>
+    ${(p.recentParlays||[]).length ? (p.recentParlays||[]).slice(0,8).map(pl => {
+      const legs = typeof pl.legs === "string" ? JSON.parse(pl.legs||"[]") : (pl.legs||[])
+      const stCls = pl.status==="won"?"won-dot":pl.status==="lost"?"lost-dot":"pending-dot"
+      return `<div class="parlay-mini-row">
+        <div class="parlay-mini-status st-${stCls}"></div>
+        <div class="parlay-mini-info">
+          <div class="parlay-mini-name">${legs.length} leg parlay · ${pl.risk_label || "MEDIUM"} risk</div>
+          <div class="parlay-mini-meta">${fmtDate(pl.created_at) || "—"} · ${legs.slice(0,2).map(l=>l.label||l.matchName||"?").join(", ")}${legs.length>2?` +${legs.length-2} more`:""}</div>
+        </div>
+        <div>
+          <div class="parlay-mini-odds">${pl.combined_odds?.toFixed(2)||"—"}x</div>
+          <div class="parlay-mini-score ${pl.status||'pending'}">${pl.status?.toUpperCase()||"PENDING"}</div>
+        </div>
+      </div>`}).join("") : `<div class="empty-note">No parlays saved yet.<br>Build one on the <a href="home.html" style="color:var(--accent)">Matches page</a>.</div>`}
+  </div>
+
+  <!-- APPLY REFERRAL CODE -->
+  ${!p.referred_by_code ? `
+  <div class="card">
+    <div class="card-title">HAVE A REFERRAL CODE?</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="edit-row" style="flex:1;min-width:180px">
+        <div class="edit-lbl">ENTER CODE</div>
+        <input class="edit-input" id="refCodeInput" placeholder="e.g. JAMES123" style="text-transform:uppercase">
+      </div>
+      <button class="btn-primary" onclick="applyReferralCode()">APPLY CODE →</button>
+    </div>
+    <div id="refApplyMsg" style="margin-top:8px;font-family:'JetBrains Mono';font-size:10px;color:var(--text3)"></div>
+  </div>` : ""}
+
+  `
+}
+
+function renderRefCodeSection(rc) {
+  if (!rc) {
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="code-box" style="flex:1;min-width:200px"><div class="code-empty">NO CODE YET — GENERATE YOURS FREE</div></div>
+      <button class="btn-generate" id="genBtn" onclick="generateCode()">⚡ GENERATE MY CODE</button>
+    </div>`
+  }
+  const uses = rc.uses_count || 0
+  const threshold = rc.threshold || 3
+  const pct = Math.min(100, (uses % threshold) / threshold * 100)
+  const rem = threshold - (uses % threshold || threshold)
+  return `<div style="display:flex;flex-direction:column;gap:10px">
+    <div class="code-box">
+      <div class="code-text">${rc.code}</div>
+      <button class="btn-copy" onclick="copyCode('${rc.code}')">📋 COPY</button>
+    </div>
+    <div class="ref-progress">
+      <div class="ref-progress-lbl">
+        <span>${uses} total referrals · ${Math.floor(uses/threshold)} reward${Math.floor(uses/threshold)!==1?'s':''} earned</span>
+        <span style="color:var(--accent)">${rem === threshold ? '3/3 — claim next reward!' : `${uses % threshold}/${threshold} · need ${rem} more`}</span>
+      </div>
+      <div class="ref-progress-bar"><div class="ref-progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-copy" onclick="shareCode('${rc.code}')" style="padding:8px 14px;font-size:10px">📤 SHARE CODE</button>
+      <button class="btn-copy" onclick="refreshReferralStatus()" style="padding:8px 14px;font-size:10px">⟳ REFRESH STATUS</button>
+    </div>
+  </div>`
+}
+
+function renderRefUses(rc) {
+  if (!rc || !(rc.uses_count > 0)) {
+    return `<div class="empty-note">No referrals yet. Share your code to start earning!</div>`
+  }
+  return `<div style="margin-top:4px">
+    <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:8px">REFERRAL HISTORY</div>
+    <table class="uses-table">
+      <thead><tr><th>#</th><th>User</th><th>Date</th><th>Status</th></tr></thead>
+      <tbody id="refUsesTbody"><tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Loading uses...</td></tr></tbody>
+    </table>
+  </div>`
+}
+
+async function loadRefUses() {
+  if (!profileData?.referralCode) return
+  try {
+    const res = await fetch(`${API}/profile/${USER_ID}/referral-status`)
+    const data = await res.json()
+    const tbody = document.getElementById("refUsesTbody")
+    if (!tbody) return
+    if (!data.uses?.length) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">No referrals yet</td></tr>`; return }
+    tbody.innerHTML = data.uses.map((u, i) => `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td>${u.referred_email || u.referred_user_id?.slice(0,16) || "Anonymous"}</td>
+      <td>${fmtDate(u.joined_at)}</td>
+      <td>${u.reward_granted ? `<span class="reward-tag">REWARD GRANTED</span>` : `<span class="pending-tag">PENDING</span>`}</td>
+    </tr>`).join("")
+    // Update progress bar
+    const rc = data.code
+    if (rc) {
+      const section = document.getElementById("refCodeSection")
+      if (section) section.innerHTML = renderRefCodeSection({...rc, uses_count: rc.uses_count})
+    }
+  } catch(e) {}
+}
+
+async function generateCode() {
+  const btn = document.getElementById("genBtn")
+  if (btn) { btn.textContent = "GENERATING..."; btn.disabled = true }
+  try {
+    const res = await fetch(`${API}/profile/${USER_ID}/referral-code`, { method: "POST" })
+    const data = await res.json()
+    if (data.ok && data.code) {
+      profileData.referralCode = data.code
+      document.getElementById("refCodeSection").innerHTML = renderRefCodeSection(data.code)
+      document.getElementById("refUsesSection").innerHTML = renderRefUses(data.code)
+      showToast("✅ Your referral code is ready!")
+    } else { showToast("Failed to generate code — is server running?") }
+  } catch(e) { showToast("Server unavailable") }
+}
+
+async function applyReferralCode() {
+  const code = (document.getElementById("refCodeInput")?.value || "").trim().toUpperCase()
+  const msg = document.getElementById("refApplyMsg")
+  if (!code) { if(msg) msg.textContent = "Please enter a code"; return }
+  if (msg) msg.textContent = "Applying..."
+  try {
+    const res = await fetch(`${API}/referral/apply`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, user_id: USER_ID, email: profileData?.email || "" })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      if (msg) msg.innerHTML = `<span style="color:var(--green)">✅ Code applied! ${data.needs_more > 0 ? `The referrer needs ${data.needs_more} more referral${data.needs_more>1?"s":""} to earn their reward.` : "🎁 Referrer just earned a reward!"}</span>`
+      profileData.referred_by_code = code
+    } else {
+      if (msg) msg.innerHTML = `<span style="color:var(--red)">${data.error || "Invalid code"}</span>`
+    }
+  } catch(e) { if (msg) msg.innerHTML = `<span style="color:var(--red)">Server unavailable</span>` }
+}
+
+async function saveProfile() {
+  const name = document.getElementById("inp-name")?.value?.trim()
+  const email = document.getElementById("inp-email")?.value?.trim()
+  if (!name) { showToast("Name cannot be empty"); return }
+  try {
+    const res = await fetch(`${API}/profile/${USER_ID}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: name, email })
+    })
+    const data = await res.json()
+    if (data.ok || data.data) {
+      profileData.display_name = name; profileData.email = email
+      showToast("✅ Profile saved!")
+      document.getElementById("editForm").style.display = "none"
+      // Update displayed name
+      const nameEl = document.querySelector(".profile-name")
+      if (nameEl) nameEl.textContent = name
+      const avatarEl = document.querySelector(".avatar")
+      if (avatarEl && !profileData.avatar_url) avatarEl.textContent = name[0].toUpperCase()
+    } else { showToast("Save failed — check server") }
+  } catch(e) {
+    // Save locally
+    localStorage.setItem("slip_iq_profile_name", name)
+    showToast("✅ Saved locally (server offline)")
+    document.getElementById("editForm").style.display = "none"
+  }
+}
+
+function showEditForm() {
+  const f = document.getElementById("editForm")
+  if (f) f.style.display = f.style.display === "none" ? "block" : "none"
+}
+
+async function refreshReferralStatus() {
+  showToast("⟳ Refreshing...")
+  await loadRefUses()
+  showToast("✅ Updated")
+}
+
+function copyCode(code) {
+  navigator.clipboard?.writeText(code).then(() => showToast(`📋 Copied: ${code}`))
+    .catch(() => { const t = document.createElement("textarea"); t.value = code; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); showToast(`📋 Copied: ${code}`) })
+}
+
+function shareCode(code) {
+  const msg = `🎯 Use my Slip IQ referral code: ${code}\nGet AI-powered football betting predictions at slip-iq.com — Sign up free!`
+  if (navigator.share) {
+    navigator.share({ title: "Slip IQ Referral", text: msg }).catch(() => copyCode(code))
+  } else {
+    copyCode(code)
+    showToast("📋 Code copied — ready to share!")
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3000)
+}
+
+function planIcon(p) {
+  return p==="elite"?"👑":p==="pro"?"⚡":p==="basic"?"🔷":p==="starter"?"⭐":"🎯"
+}
+
+function fmtDate(d) {
+  if (!d) return ""
+  try {
+    const dt = new Date(d), now = new Date()
+    const diff = Math.floor((now - dt) / 86400000)
+    if (diff === 0) return "Today"
+    if (diff === 1) return "Yesterday"
+    if (diff < 7) return `${diff} days ago`
+    return dt.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })
+  } catch(e) { return "" }
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  await init()
+  // Load referral uses after profile renders
+  setTimeout(loadRefUses, 500)
+})
+</script>
+</body>
+</html>
