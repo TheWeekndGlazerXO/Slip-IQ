@@ -105,6 +105,8 @@ input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:po
 .league-flag{font-size:12px;flex-shrink:0;width:16px}
 .league-name{flex:1;color:var(--text2);font-size:10px}
 .league-count{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);background:var(--border);padding:1px 4px;border-radius:3px;flex-shrink:0}
+.sport-pill{font-family:'JetBrains Mono';font-size:9px;padding:4px 9px;border-radius:10px;border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap}
+.sport-pill:hover,.sport-pill.active{background:rgba(0,200,248,.1);border-color:var(--accent);color:var(--accent)}
 .league-actions{display:flex;gap:5px;padding:6px 12px;border-top:1px solid var(--border);flex-shrink:0}
 .lg-btn{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:8px;padding:4px;border-radius:3px;cursor:pointer;letter-spacing:1px;transition:all .2s}
 .lg-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -415,14 +417,8 @@ input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:po
   </div>
 
   <div class="nav-section-lbl">ACCOUNT</div>
-  <div class="nav-item" onclick="window.location.href='account.html'">
-    <span class="nav-icon">👤</span><span class="nav-label">My Profile</span>
-  </div>
-  <div class="nav-item" onclick="window.location.href='subscriptions.html'">
-    <span class="nav-icon">🛒</span><span class="nav-label">Store</span>
-  </div>
-  <div class="nav-item" onclick="window.location.href='index.html'">
-    <span class="nav-icon">🏠</span><span class="nav-label">Landing Page</span>
+  <div class="nav-item" onclick="window.location.href='index.html'" >
+    <span class="nav-icon">🏡</span><span class="nav-label">Landing Page</span>
   </div>
 
   <div class="nav-bottom">
@@ -476,6 +472,14 @@ input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:po
         </div>
       </div>
       <div class="league-section">
+        <div class="league-hdr" style="margin-bottom:8px">SPORT</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px" id="sportFilterRow">
+          <div class="sport-pill active" onclick="setSport('football',this)" data-sport="football">⚽ Football</div>
+          <div class="sport-pill" onclick="setSport('basketball',this)" data-sport="basketball">🏀 NBA</div>
+          <div class="sport-pill" onclick="setSport('american_football',this)" data-sport="american_football">🏈 NFL</div>
+          <div class="sport-pill" onclick="setSport('tennis',this)" data-sport="tennis">🎾 Tennis</div>
+          <div class="sport-pill" onclick="setSport('mma',this)" data-sport="mma">🥊 MMA</div>
+        </div>
         <div class="league-hdr">LEAGUES <span id="lgCountLbl" style="font-size:8px;color:var(--text3)"></span></div>
         <div id="leagueList"></div>
       </div>
@@ -687,6 +691,8 @@ let allMatches = [], parlaySelections = [], currentView = "all"
 let riskLevel = 4, targetOdds = 4.0, chatOpen = false, sidebarCollapsed = false
 let leagueSet = new Set(), selectedLeagues = new Set()
 let currentMatch = null, filteredMatches = [], currentPage = 1
+let currentSport = "football"
+let nonFootballMatches = []   // loaded from Odds API for other sports
 const PAGE_SIZE = 15
 let selectedLegCount = 0 // 0 = auto
 let allNewsArticles = [], savedParlays = []
@@ -735,6 +741,61 @@ async function loadMatches() {
 }
 async function reloadMatches() { await loadMatches() }
 
+function setSport(sport, el) {
+  currentSport = sport
+  document.querySelectorAll(".sport-pill").forEach(p => p.classList.toggle("active", p.dataset.sport === sport))
+  if (sport === "football") {
+    // Show football matches already loaded
+    renderLeagues()
+    applyFilters()
+  } else {
+    // Load non-football from Odds API via server
+    loadNonFootball(sport)
+  }
+}
+
+async function loadNonFootball(sport) {
+  document.getElementById("matchesGrid").innerHTML = `<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING ${sport.toUpperCase()} MATCHES...</div></div>`
+  try {
+    const res = await fetch(`${API}/odds/sport/${sport}`)
+    const data = await res.json()
+    if (!data || !data.length) {
+      document.getElementById("matchesGrid").innerHTML = `<div class="loading-container"><div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">No ${sport} matches available right now.<br>Check back closer to game time.</div></div></div>`
+      return
+    }
+    // Render non-football cards
+    renderNonFootballMatches(data, sport)
+  } catch(e) {
+    document.getElementById("matchesGrid").innerHTML = `<div class="loading-container"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Could not load ${sport} matches</div></div></div>`
+  }
+}
+
+function renderNonFootballMatches(matches, sport) {
+  const sportIcon = {football:"⚽",basketball:"🏀",american_football:"🏈",tennis:"🎾",mma:"🥊"}[sport]||"🏟"
+  document.getElementById("matchesGrid").innerHTML = matches.map(m => {
+    const date = m.commence_time ? new Date(m.commence_time).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"}) : "TBC"
+    const odds = m.bookmakers?.[0]?.markets?.[0]?.outcomes || []
+    const h2h = odds.slice(0,3)
+    return `<div class="match-card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">${sportIcon} ${m.sport_title||sport.toUpperCase()}</div>
+        <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">${date}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:600;flex:1">${m.home_team||"Home"}</div>
+        <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);padding:0 10px">VS</div>
+        <div style="font-size:14px;font-weight:600;flex:1;text-align:right">${m.away_team||"Away"}</div>
+      </div>
+      ${h2h.length ? `<div style="display:grid;grid-template-columns:${h2h.length===3?"1fr 1fr 1fr":"1fr 1fr"};gap:6px">
+        ${h2h.map(o=>`<div style="background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-bottom:2px">${o.name}</div>
+          <div style="font-family:'Bebas Neue';font-size:18px;color:var(--gold)">${o.price}</div>
+        </div>`).join("")}
+      </div>` : `<div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">Odds loading...</div>`}
+    </div>`
+  }).join("")
+}
+
 function renderLeagues() {
   const sorted = [...leagueSet].sort((a, b) => {
     const ra = LEAGUE_IMPORTANCE[a] || 99, rb = LEAGUE_IMPORTANCE[b] || 99
@@ -743,14 +804,9 @@ function renderLeagues() {
   document.getElementById("leagueList").innerHTML = sorted.map(name => {
     const cnt = allMatches.filter(m => m.league === name).length
     const isTop = (LEAGUE_IMPORTANCE[name] || 99) <= 7
-    // Show country in brackets for leagues whose names appear in multiple countries
-    const ambiguous = ["Premier League"]
-    const sample = allMatches.find(m => m.league === name)
-    const countryNote = ambiguous.includes(name) && sample?.country ? ` (${sample.country})` : ""
-    const displayName = name + countryNote
     return `<div class="league-item active" onclick="toggleLeague('${esc(name)}',this)">
       <span class="league-flag">${flagFor(name)}</span>
-      <span class="league-name" style="${isTop?'color:var(--text);font-weight:600':''}">${displayName}</span>
+      <span class="league-name" style="${isTop?'color:var(--text);font-weight:600':''}">${name}</span>
       <span class="league-count">${cnt}</span>
     </div>`
   }).join("")

@@ -1,3 +1,4 @@
+
 // ============================================================
 // SLIP IQ  —  server.js  v11.0  PRODUCTION
 // CONFIRMED WORKING (from /debug/sm diagnostic):
@@ -116,6 +117,56 @@ function smErr(label, e) {
 const teamDB   = new Map()
 const playerDB = new Map()
 const squadDB  = new Map()
+const clubEloMap = new Map()   // loaded from ClubElo API on startup — ~700 European clubs
+
+// ── LEAGUE ELO CAPS (for teams not in ClubElo) ────────────
+// Defines the ELO ceiling and floor for each league.
+// Teams are distributed within this band based on position + form.
+const LEAGUE_ELO_BANDS = {
+  // ── TOP 5 EUROPEAN ──
+  "Premier League":        { top: 1950, bot: 1530, spread: 420 },
+  "La Liga":               { top: 1920, bot: 1490, spread: 430 },
+  "Serie A":               { top: 1900, bot: 1480, spread: 420 },
+  "Bundesliga":            { top: 1960, bot: 1510, spread: 450 },
+  "Ligue 1":               { top: 1880, bot: 1470, spread: 410 },
+  // ── UEFA ── (ClubElo covers these but band used if team lookup fails)
+  "Champions League":      { top: 1990, bot: 1300, spread: 690 }, // lowered min to 1300 as requested
+  "Europa League":         { top: 1780, bot: 1420, spread: 360 },
+  "Conference League":     { top: 1680, bot: 1350, spread: 330 },
+  // ── SECOND TIERS ──
+  "Championship":          { top: 1600, bot: 1350, spread: 250 },
+  "Bundesliga 2":          { top: 1580, bot: 1340, spread: 240 },
+  "La Liga 2":             { top: 1560, bot: 1330, spread: 230 },
+  // ── CUPS ──
+  "FA Cup":                { top: 1900, bot: 1300, spread: 600 },
+  "Carabao Cup":           { top: 1900, bot: 1300, spread: 600 },
+  "Copa del Rey":          { top: 1880, bot: 1350, spread: 530 },
+  "Coppa Italia":          { top: 1870, bot: 1350, spread: 520 },
+  "DFB Pokal":             { top: 1920, bot: 1300, spread: 620 },
+  "Coupe de France":       { top: 1850, bot: 1250, spread: 600 },
+  "DBU Pokalen":           { top: 1680, bot: 1250, spread: 430 },
+  // ── OTHER EUROPEAN ── (mostly covered by ClubElo, band is fallback)
+  "Süper Lig":             { top: 1760, bot: 1430, spread: 330 },
+  "Belgian Pro League":    { top: 1720, bot: 1390, spread: 330 },
+  "Scottish Premiership":  { top: 1700, bot: 1360, spread: 340 },
+  "Argentine Primera":     { top: 1790, bot: 1430, spread: 360 },
+  "Primeira Liga":         { top: 1820, bot: 1430, spread: 390 },
+  "Eredivisie":            { top: 1820, bot: 1440, spread: 380 },
+  "Danish Superliga":      { top: 1680, bot: 1370, spread: 310 },
+  "Greek Super League":    { top: 1700, bot: 1370, spread: 330 },
+  "Czech Liga":            { top: 1690, bot: 1360, spread: 330 },
+  // ── SOUTH AMERICA ──
+  "Brasileirão":           { top: 1780, bot: 1380, spread: 400 },
+  // ── NORTH AMERICA ──
+  "MLS":                   { top: 1660, bot: 1360, spread: 300 },
+  // ── MIDDLE EAST ──
+  "Saudi Pro League":      { top: 1680, bot: 1320, spread: 360 },
+  // ── AFRICA ──
+  "Zambian Super League":  { top: 1440, bot: 1230, spread: 210 },
+  "South African PSL":     { top: 1530, bot: 1290, spread: 240 },
+  // ── EASTERN EUROPE ──
+  "Estonian Meistriliiga": { top: 1500, bot: 1280, spread: 220 },
+}
 
 // ── SUPABASE HELPERS ──────────────────────────────────────
 function sbSaveTeam(row) { if (!sb) return; sb.from("team_ratings").upsert(row, { onConflict:"team_name" }).catch(() => {}) }
@@ -138,6 +189,224 @@ async function loadSupabase() {
     }
     console.log(`✅ Supabase: ${teamDB.size} teams, ${playerDB.size} players`)
   } catch(e) { console.log("⚠️  Supabase load:", e.message) }
+}
+
+// ── CLUBELO FETCH ─────────────────────────────────────────
+// Free API, no key. Returns CSV of ~700 European clubs.
+// Called once on startup, refreshed every 12 hours.
+async function loadClubElo() {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const url = `http://api.clubelo.com/${today}`
+    console.log("📡 ClubElo: fetching ratings...")
+    const res = await axios.get(url, { timeout: 15000, responseType: "text" })
+    const lines = res.data.split("\n").slice(1) // skip header
+    let count = 0
+    for (const line of lines) {
+      const parts = line.split(",")
+      if (parts.length < 5) continue
+      const name = parts[1]?.trim()
+      const elo  = parseInt(parts[4])
+      if (name && elo > 0) {
+        clubEloMap.set(name.toLowerCase(), elo)
+        // Also map common name variants
+        const clean = name.replace(/^(FC |AC |AS |RC |SC |CD |RB |VfB |VfL |1\.FC |Borussia |Real |Atletico |Athletic )/i, "")
+        if (clean !== name) clubEloMap.set(clean.toLowerCase(), elo)
+        count++
+      }
+    }
+    console.log(`✅ ClubElo: ${count} teams loaded`)
+    // Refresh every 12 hours
+    setTimeout(loadClubElo, 12 * 60 * 60 * 1000)
+  } catch(e) {
+    console.log("⚠️  ClubElo fetch failed:", e.message, "— using fallback ELO")
+    // Retry in 30 minutes
+    setTimeout(loadClubElo, 30 * 60 * 1000)
+  }
+}
+
+function getClubElo(name) {
+  if (!name) return null
+  const lo = name.toLowerCase()
+  // Exact match
+  if (clubEloMap.has(lo)) return clubEloMap.get(lo)
+  // Partial match — try first 6 chars (catches "Man City" vs "Manchester City" etc)
+  const short = lo.replace(/^(fc |ac |as |rc |sc |cd |rb |vfb |vfl |borussia |real |atletico |athletic |paris saint-germain|paris sg)/i, "").trim()
+  if (clubEloMap.has(short)) return clubEloMap.get(short)
+  // Scan for best partial
+  for (const [k, v] of clubEloMap) {
+    const ks = k.replace(/^(fc |ac |as |rc |sc |cd |rb |borussia |real |atletico )/i, "").trim()
+    const ns = short.slice(0, 6), ks6 = ks.slice(0, 6)
+    if (ns.length >= 4 && (ks.startsWith(ns) || ns.startsWith(ks) || ks6 === ns)) return v
+  }
+  return null
+}
+
+// ── DYNAMIC ELO STORE ────────────────────────────────────
+// Stores computed/adjusted ELOs for teams not in ClubElo.
+// Key: teamName, Value: { elo, league, lastUpdated, adjustments[] }
+const dynamicEloStore = new Map()
+
+// ── LEAGUE LEVEL MULTIPLIERS ──────────────────────────────
+// How much ELO from one league translates to another.
+// Beating a Saudi team means less than beating a Bundesliga team.
+const LEAGUE_STRENGTH = {
+  "Champions League":      1.00,
+  "Premier League":        0.98,
+  "La Liga":               0.97,
+  "Bundesliga":            0.96,
+  "Serie A":               0.95,
+  "Ligue 1":               0.93,
+  "Europa League":         0.90,
+  "Conference League":     0.85,
+  "Championship":          0.82,
+  "Primeira Liga":         0.84,
+  "Eredivisie":            0.84,
+  "Süper Lig":             0.82,
+  "Belgian Pro League":    0.80,
+  "Scottish Premiership":  0.78,
+  "Bundesliga 2":          0.80,
+  "La Liga 2":             0.78,
+  "Danish Superliga":      0.76,
+  "Greek Super League":    0.74,
+  "Czech Liga":            0.73,
+  "Argentine Primera":     0.80,
+  "Brasileirão":           0.79,
+  "MLS":                   0.70,
+  "Saudi Pro League":      0.69,
+  "South African PSL":     0.58,
+  "Zambian Super League":  0.50,
+  "Estonian Meistriliiga": 0.52,
+}
+
+// European competition bonus — playing in Europe lifts a team's perceived strength
+const EUROPEAN_BONUS = {
+  "Champions League group/KO":  80,   // just qualifying for UCL = significant strength signal
+  "Europa League group":        45,
+  "Conference League group":    25,
+}
+
+// ── LEAGUE-CAP BASE ELO ───────────────────────────────────
+// Starting point before dynamic adjustments are applied.
+// For teams with no history in the dynamic store.
+function leagueCapElo(teamName, league, approxPosition) {
+  const band = LEAGUE_ELO_BANDS[league]
+  if (!band) return 1500
+  const pos = Math.max(0, Math.min(1, approxPosition || 0.5))
+  // Deterministic jitter per team name so same team always gets same base
+  let seed = 0
+  for (let i = 0; i < teamName.length; i++) seed = (seed * 31 + teamName.charCodeAt(i)) & 0xffffffff
+  const jitter = (Math.abs(seed) % 50) - 25
+  return Math.round(band.top - pos * band.spread + jitter)
+}
+
+// ── DYNAMIC ELO CALCULATOR ────────────────────────────────
+// Called after each form result is processed.
+// Adjusts the base ELO using:
+//   1. Form (weighted recent results)
+//   2. Quality of opponents beaten (ELO-based bonus)
+//   3. European competition status
+//   4. League position relative to expected
+//   5. Cross-league result quality multiplier
+//
+// K-factor: how much a single result moves the rating.
+// Standard chess K=32. We use dynamic K based on confidence.
+function calcDynamicElo(teamName, league, baseElo, form, opponentElos, inEurope) {
+  if (!form || form.length === 0) return baseElo
+
+  const leagueStrength = LEAGUE_STRENGTH[league] || 0.70
+  const band = LEAGUE_ELO_BANDS[league] || { top: 1700, bot: 1300 }
+
+  // K-factor — how volatile the rating is
+  // Lower K = more stable (established teams), higher K = more reactive (new/unknown teams)
+  const K = baseElo < 1400 ? 36 : baseElo < 1600 ? 28 : 22
+
+  let adjustedElo = baseElo
+
+  // 1. Form-based adjustment
+  // Each result shifts ELO using standard Elo formula: K * (actual - expected)
+  const weights = [1.0, 0.85, 0.70, 0.55, 0.40]  // more weight to recent results
+  for (let i = 0; i < Math.min(form.length, 5); i++) {
+    const result = form[i]
+    const oppElo = opponentElos[i] || (baseElo + (Math.random() > 0.5 ? 50 : -50))
+    const expected = 1 / (1 + Math.pow(10, (oppElo - adjustedElo) / 400))
+    const actual = result === "W" ? 1.0 : result === "D" ? 0.5 : 0.0
+    const delta = K * weights[i] * (actual - expected)
+    adjustedElo += delta
+  }
+
+  // 2. Form streak bonus/penalty — momentum matters
+  const recentThree = form.slice(0, 3)
+  const wins = recentThree.filter(r => r === "W").length
+  const losses = recentThree.filter(r => r === "L").length
+  if (wins === 3) adjustedElo += 18        // 3-game winning streak
+  else if (wins === 2) adjustedElo += 8
+  else if (losses === 3) adjustedElo -= 18 // 3-game losing streak
+  else if (losses === 2) adjustedElo -= 8
+
+  // 3. European competition bonus
+  // Being in Europe signals the team is stronger than average for their domestic league
+  if (inEurope === "ucl") adjustedElo += 60
+  else if (inEurope === "uel") adjustedElo += 35
+  else if (inEurope === "uecl") adjustedElo += 18
+
+  // 4. League position signal
+  // If we know approximate position, teams above midtable deserve a lift
+  // (This is baked into the base already, but we reinforce it via form)
+
+  // 5. Cross-league quality multiplier
+  // Results against stronger leagues are worth more
+  // e.g. a Zambian team beating a South African team is more meaningful than
+  // beating another Zambian team
+  const oppLeagueStrengths = opponentElos.map(oe => {
+    // Infer opponent league strength from their ELO
+    if (oe > 1850) return 1.00
+    if (oe > 1750) return 0.95
+    if (oe > 1650) return 0.88
+    if (oe > 1550) return 0.80
+    if (oe > 1450) return 0.70
+    if (oe > 1380) return 0.60
+    return 0.52
+  })
+  const avgOppStrength = oppLeagueStrengths.length
+    ? oppLeagueStrengths.reduce((s, v) => s + v, 0) / oppLeagueStrengths.length
+    : leagueStrength
+  // Scale up if facing stronger opposition
+  const qualityMultiplier = 0.7 + (avgOppStrength / leagueStrength) * 0.3
+  const formDelta = adjustedElo - baseElo
+  adjustedElo = baseElo + formDelta * qualityMultiplier
+
+  // Hard clamp — can't exceed league ceiling or fall below floor
+  // But allow small overflow for genuinely elite teams (e.g. Champions League winner from Brazil)
+  const ceiling = band.top + 60
+  const floor   = band.bot - 40
+  return Math.round(Math.max(floor, Math.min(ceiling, adjustedElo)))
+}
+
+// ── GET OR COMPUTE DYNAMIC ELO ────────────────────────────
+// This is called from getElo() for teams not in ClubElo.
+// Uses cached form data and any available opponent ELO context.
+function getDynamicElo(teamName, league, approxPosition, form, opponentElos, inEurope) {
+  const base = leagueCapElo(teamName, league, approxPosition)
+
+  // If no form data, return base (band position)
+  if (!form || form.length === 0) return base
+
+  // Check cache — recompute if form changed or stale (> 6 hours)
+  const cached = dynamicEloStore.get(teamName)
+  const formKey = (form || []).join("")
+  if (cached && cached.formKey === formKey && cached.league === league &&
+      Date.now() - cached.ts < 6 * 3600000) {
+    return cached.elo
+  }
+
+  // Compute dynamic ELO
+  const dynElo = calcDynamicElo(teamName, league, base, form, opponentElos || [], inEurope || null)
+
+  // Cache it
+  dynamicEloStore.set(teamName, { elo: dynElo, league, formKey, ts: Date.now() })
+
+  return dynElo
 }
 
 // ══════════════════════════════════════════════════════════
@@ -216,7 +485,7 @@ async function smFixtures(days) {
         return []
       }
     }
-  }, TTL.S)
+  }, TTL.M)  // cache 15 min — reduces cold-start hits
 }
 
 // ── LIVE SCORES ───────────────────────────────────────────
@@ -324,16 +593,37 @@ async function smTeamForm(teamId) {
 //  Using oddsAgent (keepAlive: false) — prevents ECONNRESET
 // ══════════════════════════════════════════════════════════
 const ODDS_SPORTS = [
-  { key:"soccer_epl",                    name:"Premier League" },
-  { key:"soccer_spain_la_liga",          name:"La Liga" },
-  { key:"soccer_italy_serie_a",          name:"Serie A" },
-  { key:"soccer_germany_bundesliga",     name:"Bundesliga" },
-  { key:"soccer_france_ligue_one",       name:"Ligue 1" },
-  { key:"soccer_uefa_champs_league",     name:"Champions League" },
-  { key:"soccer_uefa_europa_league",     name:"Europa League" },
-  { key:"soccer_portugal_primeira_liga", name:"Primeira Liga" },
-  { key:"soccer_netherlands_eredivisie", name:"Eredivisie" },
-  { key:"soccer_brazil_campeonato",      name:"Brasileirão" }
+  // ── TOP 5 EUROPEAN ──
+  { key:"soccer_epl",                             name:"Premier League" },
+  { key:"soccer_spain_la_liga",                   name:"La Liga" },
+  { key:"soccer_italy_serie_a",                   name:"Serie A" },
+  { key:"soccer_germany_bundesliga",              name:"Bundesliga" },
+  { key:"soccer_france_ligue_one",                name:"Ligue 1" },
+  // ── UEFA ──
+  { key:"soccer_uefa_champs_league",              name:"Champions League" },
+  { key:"soccer_uefa_europa_league",              name:"Europa League" },
+  { key:"soccer_uefa_europa_conference_league",   name:"Conference League" },
+  // ── ENGLAND ──
+  { key:"soccer_england_efl_cup",                 name:"Carabao Cup" },
+  { key:"soccer_fa_cup",                          name:"FA Cup" },
+  { key:"soccer_efl_champ",                       name:"Championship" },
+  // ── SECOND TIERS ──
+  { key:"soccer_germany_bundesliga2",             name:"Bundesliga 2" },
+  { key:"soccer_spain_segunda_division",          name:"La Liga 2" },
+  // ── OTHER EUROPEAN ──
+  { key:"soccer_turkey_super_league",             name:"Süper Lig" },
+  { key:"soccer_belgium_first_div",               name:"Belgian Pro League" },
+  { key:"soccer_scotland_premiership",            name:"Scottish Premiership" },
+  { key:"soccer_argentina_primera_division",      name:"Argentine Primera" },
+  { key:"soccer_portugal_primeira_liga",          name:"Primeira Liga" },
+  { key:"soccer_netherlands_eredivisie",          name:"Eredivisie" },
+  { key:"soccer_denmark_superliga",               name:"Danish Superliga" },
+  { key:"soccer_greece_super_league",             name:"Greek Super League" },
+  { key:"soccer_czech_republic_first_league",     name:"Czech Liga" },
+  // ── REST OF WORLD ──
+  { key:"soccer_brazil_campeonato",               name:"Brasileirão" },
+  { key:"soccer_usa_mls",                         name:"MLS" },
+  { key:"soccer_saudi_professional_league",       name:"Saudi Pro League" },
 ]
 const prevOddsStore = new Map()
 
@@ -423,16 +713,35 @@ const ELO_BASE = {
   "Flamengo":1760,"Palmeiras":1750,"Atletico Mineiro":1730
 }
 
-function getElo(name) {
+// getElo — simple version (no form context, used for quick lookups)
+function getElo(name, league, approxPosition) {
+  return getEloFull(name, league, approxPosition, null, null, null)
+}
+
+// getEloFull — full version with form context for dynamic adjustment
+function getEloFull(name, league, approxPosition, form, opponentElos, inEurope) {
+  // Priority 1: Supabase team_ratings (manually maintained or synced)
   const db = teamDB.get(name)
   if (db && db.scaled_score > 0) return Math.round(1300 + db.scaled_score * 7.5)
   if (db && db.elo > 1300) return db.elo
+
+  // Priority 2: ClubElo API (live, ~700 European clubs, updated daily)
+  // ClubElo already encodes form — we don't adjust it further
+  const clubElo = getClubElo(name)
+  if (clubElo && clubElo > 1000) return clubElo
+
+  // Priority 3: Hardcoded ELO_BASE (fallback for well-known clubs ClubElo may miss)
   if (ELO_BASE[name]) return ELO_BASE[name]
   const lo = name.toLowerCase()
   for (const k of Object.keys(ELO_BASE)) {
     const kl = k.toLowerCase()
     if (lo.slice(0,5) && (lo.startsWith(kl.slice(0,5)) || kl.startsWith(lo.slice(0,5)))) return ELO_BASE[k]
   }
+
+  // Priority 4: Dynamic ELO model — adjusts league-cap base using form, upsets, European status
+  if (league) return getDynamicElo(name, league, approxPosition, form, opponentElos, inEurope)
+
+  // Final fallback
   return 1500
 }
 
@@ -535,77 +844,137 @@ function fact(n) { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r }
 function pcs(hxg, axg, h, a) { return (Math.exp(-hxg) * Math.pow(hxg,h) / fact(h)) * (Math.exp(-axg) * Math.pow(axg,a) / fact(a)) }
 function detectValue(prob, odds) { if (!odds || odds < 1.05) return { isValue: false, edge: 0 }; const edge = prob - 100/odds; return { isValue: edge > 4, edge: parseFloat(edge.toFixed(2)) } }
 // Normalise verbose Sportmonks league names to clean display names
+// ── ALLOWED LEAGUES — only these show in the app ─────────
+// Add or remove league names here to control what appears.
+// Return value is the display name. null = filtered out entirely.
 function normLeague(raw) {
-  if (!raw) return raw
+  if (!raw) return null
   const map = {
-    // England
-    "English Premier League": "Premier League",
-    "Premier League (England)": "Premier League",
-    "Barclays Premier League": "Premier League",
-    "Premier League": "Premier League",
-    "EPL": "Premier League",
-    "EFL Championship": "Championship",
-    "EFL Cup": "Carabao Cup",
-    "Football League Cup": "Carabao Cup",
-    "Carabao Cup": "Carabao Cup",
-    "FA Cup": "FA Cup",
-    "English FA Cup": "FA Cup",
-    "The FA Cup": "FA Cup",
-    "EFL Trophy": "EFL Trophy",
-    // Spain
-    "Spanish La Liga": "La Liga",
-    "La Liga Santander": "La Liga",
-    "La Liga": "La Liga",
-    "Primera Division": "La Liga",
-    "LaLiga": "La Liga",
-    "Copa del Rey": "Copa del Rey",
-    // Italy
-    "Italian Serie A": "Serie A",
-    "Serie A": "Serie A",
-    "Coppa Italia": "Coppa Italia",
-    // Germany
-    "German Bundesliga": "Bundesliga",
-    "Bundesliga 1": "Bundesliga",
-    "Bundesliga": "Bundesliga",
-    "DFB Pokal": "DFB Pokal",
-    "2. Bundesliga": "2. Bundesliga",
-    // France
-    "French Ligue 1": "Ligue 1",
-    "Ligue 1 Uber Eats": "Ligue 1",
-    "Ligue 1": "Ligue 1",
-    "Coupe de France": "Coupe de France",
-    // UEFA
-    "UEFA Champions League": "Champions League",
-    "UEFA Europa League": "Europa League",
-    "UEFA Conference League": "Conference League",
-    // Others
-    "Scottish Premiership": "Scottish Premiership",
-    "Eredivisie (Netherlands)": "Eredivisie",
-    "Dutch Eredivisie": "Eredivisie",
-    "Eredivisie": "Eredivisie",
-    "Primeira Liga (Portugal)": "Primeira Liga",
-    "Primeira Liga": "Primeira Liga",
-    "Süper Lig": "Super Lig",
-    "Turkish Süper Lig": "Super Lig",
-    "Brazilian Serie A": "Brasileirão",
+    // ── ENGLAND ──
+    "Premier League":              "Premier League",
+    "English Premier League":      "Premier League",
+    "Premier League (England)":    "Premier League",
+    "Barclays Premier League":     "Premier League",
+    "EPL":                         "Premier League",
+    "FA Cup":                      "FA Cup",
+    "English FA Cup":              "FA Cup",
+    "The FA Cup":                  "FA Cup",
+    "EFL Cup":                     "Carabao Cup",
+    "Football League Cup":         "Carabao Cup",
+    "Carabao Cup":                 "Carabao Cup",
+    "EFL Championship":            "Championship",
+    "Championship":                "Championship",
+    // ── SPAIN ──
+    "La Liga":                     "La Liga",
+    "LaLiga":                      "La Liga",
+    "Spanish La Liga":             "La Liga",
+    "La Liga Santander":           "La Liga",
+    "Primera Division":            "La Liga",
+    "LaLiga2":                     "La Liga 2",
+    "La Liga 2":                   "La Liga 2",
+    "La Liga SmartBank":           "La Liga 2",
+    "Segunda Division":            "La Liga 2",
+    "Spanish Segunda Division":    "La Liga 2",
+    "Copa del Rey":                "Copa del Rey",
+    // ── ITALY ──
+    "Serie A":                     "Serie A",
+    "Italian Serie A":             "Serie A",
+    "Coppa Italia":                "Coppa Italia",
+    // ── GERMANY ──
+    "Bundesliga":                  "Bundesliga",
+    "German Bundesliga":           "Bundesliga",
+    "Bundesliga 1":                "Bundesliga",
+    "2. Bundesliga":               "Bundesliga 2",
+    "Bundesliga 2":                "Bundesliga 2",
+    "German 2. Bundesliga":        "Bundesliga 2",
+    "DFB Pokal":                   "DFB Pokal",
+    // ── FRANCE ──
+    "Ligue 1":                     "Ligue 1",
+    "French Ligue 1":              "Ligue 1",
+    "Ligue 1 Uber Eats":           "Ligue 1",
+    "Coupe de France":             "Coupe de France",
+    // ── UEFA ──
+    "UEFA Champions League":       "Champions League",
+    "UEFA Europa League":          "Europa League",
+    "UEFA Conference League":      "Conference League",
+    // ── BRAZIL ──
+    "Brasileirao Serie A":         "Brasileirão",
+    "Brasileirão Serie A":         "Brasileirão",
+    "Brazilian Serie A":           "Brasileirão",
     "Campeonato Brasileiro Série A": "Brasileirão",
-    "MLS (Major League Soccer)": "MLS",
-    "Major League Soccer": "MLS",
-    "Argentine Primera División": "Argentine Primera",
-    "Liga Profesional Argentina": "Argentine Primera",
-    "Belgian First Division A": "Belgian Pro League",
-    "Jupiler Pro League": "Belgian Pro League",
-    "Egyptian Premier League": "Egyptian PL",
-    "Saudi Professional League": "Saudi Pro League",
-    "Saudi Pro League": "Saudi Pro League",
-    "J1 League": "J-League",
-    "Allsvenskan": "Allsvenskan",
-    "Ekstraklasa": "Ekstraklasa",
-    "Eliteserien": "Eliteserien"
+    "Serie A (Brazil)":            "Brasileirão",
+    // ── SAUDI ARABIA ──
+    "Saudi Professional League":   "Saudi Pro League",
+    "Saudi Pro League":            "Saudi Pro League",
+    "Saudi Premier League":        "Saudi Pro League",
+    // ── MLS ──
+    "Major League Soccer":         "MLS",
+    "MLS":                         "MLS",
+    "MLS (Major League Soccer)":   "MLS",
+    // ── ESTONIA ──
+    "Meistriliiga":                "Estonian Meistriliiga",
+    "Estonian Meistriliiga":       "Estonian Meistriliiga",
+    "Estonia Premium Liiga":       "Estonian Meistriliiga",
+    // ── TURKEY ──
+    "Süper Lig":                   "Süper Lig",
+    "Super Lig":                   "Süper Lig",
+    "Turkish Süper Lig":           "Süper Lig",
+    "Turkish Super Lig":           "Süper Lig",
+    // ── BELGIUM ──
+    "Belgian First Division A":    "Belgian Pro League",
+    "Jupiler Pro League":          "Belgian Pro League",
+    "Pro League":                  "Belgian Pro League",
+    "Belgian Pro League":          "Belgian Pro League",
+    // ── SCOTLAND ──
+    "Scottish Premiership":        "Scottish Premiership",
+    "Scottish Premier League":     "Scottish Premiership",
+    "Premiership":                 "Scottish Premiership",  // country-checked
+    // ── ARGENTINA ──
+    "Argentine Primera División":  "Argentine Primera",
+    "Liga Profesional Argentina":  "Argentine Primera",
+    "Primera División":            "Argentine Primera",     // country-checked
+    "Argentine Primera":           "Argentine Primera",
+    "Superliga Argentina":         "Argentine Primera",
+    // ── PORTUGAL ──
+    "Primeira Liga":               "Primeira Liga",
+    "Primeira Liga (Portugal)":    "Primeira Liga",
+    "Liga Portugal":               "Primeira Liga",
+    "Liga NOS":                    "Primeira Liga",
+    "Liga Portugal Betclic":       "Primeira Liga",
+    // ── NETHERLANDS ──
+    "Eredivisie":                  "Eredivisie",
+    "Dutch Eredivisie":            "Eredivisie",
+    "Eredivisie (Netherlands)":    "Eredivisie",
+    // ── DENMARK ──
+    "Superliga":                   "Danish Superliga",      // country-checked
+    "Danish Superliga":            "Danish Superliga",
+    "Denmark Superliga":           "Danish Superliga",
+    "DBU Pokalen":                 "DBU Pokalen",
+    // ── GREECE ──
+    "Super League":                "Greek Super League",    // country-checked
+    "Super League Greece":         "Greek Super League",
+    "Greek Super League":          "Greek Super League",
+    "Super League 1":              "Greek Super League",
+    // ── CZECH REPUBLIC (Slavia Prague) ──
+    "Czech Liga":                  "Czech Liga",
+    "Czech First League":          "Czech Liga",
+    "HET Liga":                    "Czech Liga",
+    "Fortuna Liga":                "Czech Liga",
+    "Czech Republic First League": "Czech Liga",
+    // ── ZAMBIA ──
+    "Zambia Super League":         "Zambian Super League",
+    "FAZ Super League":            "Zambian Super League",
+    "Super League (Zambia)":       "Zambian Super League",
+    // ── SOUTH AFRICA ──
+    "Premier Soccer League":       "South African PSL",
+    "PSL":                         "South African PSL",     // country-checked
+    "South African PSL":           "South African PSL",
+    "Absa Premiership":            "South African PSL",
+    "DStv Premiership":            "South African PSL",
   }
-  return map[raw] || raw
+  return map[raw] || null
 }
-function leagueFlag(c) { const f={"England":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Spain":"🇪🇸","Italy":"🇮🇹","Germany":"🇩🇪","France":"🇫🇷","Portugal":"🇵🇹","Netherlands":"🇳🇱","Brazil":"🇧🇷","Argentina":"🇦🇷","Turkey":"🇹🇷","Scotland":"🏴󠁧󠁢󠁳󠁣󠁴󠁿","Belgium":"🇧🇪","World":"⭐","Europe":"⭐","Egypt":"🇪🇬"}; return f[c] || "⚽" }
+function leagueFlag(c) { const f={"England":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Spain":"🇪🇸","Italy":"🇮🇹","Germany":"🇩🇪","France":"🇫🇷","Portugal":"🇵🇹","Netherlands":"🇳🇱","Brazil":"🇧🇷","Argentina":"🇦🇷","Turkey":"🇹🇷","Scotland":"🏴󠁧󠁢󠁳󠁣󠁴󠁿","Belgium":"🇧🇪","Denmark":"🇩🇰","Greece":"🇬🇷","Czech Republic":"🇨🇿","Saudi Arabia":"🇸🇦","USA":"🇺🇸","Zambia":"🇿🇲","South Africa":"🇿🇦","Estonia":"🇪🇪","World":"⭐","Europe":"⭐","Egypt":"🇪🇬"}; return f[c] || "⚽" }
 function inferTactics(elo, form) { const fs = formScore(form); if (elo>1850) return fs>0.7?"High Press 4-3-3":"Structured 4-2-3-1"; if (elo>1700) return "Balanced 4-3-3"; if (elo>1600) return "Counter 4-4-2"; return "Defensive 5-3-2" }
 
 function extractSMOdds(list) {
@@ -695,16 +1064,33 @@ async function buildPrediction(smFix, oddsMap) {
   const homeId = homeP.id, awayId = awayP.id
   const rawLeagueName = (smFix.league && smFix.league.name) || "Football"
   const country = (smFix.league && smFix.league.country && smFix.league.country.name) || ""
-  // Fix: Sportmonks sometimes returns "Premier League" for Egyptian PL — disambiguate by country
   let league = normLeague(rawLeagueName)
-  if (country === "Egypt" && (league === "Premier League" || rawLeagueName.toLowerCase().includes("premier"))) {
-    league = "Egyptian PL"
-  }
-  if (country === "Egypt" || rawLeagueName.toLowerCase().includes("egyptian")) {
-    league = "Egyptian PL"
-  }
+
+  // Disambiguate generic names that appear in multiple countries
+  // "Premier League" — only England
+  if (league === "Premier League" && country && country !== "England") league = null
+  // "Scottish Premiership" label "Premiership" — only Scotland
+  if (league === "Scottish Premiership" && country && country !== "Scotland") league = null
+  // "Argentine Primera" label "Primera División" — only Argentina
+  if (league === "Argentine Primera" && country && !["Argentina",""].includes(country)) league = null
+  // "Danish Superliga" label "Superliga" — only Denmark
+  if (league === "Danish Superliga" && country && country !== "Denmark") league = null
+  // "Greek Super League" label "Super League" — only Greece
+  if (league === "Greek Super League" && country && country !== "Greece") league = null
+  // "South African PSL" label "PSL" — only South Africa
+  if (league === "South African PSL" && country && country !== "South Africa") league = null
+
+  // Drop anything not in our whitelist
+  if (!league) return null
   const kickMs  = smFix.starting_at_timestamp ? smFix.starting_at_timestamp * 1000 : new Date(smFix.starting_at || 0).getTime()
   const isLive  = kickMs < now && kickMs > now - 7200000
+
+  // Filter out finished, cancelled, postponed, TBD, abandoned, awarded fixtures
+  // Sportmonks state IDs: 5=finished, 6=cancelled, 7=postponed, 10=TBD, 13=abandoned, 14=awarded, 15=interrupted, 17=deleted
+  const BAD_STATES = new Set([5, 6, 7, 10, 13, 14, 15, 17])
+  if (BAD_STATES.has(smFix.state_id) && !isLive) return null
+  // Also filter games that kicked off more than 3 hours ago (likely finished, state not updated yet)
+  if (!isLive && kickMs < now - 3 * 3600000 && kickMs > 0) return null
 
   // Odds
   const smOdds        = extractSMOdds(smFix.odds || [])
@@ -727,23 +1113,54 @@ async function buildPrediction(smFix, oddsMap) {
   const awayRealXG = extractRealXG(xgData, awayId)
   const hasRealXG  = !!(homeRealXG || awayRealXG)
 
-  // ELO from Supabase/hardcoded (team rankings 403 on this plan)
-  let hElo = getElo(home), aElo = getElo(away)
-
-  // Form from trends in fixture data (no extra API call needed)
+  // Form from trends in fixture data first (fast — no extra API call)
   let hForm = [], aForm = []
+  let hFormFull = [], aFormFull = []   // full form objects with opponent info
   if (smFix.trends) {
     const parseTrend = (ts, id) => {
       const t = (ts || []).find(x => x.participant_id === id)
       const fStr = (t && (t.form || t.value)) || ""
-      return String(fStr).split("").slice(0,5).map(c => c==="W"?"W":c==="D"?"D":"L")
+      return String(fStr).split("").slice(0,5).map(ch => ch==="W"?"W":ch==="D"?"D":"L")
     }
     hForm = parseTrend(smFix.trends, homeId)
     aForm = parseTrend(smFix.trends, awayId)
   }
-  // Only fetch form if not in fixture data — using the working between URL
-  if (!hForm.length && homeId) hForm = await smTeamForm(homeId).then(f => f.map(x => x.result)).catch(() => [])
-  if (!aForm.length && awayId) aForm = await smTeamForm(awayId).then(f => f.map(x => x.result)).catch(() => [])
+  if (!hForm.length && homeId) {
+    hFormFull = await smTeamForm(homeId).catch(() => [])
+    hForm = hFormFull.map(x => x.result)
+  }
+  if (!aForm.length && awayId) {
+    aFormFull = await smTeamForm(awayId).catch(() => [])
+    aForm = aFormFull.map(x => x.result)
+  }
+
+  // Detect European competition status (team appearing in UCL/UEL/UECL fixtures)
+  // If this fixture IS a European fixture, both teams get that signal
+  const isEuropean = ["Champions League","Europa League","Conference League"].includes(league)
+  const hInEurope = isEuropean
+    ? (league === "Champions League" ? "ucl" : league === "Europa League" ? "uel" : "uecl")
+    : null
+  const aInEurope = hInEurope
+
+  // Approximate league position from Sportmonks participant ID (modular rough estimate)
+  // Better than nothing for league-cap fallback teams with no form history
+  const approxHomePos = homeId ? (homeId % 20) / 20 : 0.5
+  const approxAwayPos = awayId ? (awayId % 20) / 20 : 0.5
+
+  // Extract opponent ELOs from form history for quality-of-win calculation
+  // We use a rough estimate here — the dynamic system refines on cached results
+  const hOppElos = hFormFull.slice(0, 5).map(f => {
+    const opp = f.opponent
+    return opp ? getElo(opp, league, 0.5) : 1500
+  })
+  const aOppElos = aFormFull.slice(0, 5).map(f => {
+    const opp = f.opponent
+    return opp ? getElo(opp, league, 0.5) : 1500
+  })
+
+  // ELO: ClubElo → Supabase → hardcoded → Dynamic ELO (form + opponent quality + European status)
+  let hElo = getEloFull(home, league, approxHomePos, hForm, hOppElos, hInEurope)
+  let aElo = getEloFull(away, league, approxAwayPos, aForm, aOppElos, aInEurope)
 
   const pressureIndex = calcPressureIndex(hElo, aElo, hForm, aForm)
   const hxg = calcXG(hElo, aElo, hForm, true, homeRealXG)
@@ -864,27 +1281,47 @@ app.get("/predictions", async (req, res) => {
       fetchOddsAPI().catch(e => { console.log("⚠️  fetchOddsAPI:", e.message); return {} }),
       smLive().catch(() => [])
     ])
+    // Pre-filter: only keep fixtures whose league is in our whitelist
+    // This cuts 1400+ raw SM fixtures down to just the leagues we support
     const all = new Map()
     for (const f of [...smList, ...liveList]) all.set(f.id, f)
-    const fixtures = [...all.values()].slice(0, 250)
-    console.log(`⚙️  Building predictions for ${fixtures.length} fixtures...`)
+    const filtered = [...all.values()].filter(f => {
+      const raw = (f.league && f.league.name) || ""
+      const country = (f.league && f.league.country && f.league.country.name) || ""
+      const norm = normLeague(raw)
+      if (!norm) return false
+      // Disambiguate generic league names by country
+      if (norm === "Premier League"    && country && country !== "England")   return false
+      if (norm === "Scottish Premiership" && country && country !== "Scotland") return false
+      if (norm === "Argentine Primera" && country && !["Argentina",""].includes(country)) return false
+      if (norm === "Danish Superliga"  && country && country !== "Denmark")   return false
+      if (norm === "Greek Super League"&& country && country !== "Greece")    return false
+      if (norm === "South African PSL" && country && country !== "South Africa") return false
+      return true
+    })
+    const fixtures = filtered.slice(0, 400)
+    console.log(`⚙️  Building predictions for ${fixtures.length} fixtures (filtered from ${all.size} total)...`)
     const results = []
-    const BATCH = 5
+    const BATCH = 20
     for (let b = 0; b < fixtures.length; b += BATCH) {
       const bRes = await Promise.all(fixtures.slice(b, b+BATCH).map(f => buildPrediction(f, oddsMap).catch(e => { console.log(`⚠️  fix#${f.id}:`, e.message?.slice(0,50)); return null })))
       results.push(...bRes.filter(Boolean))
-      if (b + BATCH < fixtures.length) await sleep(60)
+      if (b + BATCH < fixtures.length) await sleep(20)
     }
     console.log(`✅ ${results.length} predictions ready`)
     // Sort: top leagues first (by importance), then by date within league
     const LEAGUE_RANK = {
       "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
-      "Ligue 1":6,"Europa League":7,"FA Cup":8,"Carabao Cup":9,"Copa del Rey":10,
-      "Coppa Italia":11,"DFB Pokal":12,"Conference League":13,"Championship":14,
-      "Eredivisie":15,"Primeira Liga":16,"Super Lig":17,"Scottish Premiership":18,
-      "Brasileirão":19,"Argentine Primera":20,"Belgian Pro League":21,
-      "MLS":22,"Saudi Pro League":23,"J-League":24,"Allsvenskan":25,"Ekstraklasa":26,
-      "2. Bundesliga":27,"Coupe de France":28,"EFL Trophy":29
+      "Ligue 1":6,"Europa League":7,"Conference League":8,
+      "FA Cup":9,"Carabao Cup":10,"Championship":11,
+      "Primeira Liga":12,"Eredivisie":13,"Süper Lig":14,
+      "Belgian Pro League":15,"Scottish Premiership":16,
+      "Argentine Primera":17,"Bundesliga 2":18,"La Liga 2":19,
+      "Copa del Rey":20,"Coppa Italia":21,"DFB Pokal":22,
+      "Danish Superliga":23,"Greek Super League":24,"Czech Liga":25,
+      "Brasileirão":26,"MLS":27,"Saudi Pro League":28,
+      "South African PSL":29,"Zambian Super League":30,
+      "Estonian Meistriliiga":31,"Coupe de France":32,"DBU Pokalen":33
     }
     const leagueRankOf = name => LEAGUE_RANK[name] || 99
     res.json(results.sort((a,b) => {
@@ -1133,163 +1570,7 @@ app.get("/slips/:userId", async (req, res) => {
   const { data, error } = await sb.from("saved_slips").select("*").eq("user_id", req.params.userId).order("created_at",{ascending:false}).limit(50)
   res.json(error ? [] : data)
 })
-// ============================================================
-// SLIP IQ — NEW SERVER ROUTES TO PASTE
-// ============================================================
-// WHERE TO PASTE:
-//   Open server.js, find the line:
-//     // ── HEALTH ────────────────────────────────────────────────
-//   Paste ALL of the code below IMMEDIATELY ABOVE that line.
-// ============================================================
 
-// ── USER PROFILE ──────────────────────────────────────────
-app.get("/profile/:userId", async (req, res) => {
-  if (!sb) return res.json({ error: "Supabase not configured" })
-  const { userId } = req.params
-
-  // Fetch or auto-create profile
-  let { data: profile, error } = await sb
-    .from("user_profiles").select("*").eq("id", userId).single()
-
-  if (!profile) {
-    // Auto-create on first visit
-    const { data: created } = await sb.from("user_profiles").insert({
-      id: userId, display_name: "Bettor", plan: "free",
-      joined_at: new Date().toISOString(), last_seen_at: new Date().toISOString()
-    }).select().single()
-    profile = created || { id: userId, plan: "free", total_parlays: 0 }
-  } else {
-    // Update last_seen
-    await sb.from("user_profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", userId)
-  }
-
-  // Fetch parlay stats
-  const { data: parlays } = await sb.from("saved_parlays").select("status, combined_odds, confidence_score, leg_count, created_at")
-    .eq("user_id", userId).order("created_at", { ascending: false }).limit(200)
-
-  const allParlays = parlays || []
-  const won   = allParlays.filter(p => p.status === "won").length
-  const lost  = allParlays.filter(p => p.status === "lost").length
-  const pending = allParlays.filter(p => p.status === "pending").length
-  const biggestOdds = allParlays.reduce((max, p) => Math.max(max, p.combined_odds || 0), 0)
-  const avgConf = allParlays.length ? Math.round(allParlays.reduce((s,p) => s + (p.confidence_score||0), 0) / allParlays.length) : 0
-  const winRate = (won + lost) > 0 ? Math.round(won / (won + lost) * 100) : 0
-
-  // Fetch referral code
-  const { data: refCode } = await sb.from("user_referral_codes").select("*, user_referral_uses(count)").eq("user_id", userId).single()
-
-  // Fetch active plan grants
-  const { data: grants } = await sb.from("plan_grants").select("*")
-    .eq("user_id", userId).eq("is_active", true).gte("expires_at", new Date().toISOString())
-
-  res.json({
-    ...profile,
-    stats: { total: allParlays.length, won, lost, pending, winRate, biggestOdds, avgConf,
-      totalLegs: allParlays.reduce((s,p) => s + (p.leg_count||0), 0) },
-    referralCode: refCode || null,
-    activeGrants: grants || [],
-    recentParlays: allParlays.slice(0, 10)
-  })
-})
-
-app.patch("/profile/:userId", async (req, res) => {
-  if (!sb) return res.json({ error: "Supabase not configured" })
-  const allowed = ["display_name", "email", "avatar_url"]
-  const updates = {}
-  for (const k of allowed) if (req.body[k] !== undefined) updates[k] = req.body[k]
-  updates.updated_at = new Date().toISOString()
-  const { data, error } = await sb.from("user_profiles").update(updates).eq("id", req.params.userId).select().single()
-  res.json(error ? { error: error.message } : { ok: true, data })
-})
-
-// ── USER REFERRAL CODE (personal, 3-refer = 3mo pro) ─────
-app.post("/profile/:userId/referral-code", async (req, res) => {
-  if (!sb) return res.status(503).json({ error: "Supabase not configured" })
-  const { userId } = req.params
-
-  // Check if they already have one
-  const { data: existing } = await sb.from("user_referral_codes").select("*").eq("user_id", userId).single()
-  if (existing) return res.json({ ok: true, code: existing, already_existed: true })
-
-  // Get profile for display name
-  const { data: profile } = await sb.from("user_profiles").select("display_name").eq("id", userId).single()
-  const base = ((profile?.display_name || "USER").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)).padEnd(3,"X")
-  const suffix = Math.floor(100 + Math.random() * 9000)
-  const code = base + suffix
-
-  const { data, error } = await sb.from("user_referral_codes").insert({
-    user_id: userId, code, uses_count: 0, max_uses: 100,
-    reward_plan: "pro", reward_months: 3, threshold: 3, is_active: true,
-    created_at: new Date().toISOString()
-  }).select().single()
-
-  if (error) return res.status(500).json({ error: error.message })
-
-  // Save code on profile too
-  await sb.from("user_profiles").update({ referral_code: code }).eq("id", userId)
-  res.json({ ok: true, code: data })
-})
-
-// Apply someone's referral code when they sign up / first visit
-app.post("/referral/apply", async (req, res) => {
-  if (!sb) return res.status(503).json({ error: "Supabase not configured" })
-  const { code, user_id, email } = req.body
-  if (!code || !user_id) return res.status(400).json({ error: "code and user_id required" })
-
-  // Validate code
-  const { data: rc } = await sb.from("user_referral_codes").select("*").eq("code", code.toUpperCase()).eq("is_active", true).single()
-  if (!rc) return res.status(404).json({ error: "Code not found or inactive" })
-  if (rc.user_id === user_id) return res.status(400).json({ error: "Cannot use your own code" })
-
-  // Check not already used by this user
-  const { data: existing } = await sb.from("user_referral_uses").select("id").eq("code", code.toUpperCase()).eq("referred_user_id", user_id).single()
-  if (existing) return res.json({ ok: true, already_applied: true })
-
-  // Record the use
-  await sb.from("user_referral_uses").insert({
-    code: code.toUpperCase(), referrer_user_id: rc.user_id,
-    referred_user_id: user_id, referred_email: email || null,
-    joined_at: new Date().toISOString(), reward_granted: false
-  })
-
-  // Increment counter
-  const newCount = (rc.uses_count || 0) + 1
-  await sb.from("user_referral_codes").update({ uses_count: newCount }).eq("id", rc.id)
-
-  // Mark code on referred user profile
-  await sb.from("user_profiles").upsert({
-    id: user_id, referred_by_code: code.toUpperCase(),
-    last_seen_at: new Date().toISOString()
-  }, { onConflict: "id" })
-
-  // Check if threshold hit → grant reward
-  let rewardGranted = false
-  if (newCount > 0 && newCount % rc.threshold === 0) {
-    const expiresAt = new Date(Date.now() + rc.reward_months * 30 * 86400000).toISOString()
-    await sb.from("plan_grants").insert({
-      user_id: rc.user_id, plan: rc.reward_plan, months: rc.reward_months,
-      reason: "referral_reward", expires_at: expiresAt, is_active: true, granted_at: new Date().toISOString()
-    })
-    await sb.from("user_profiles").update({ plan: rc.reward_plan, plan_expires_at: expiresAt }).eq("id", rc.user_id)
-    rewardGranted = true
-  }
-
-  res.json({ ok: true, uses_count: newCount, threshold: rc.threshold, reward_granted: rewardGranted,
-    needs_more: rc.threshold - (newCount % rc.threshold === 0 ? rc.threshold : newCount % rc.threshold) })
-})
-
-// Get referral status for a user (how close they are to reward)
-app.get("/profile/:userId/referral-status", async (req, res) => {
-  if (!sb) return res.json({ error: "Supabase not configured" })
-  const { data: rc } = await sb.from("user_referral_codes").select("*").eq("user_id", req.params.userId).single()
-  if (!rc) return res.json({ code: null, uses: 0, threshold: 3, needs: 3 })
-  const { data: uses } = await sb.from("user_referral_uses").select("*").eq("code", rc.code).order("joined_at", { ascending: false })
-  const { data: grants } = await sb.from("plan_grants").select("*").eq("user_id", req.params.userId).eq("reason", "referral_reward").order("granted_at", { ascending: false })
-  res.json({ code: rc, uses: uses || [], grants: grants || [],
-    uses_count: rc.uses_count, threshold: rc.threshold,
-    needs_more: rc.threshold - (rc.uses_count % rc.threshold || rc.threshold),
-    total_rewards_earned: Math.floor(rc.uses_count / rc.threshold) })
-})
 // ── REFERRAL ──────────────────────────────────────────────
 app.post("/referral/generate", async (req, res) => {
   if (!sb) return res.status(503).json({ error:"Supabase not configured" })
@@ -1325,6 +1606,188 @@ app.get("/admin/affiliates", async (req, res) => {
     c.tier_breakdown={}; for (const u of uses||[]) c.tier_breakdown[u.subscription_plan||"unknown"]=(c.tier_breakdown[u.subscription_plan||"unknown"]||0)+1
   }
   res.json(codes)
+})
+
+// ── LEAGUE STANDINGS ──────────────────────────────────────
+// Returns standings/table for a given league name
+app.get("/league/standings", async (req, res) => {
+  const { league } = req.query
+  if (!league) return res.status(400).json({ error: "league param required" })
+  if (!SM_KEY) return res.json({ error: "No Sportmonks key" })
+
+  // Map display name back to SM search term
+  const searchMap = {
+    "Premier League":        "Premier League",
+    "La Liga":               "La Liga",
+    "Serie A":               "Serie A",
+    "Bundesliga":            "Bundesliga",
+    "Ligue 1":               "Ligue 1",
+    "Champions League":      "Champions League",
+    "Europa League":         "Europa League",
+    "Conference League":     "Conference League",
+    "Championship":          "Championship",
+    "Carabao Cup":           "Carabao Cup",
+    "FA Cup":                "FA Cup",
+    "Bundesliga 2":          "2. Bundesliga",
+    "La Liga 2":             "LaLiga2",
+    "Brasileirão":           "Brasileirao",
+    "MLS":                   "Major League Soccer",
+    "Saudi Pro League":      "Saudi Professional League",
+    "Estonian Meistriliiga": "Meistriliiga",
+  }
+
+  try {
+    const cacheKey = "standings_" + league.replace(/\s/g,"_")
+    const data = await cached(cacheKey, async () => {
+      // Fetch current season standings from Sportmonks
+      const r = await http(`${SM_BASE}/standings/seasons/latest`, {
+        api_token: SM_KEY,
+        include: "participant;details.type",
+        per_page: 50
+      })
+      const seasons = (r.data && r.data.data) || []
+      return seasons
+    }, TTL.M)
+    res.json({ ok: true, data, league })
+  } catch(e) {
+    res.json({ ok: false, error: e.message, league })
+  }
+})
+
+// Returns all loaded leagues with fixture counts (used by leagues page)
+app.get("/leagues", async (req, res) => {
+  try {
+    const days = 30
+    const smList = await smFixtures(days).catch(() => [])
+    const leagueCounts = {}
+    const leagueCountries = {}
+    for (const f of smList) {
+      const raw = (f.league && f.league.name) || ""
+      const country = (f.league && f.league.country && f.league.country.name) || ""
+      const norm = normLeague(raw)
+      if (!norm) continue
+      if (norm === "Premier League" && country && country !== "England") continue
+      leagueCounts[norm] = (leagueCounts[norm] || 0) + 1
+      leagueCountries[norm] = country
+    }
+    const LEAGUE_INFO = {
+      "Champions League":      { flag:"⭐", type:"knockout", country:"Europe" },
+      "Premier League":        { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England" },
+      "La Liga":               { flag:"🇪🇸", type:"league",   country:"Spain" },
+      "Serie A":               { flag:"🇮🇹", type:"league",   country:"Italy" },
+      "Bundesliga":            { flag:"🇩🇪", type:"league",   country:"Germany" },
+      "Ligue 1":               { flag:"🇫🇷", type:"league",   country:"France" },
+      "Europa League":         { flag:"🟠", type:"knockout", country:"Europe" },
+      "Conference League":     { flag:"🟢", type:"knockout", country:"Europe" },
+      "FA Cup":                { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England" },
+      "Carabao Cup":           { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England" },
+      "Championship":          { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England" },
+      "Bundesliga 2":          { flag:"🇩🇪", type:"league",   country:"Germany" },
+      "La Liga 2":             { flag:"🇪🇸", type:"league",   country:"Spain" },
+      "Süper Lig":             { flag:"🇹🇷", type:"league",   country:"Turkey" },
+      "Belgian Pro League":    { flag:"🇧🇪", type:"league",   country:"Belgium" },
+      "Scottish Premiership":  { flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", type:"league",   country:"Scotland" },
+      "Argentine Primera":     { flag:"🇦🇷", type:"league",   country:"Argentina" },
+      "Primeira Liga":         { flag:"🇵🇹", type:"league",   country:"Portugal" },
+      "Eredivisie":            { flag:"🇳🇱", type:"league",   country:"Netherlands" },
+      "Danish Superliga":      { flag:"🇩🇰", type:"league",   country:"Denmark" },
+      "Greek Super League":    { flag:"🇬🇷", type:"league",   country:"Greece" },
+      "Czech Liga":            { flag:"🇨🇿", type:"league",   country:"Czech Republic" },
+      "Brasileirão":           { flag:"🇧🇷", type:"league",   country:"Brazil" },
+      "MLS":                   { flag:"🇺🇸", type:"league",   country:"USA" },
+      "Saudi Pro League":      { flag:"🇸🇦", type:"league",   country:"Saudi Arabia" },
+      "Zambian Super League":  { flag:"🇿🇲", type:"league",   country:"Zambia" },
+      "South African PSL":     { flag:"🇿🇦", type:"league",   country:"South Africa" },
+      "Estonian Meistriliiga": { flag:"🇪🇪", type:"league",   country:"Estonia" },
+    }
+    const RANK = {
+      "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
+      "Ligue 1":6,"Europa League":7,"Conference League":8,"FA Cup":9,"Carabao Cup":10,
+      "Championship":11,"Bundesliga 2":12,"La Liga 2":13,"Brasileirão":14,
+      "MLS":15,"Saudi Pro League":16,"Estonian Meistriliiga":17
+    }
+    const result = Object.entries(LEAGUE_INFO)
+      .sort((a,b) => (RANK[a[0]]||99)-(RANK[b[0]]||99))
+      .map(([name, info]) => ({
+        name, ...info,
+        fixtureCount: leagueCounts[name] || 0,
+        hasFixtures: (leagueCounts[name] || 0) > 0
+      }))
+    res.json(result)
+  } catch(e) { res.json([]) }
+})
+
+// Team profile endpoint
+app.get("/team/:teamName", async (req, res) => {
+  const teamName = decodeURIComponent(req.params.teamName)
+  try {
+    // Get this team's fixtures from cached data
+    const days = 90
+    const smList = await smFixtures(days).catch(() => [])
+    const teamFixtures = smList.filter(f => {
+      const pArr = f.participants || []
+      return pArr.some(p => p.name === teamName)
+    }).slice(0, 10)
+
+    // Get upcoming fixtures for this team
+    const upcoming = teamFixtures.filter(f => {
+      const kick = f.starting_at_timestamp ? f.starting_at_timestamp * 1000 : new Date(f.starting_at || 0).getTime()
+      return kick > Date.now()
+    }).slice(0, 5)
+
+    // Get form from recent fixtures
+    const past = teamFixtures.filter(f => {
+      const kick = f.starting_at_timestamp ? f.starting_at_timestamp * 1000 : new Date(f.starting_at || 0).getTime()
+      return kick < Date.now()
+    }).slice(0, 5)
+
+    // ELO and players from DB
+    const elo = getElo(teamName)
+    const players = [...playerDB.values()].filter(p => p.team_name === teamName)
+
+    // AI team overview
+    const form = past.map(f => {
+      const pArr = f.participants || []
+      const isHome = pArr.find(p => p.name === teamName)?.meta?.location === "home"
+      const scores = f.scores || []
+      const hG = scores.find(s => s.description === "CURRENT" && s.participant_id === pArr.find(p=>p.meta?.location==="home")?.id)?.score?.goals || 0
+      const aG = scores.find(s => s.description === "CURRENT" && s.participant_id === pArr.find(p=>p.meta?.location==="away")?.id)?.score?.goals || 0
+      const scored = isHome ? hG : aG
+      const conc = isHome ? aG : hG
+      return scored > conc ? "W" : scored < conc ? "L" : "D"
+    })
+
+    res.json({
+      name: teamName, elo,
+      form,
+      players: players.slice(0, 25),
+      upcomingFixtures: upcoming,
+      pastFixtures: past,
+    })
+  } catch(e) { res.json({ name: teamName, error: e.message }) }
+})
+
+// ── ELO DEBUG ENDPOINT ────────────────────────────────────
+app.get("/elo/:teamName", async (req, res) => {
+  const name = decodeURIComponent(req.params.teamName)
+  const league = req.query.league || null
+  const clubElo   = getClubElo(name)
+  const supabase  = teamDB.get(name)
+  const hardcoded = ELO_BASE[name] || null
+  const dynamic   = dynamicEloStore.get(name)
+  const final     = getElo(name, league, 0.5)
+  res.json({
+    team: name,
+    source: clubElo ? "clubelo" : supabase ? "supabase" : hardcoded ? "hardcoded" : dynamic ? "dynamic" : "fallback",
+    final_elo: final,
+    clubelo_elo: clubElo || null,
+    supabase_elo: supabase ? (supabase.elo || null) : null,
+    hardcoded_elo: hardcoded,
+    dynamic_elo: dynamic ? dynamic.elo : null,
+    dynamic_cache: dynamic || null,
+    league_strength: league ? (LEAGUE_STRENGTH[league] || null) : null,
+    league_band: league ? (LEAGUE_ELO_BANDS[league] || null) : null,
+  })
 })
 
 // ── HEALTH ────────────────────────────────────────────────
@@ -1384,6 +1847,7 @@ app.listen(PORT, async () => {
   console.log(`   ✗ Sidelined, Squads, Team Rankings: 404/403 on this plan\n`)
 
   await loadSupabase().catch(() => {})
+  loadClubElo().catch(() => {})   // async — doesn't block startup
 
   console.log("🔄 Pre-warming caches...")
   smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))

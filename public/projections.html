@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slip IQ — Founder Projections</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;
+  --accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;
+  --purple:#a855f7;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;
+  --grad:linear-gradient(135deg,#00c8f8,#00e5c8);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(4,8,15,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between}
+.tb-logo{font-family:'Bebas Neue';font-size:20px;letter-spacing:4px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.tb-title{font-family:'JetBrains Mono';font-size:11px;letter-spacing:3px;color:var(--text3)}
+.tb-nav{display:flex;align-items:center;gap:10px}
+.tb-btn{background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.2);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:5px 12px;border-radius:4px;cursor:pointer;text-decoration:none;transition:all .2s}
+.tb-btn:hover{background:rgba(0,200,248,.18)}
+
+/* LAYOUT */
+.page{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:24px}
+.two-col{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+.full-col{margin-top:20px}
+
+/* INPUTS PANEL */
+.inputs-panel{background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:20px;position:sticky;top:74px}
+.panel-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;margin-bottom:16px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.input-section{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+.input-section:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.input-section-title{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:10px}
+.input-row{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.input-row:last-child{margin-bottom:0}
+.input-lbl{display:flex;justify-content:space-between;align-items:center}
+.input-lbl span{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:.5px}
+.input-lbl strong{font-family:'JetBrains Mono';font-size:11px;color:var(--accent)}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(0,200,248,.4)}
+input[type=number],input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:5px;font-family:'JetBrains Mono';font-size:11px;padding:6px 10px;outline:none;transition:border-color .2s}
+input[type=number]:focus,select:focus{border-color:var(--accent)}
+.tier-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tier-input-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;position:relative}
+.tier-input-item .tier-name{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:4px}
+.tier-input-item input{font-size:12px;padding:4px 6px}
+.btn-calc{width:100%;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:2px;padding:12px;border-radius:8px;border:none;cursor:pointer;margin-top:16px;transition:all .2s;text-transform:uppercase}
+.btn-calc:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,200,248,.4)}
+
+/* RESULTS AREA */
+.results{display:flex;flex-direction:column;gap:16px}
+
+/* SCENARIO PILLS */
+.scenario-row{display:flex;gap:6px;flex-wrap:wrap}
+.sc-pill{background:var(--panel);border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:10px;letter-spacing:1px;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
+.sc-pill:hover,.sc-pill.active{background:rgba(0,200,248,.1);border-color:var(--accent);color:var(--accent)}
+
+/* FOUNDER SPLIT */
+.founder-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.founder-card{border-radius:12px;padding:18px 20px;position:relative;overflow:hidden}
+.founder-card.f1{background:linear-gradient(135deg,rgba(0,102,255,.12),rgba(0,200,248,.06));border:1px solid rgba(0,200,248,.3)}
+.founder-card.f2{background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(0,229,200,.06));border:1px solid rgba(168,85,247,.3)}
+.founder-card .fc-name{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:6px}
+.founder-card .fc-share{font-family:'Bebas Neue';font-size:14px;letter-spacing:2px;margin-bottom:8px}
+.founder-card.f1 .fc-share{color:var(--accent)}
+.founder-card.f2 .fc-share{color:var(--purple)}
+.founder-card .fc-amount{font-family:'Bebas Neue';font-size:42px;line-height:1;margin-bottom:4px}
+.founder-card.f1 .fc-amount{color:var(--accent)}
+.founder-card.f2 .fc-amount{color:var(--purple)}
+.founder-card .fc-sub{font-family:'JetBrains Mono';font-size:10px;color:var(--text3)}
+.founder-card .fc-annual{font-family:'Bebas Neue';font-size:22px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}
+.founder-card.f1 .fc-annual{color:var(--teal)}
+.founder-card.f2 .fc-annual{color:var(--teal)}
+
+/* METRIC CARDS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.metric-card{background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:14px 16px}
+.metric-card .m-lbl{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px}
+.metric-card .m-val{font-family:'Bebas Neue';font-size:32px;line-height:1}
+.metric-card .m-sub{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:4px}
+.metric-card.green .m-val{color:var(--green)}
+.metric-card.red .m-val{color:var(--red)}
+.metric-card.gold .m-val{color:var(--gold)}
+.metric-card.accent .m-val{color:var(--accent)}
+
+/* CARD WRAPPER */
+.card{background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:18px 20px}
+.card-hdr{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.card-hdr span{color:var(--accent)}
+
+/* CHART */
+.chart-wrap{position:relative;width:100%;height:280px}
+
+/* TIER TABLE */
+.tier-table{width:100%;border-collapse:collapse;font-size:12px}
+.tier-table th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.tier-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2)}
+.tier-table tr:last-child td{border-bottom:none}
+.tier-table tr:hover td{background:rgba(0,200,248,.03)}
+.tier-table .num{text-align:right;font-family:'JetBrains Mono';font-variant-numeric:tabular-nums}
+.tier-table .grn{color:var(--green)}.tier-table .red{color:var(--red)}.tier-table .gold{color:var(--gold)}
+
+/* COST TABLE */
+.cost-section{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cost-table{width:100%;border-collapse:collapse;font-size:12px}
+.cost-table th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+.cost-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text2)}
+.cost-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--text)}
+.cost-table .num{text-align:right;font-family:'JetBrains Mono'}
+
+/* PROJECTION TABLE */
+.proj-table{width:100%;border-collapse:collapse;font-size:12px}
+.proj-table th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);text-align:right;padding:7px 10px;border-bottom:1px solid var(--border)}
+.proj-table th:first-child{text-align:left}
+.proj-table td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;font-family:'JetBrains Mono';font-size:11px;color:var(--text2)}
+.proj-table td:first-child{text-align:left;color:var(--text);font-weight:500}
+.proj-table tr.highlight td{background:rgba(0,200,248,.05);color:var(--text)}
+.proj-table tr.highlight td:first-child{color:var(--accent)}
+.proj-table .pos{color:var(--green)}.proj-table .neg{color:var(--red)}.proj-table .neutral{color:var(--text3)}
+
+/* MILESTONES */
+.milestones{display:flex;flex-direction:column;gap:8px}
+.milestone{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;transition:border-color .2s}
+.milestone.reached{border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.03)}
+.milestone.next{border-color:rgba(0,200,248,.3);background:rgba(0,200,248,.03)}
+.ms-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.milestone.reached .ms-icon{background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.3)}
+.milestone.next .ms-icon{background:rgba(0,200,248,.12);border:1px solid rgba(0,200,248,.25)}
+.milestone .ms-icon.locked{background:var(--border);border:1px solid var(--border2)}
+.ms-info{flex:1}
+.ms-title{font-size:13px;color:var(--text);font-weight:500}
+.ms-sub{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:2px}
+.ms-val{font-family:'Bebas Neue';font-size:20px;text-align:right}
+.milestone.reached .ms-val{color:var(--green)}
+.milestone.next .ms-val{color:var(--accent)}
+.milestone .ms-val{color:var(--text3)}
+
+/* BREAKEVEN BAR */
+.be-bar{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin:8px 0}
+.be-fill{height:100%;border-radius:5px;transition:width .6s ease;background:var(--grad)}
+.be-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--green);color:var(--green);font-family:'JetBrains Mono';font-size:11px;padding:10px 18px;border-radius:6px;z-index:999;animation:fadeIn .3s ease;letter-spacing:1px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* GROWTH MODE TOGGLE */
+.mode-toggle{display:flex;gap:6px;margin-bottom:16px}
+.mode-btn{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:7px;border-radius:5px;cursor:pointer;text-align:center;transition:all .2s}
+.mode-btn.active{background:rgba(0,200,248,.1);border-color:var(--accent);color:var(--accent)}
+
+@media(max-width:900px){
+  .two-col{grid-template-columns:1fr}
+  .inputs-panel{position:relative;top:0}
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .founder-split{grid-template-columns:1fr}
+  .cost-section{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="tb-logo">SLIP IQ</div>
+    <div class="tb-title">FOUNDER PROJECTIONS</div>
+  </div>
+  <div class="tb-nav">
+    <a href="home.html" class="tb-btn">← APP</a>
+    <a href="index.html" class="tb-btn">HOME</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="two-col">
+
+    <!-- LEFT: INPUTS -->
+    <div class="inputs-panel">
+      <div class="panel-title">Model Inputs</div>
+
+      <div class="input-section">
+        <div class="input-section-title">User Base</div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Total users</span><strong id="lbl-users">1,000</strong></div>
+          <input type="range" id="inp-users" min="100" max="50000" value="1000" step="100" oninput="syncLabel('users',this.value,true)">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Paid conversion %</span><strong id="lbl-paidpct">12%</strong></div>
+          <input type="range" id="inp-paidpct" min="1" max="35" value="12" step="1" oninput="syncLabel('paidpct',this.value,false,'%')">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Monthly growth rate</span><strong id="lbl-growth">15%</strong></div>
+          <input type="range" id="inp-growth" min="0" max="100" value="15" step="1" oninput="syncLabel('growth',this.value,false,'%')">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Monthly churn rate</span><strong id="lbl-churn">6%</strong></div>
+          <input type="range" id="inp-churn" min="1" max="25" value="6" step="1" oninput="syncLabel('churn',this.value,false,'%')">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Projection months</span><strong id="lbl-months">24</strong></div>
+          <input type="range" id="inp-months" min="6" max="60" value="24" step="6" oninput="syncLabel('months',this.value,false,'mo')">
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-section-title">Pricing Tiers ($/mo)</div>
+        <div class="tier-inputs">
+          <div class="tier-input-item"><div class="tier-name">STARTER</div><input type="number" id="price-starter" value="2.99" step="0.01" min="0" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">BASIC</div><input type="number" id="price-basic" value="4.99" step="0.01" min="0" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">PRO</div><input type="number" id="price-pro" value="19.99" step="0.01" min="0" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">ELITE</div><input type="number" id="price-elite" value="129.99" step="0.01" min="0" oninput="calculate()"></div>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-section-title">Tier Mix (% of paid users)</div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Starter</span><strong id="lbl-mix-starter">30%</strong></div>
+          <input type="range" id="mix-starter" min="0" max="80" value="30" step="1" oninput="syncMix('starter',this.value)">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Basic</span><strong id="lbl-mix-basic">25%</strong></div>
+          <input type="range" id="mix-basic" min="0" max="80" value="25" step="1" oninput="syncMix('basic',this.value)">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Pro</span><strong id="lbl-mix-pro">32%</strong></div>
+          <input type="range" id="mix-pro" min="0" max="80" value="32" step="1" oninput="syncMix('pro',this.value)">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Elite</span><strong id="lbl-mix-elite">13%</strong></div>
+          <input type="range" id="mix-elite" min="0" max="60" value="13" step="1" oninput="syncMix('elite',this.value)">
+        </div>
+        <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);text-align:right;margin-top:4px">Total: <span id="mix-total" style="color:var(--accent)">100%</span></div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-section-title">Fixed Costs ($/mo)</div>
+        <div class="tier-inputs">
+          <div class="tier-input-item"><div class="tier-name">SPORTMONKS</div><input type="number" id="cost-sm" value="2400" step="1" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">ODDS API</div><input type="number" id="cost-odds" value="79" step="1" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">AI/SERVER</div><input type="number" id="cost-ai" value="100" step="1" oninput="calculate()"></div>
+          <div class="tier-input-item"><div class="tier-name">OTHER</div><input type="number" id="cost-other" value="119" step="1" oninput="calculate()"></div>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-section-title">Other Settings</div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Payment processing fee</span><strong id="lbl-stripe">3%</strong></div>
+          <input type="range" id="inp-stripe" min="2" max="5" value="3" step="1" oninput="syncLabel('stripe',this.value,false,'%')">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Founder 1 equity split</span><strong id="lbl-split">50%</strong></div>
+          <input type="range" id="inp-split" min="1" max="99" value="50" step="1" oninput="syncLabel('split',this.value,false,'%')">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Founder 1 name</span></div>
+          <input type="text" id="f1name" value="Founder 1" oninput="calculate()">
+        </div>
+        <div class="input-row">
+          <div class="input-lbl"><span>Founder 2 name</span></div>
+          <input type="text" id="f2name" value="Founder 2" oninput="calculate()">
+        </div>
+      </div>
+
+      <button class="btn-calc" onclick="calculate()">⚡ RECALCULATE</button>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div class="results">
+
+      <!-- SCENARIO QUICK-SET -->
+      <div class="card" style="padding:14px 18px">
+        <div class="card-hdr">Quick scenarios</div>
+        <div class="scenario-row" id="scenarioPills">
+          <div class="sc-pill" onclick="setScenario(100)">100 users</div>
+          <div class="sc-pill" onclick="setScenario(500)">500 users</div>
+          <div class="sc-pill active" onclick="setScenario(1000)">1,000 users</div>
+          <div class="sc-pill" onclick="setScenario(5000)">5,000 users</div>
+          <div class="sc-pill" onclick="setScenario(10000)">10,000 users</div>
+          <div class="sc-pill" onclick="setScenario(20000)">20,000 users</div>
+          <div class="sc-pill" onclick="setScenario(50000)">50,000 users</div>
+          <div class="sc-pill" onclick="setScenario(100000)">100,000 users</div>
+        </div>
+      </div>
+
+      <!-- FOUNDER SPLIT -->
+      <div class="card">
+        <div class="card-hdr">Founder split — monthly take-home <span id="splitLabel">50 / 50</span></div>
+        <div class="founder-split">
+          <div class="founder-card f1">
+            <div class="fc-name" id="f1-name-lbl">Big Z</div>
+            <div class="fc-share" id="f1-share">50% EQUITY</div>
+            <div class="fc-amount" id="f1-monthly">$0</div>
+            <div class="fc-sub">per month</div>
+            <div class="fc-annual" id="f1-annual">$0 / year</div>
+          </div>
+          <div class="founder-card f2">
+            <div class="fc-name" id="f2-name-lbl">Wiglet</div>
+            <div class="fc-share" id="f2-share">50% EQUITY</div>
+            <div class="fc-amount" id="f2-monthly">$0</div>
+            <div class="fc-sub">per month</div>
+            <div class="fc-annual" id="f2-annual">$0 / year</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KEY METRICS -->
+      <div class="metric-grid" id="metricGrid">
+        <div class="metric-card accent"><div class="m-lbl">GROSS MRR</div><div class="m-val" id="m-mrr">—</div><div class="m-sub" id="m-mrr-sub">monthly recurring</div></div>
+        <div class="metric-card" id="mc-profit"><div class="m-lbl">NET PROFIT / MO</div><div class="m-val" id="m-profit">—</div><div class="m-sub" id="m-margin">— margin</div></div>
+        <div class="metric-card gold"><div class="m-lbl">ANNUAL PROFIT</div><div class="m-val" id="m-annual">—</div><div class="m-sub">projected</div></div>
+        <div class="metric-card accent"><div class="m-lbl">ARPU</div><div class="m-val" id="m-arpu">—</div><div class="m-sub" id="m-paid-users">paid users</div></div>
+      </div>
+
+      <!-- BREAKEVEN -->
+      <div class="card">
+        <div class="card-hdr">Breakeven tracker</div>
+        <div id="be-content"></div>
+      </div>
+
+      <!-- REVENUE CHART -->
+      <div class="card">
+        <div class="card-hdr">Monthly projection — <span id="chart-months-lbl">24 months</span></div>
+        <div style="display:flex;gap:14px;margin-bottom:12px;font-size:11px;color:var(--text3)">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#00ff88;display:inline-block"></span>Net profit</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#00c8f8;display:inline-block"></span>Gross MRR</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b5c;display:inline-block"></span>Total costs</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#a855f7;display:inline-block"></span>Per founder</span>
+        </div>
+        <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+      </div>
+
+      <!-- TIER REVENUE TABLE -->
+      <div class="card">
+        <div class="card-hdr">Revenue by tier — current snapshot</div>
+        <table class="tier-table" id="tierTable"></table>
+      </div>
+
+      <!-- COST BREAKDOWN -->
+      <div class="card">
+        <div class="card-hdr">Cost breakdown</div>
+        <div class="cost-section">
+          <div>
+            <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">FIXED COSTS</div>
+            <table class="cost-table" id="fixedCostTable"></table>
+          </div>
+          <div>
+            <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">VARIABLE COSTS</div>
+            <table class="cost-table" id="varCostTable"></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FULL PROJECTION TABLE -->
+      <div class="card">
+        <div class="card-hdr">Month-by-month projection <span id="proj-table-lbl"></span></div>
+        <div style="overflow-x:auto">
+          <table class="proj-table" id="projTable"></table>
+        </div>
+      </div>
+
+      <!-- MILESTONES -->
+      <div class="card">
+        <div class="card-hdr">Key milestones</div>
+        <div class="milestones" id="milestones"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let mainChart = null
+
+function syncLabel(key, val, comma, suffix='') {
+  const formatted = comma ? parseInt(val).toLocaleString() : val
+  document.getElementById('lbl-'+key).textContent = formatted + suffix
+  calculate()
+}
+
+function syncMix(tier, val) {
+  document.getElementById('lbl-mix-'+tier).textContent = val+'%'
+  updateMixTotal()
+  calculate()
+}
+
+function updateMixTotal() {
+  const total = ['starter','basic','pro','elite'].reduce((s,t) => s + parseInt(document.getElementById('mix-'+t).value), 0)
+  const el = document.getElementById('mix-total')
+  el.textContent = total+'%'
+  el.style.color = total === 100 ? 'var(--green)' : 'var(--red)'
+}
+
+function getInputs() {
+  return {
+    users:    parseInt(document.getElementById('inp-users').value),
+    paidPct:  parseInt(document.getElementById('inp-paidpct').value)/100,
+    growth:   parseInt(document.getElementById('inp-growth').value)/100,
+    churn:    parseInt(document.getElementById('inp-churn').value)/100,
+    months:   parseInt(document.getElementById('inp-months').value),
+    stripe:   parseInt(document.getElementById('inp-stripe').value)/100,
+    split:    parseInt(document.getElementById('inp-split').value)/100,
+    f1name:   document.getElementById('f1name').value || 'Founder 1',
+    f2name:   document.getElementById('f2name').value || 'Founder 2',
+    prices:   {
+      starter: parseFloat(document.getElementById('price-starter').value)||2.99,
+      basic:   parseFloat(document.getElementById('price-basic').value)||4.99,
+      pro:     parseFloat(document.getElementById('price-pro').value)||19.99,
+      elite:   parseFloat(document.getElementById('price-elite').value)||129.99
+    },
+    mix: {
+      starter: parseInt(document.getElementById('mix-starter').value)/100,
+      basic:   parseInt(document.getElementById('mix-basic').value)/100,
+      pro:     parseInt(document.getElementById('mix-pro').value)/100,
+      elite:   parseInt(document.getElementById('mix-elite').value)/100,
+    },
+    costs: {
+      sm:    parseFloat(document.getElementById('cost-sm').value)||2400,
+      odds:  parseFloat(document.getElementById('cost-odds').value)||79,
+      ai:    parseFloat(document.getElementById('cost-ai').value)||100,
+      other: parseFloat(document.getElementById('cost-other').value)||119,
+    }
+  }
+}
+
+function calcMonth(users, inp) {
+  const paidUsers = Math.round(users * inp.paidPct)
+  const tiers = ['starter','basic','pro','elite'].map(t => {
+    const u = Math.round(paidUsers * inp.mix[t])
+    const gross = u * inp.prices[t]
+    const stripeF = u * (inp.prices[t] * inp.stripe + 0.30)
+    return { name: t, users: u, price: inp.prices[t], gross, stripeF, net: gross - stripeF }
+  })
+  const grossMRR = tiers.reduce((s,t) => s+t.gross, 0)
+  const totalStripe = tiers.reduce((s,t) => s+t.stripeF, 0)
+  const fixedCosts = inp.costs.sm + inp.costs.odds + inp.costs.ai + inp.costs.other
+  const varCosts = users * 0.018 + (users>5000?(users-5000)*0.008:0)
+  const totalCosts = fixedCosts + varCosts + totalStripe
+  const netProfit = grossMRR - totalCosts
+  const arpu = grossMRR / Math.max(1, users)
+  return { users, paidUsers, tiers, grossMRR, totalStripe, fixedCosts, varCosts, totalCosts, netProfit, arpu, margin: grossMRR>0?netProfit/grossMRR*100:-999 }
+}
+
+function buildProjection(inp) {
+  const rows = []
+  let users = inp.users
+  const netGrowth = inp.growth - inp.churn
+  for (let m = 0; m <= inp.months; m++) {
+    rows.push({ month: m, ...calcMonth(Math.round(users), inp) })
+    users = users * (1 + netGrowth)
+  }
+  return rows
+}
+
+function fmt(n) {
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1000000) return sign + '$' + (abs/1000000).toFixed(2) + 'M'
+  if (abs >= 1000)    return sign + '$' + (abs/1000).toFixed(1) + 'k'
+  return sign + '$' + abs.toFixed(0)
+}
+function fmtN(n) { return Math.round(n).toLocaleString() }
+function fmtP(n) { return Math.round(n) + '%' }
+
+function calculate() {
+  const inp = getInputs()
+  updateMixTotal()
+
+  const snap = calcMonth(inp.users, inp)
+  const proj = buildProjection(inp)
+  const lastMonth = proj[proj.length - 1]
+
+  // FOUNDER SPLIT
+  const f1share = inp.split, f2share = 1 - inp.split
+  const f1mo = snap.netProfit * f1share, f2mo = snap.netProfit * f2share
+  document.getElementById('f1-name-lbl').textContent = inp.f1name.toUpperCase()
+  document.getElementById('f2-name-lbl').textContent = inp.f2name.toUpperCase()
+  document.getElementById('f1-share').textContent = Math.round(f1share*100) + '% EQUITY'
+  document.getElementById('f2-share').textContent = Math.round(f2share*100) + '% EQUITY'
+  document.getElementById('splitLabel').textContent = Math.round(f1share*100) + ' / ' + Math.round(f2share*100)
+  const color1 = snap.netProfit>=0?'var(--accent)':'var(--red)'
+  const color2 = snap.netProfit>=0?'var(--purple)':'var(--red)'
+  document.getElementById('f1-monthly').textContent = fmt(f1mo)
+  document.getElementById('f1-monthly').style.color = color1
+  document.getElementById('f1-annual').textContent = fmt(f1mo*12) + ' / year'
+  document.getElementById('f2-monthly').textContent = fmt(f2mo)
+  document.getElementById('f2-monthly').style.color = color2
+  document.getElementById('f2-annual').textContent = fmt(f2mo*12) + ' / year'
+
+  // METRICS
+  document.getElementById('m-mrr').textContent = fmt(snap.grossMRR)
+  document.getElementById('m-mrr-sub').textContent = fmtN(snap.paidUsers) + ' paid users'
+  document.getElementById('m-profit').textContent = fmt(snap.netProfit)
+  document.getElementById('m-profit').style.color = snap.netProfit>=0?'var(--green)':'var(--red)'
+  document.getElementById('mc-profit').className = 'metric-card ' + (snap.netProfit>=0?'green':'red')
+  document.getElementById('m-margin').textContent = fmtP(snap.margin) + ' margin'
+  document.getElementById('m-annual').textContent = fmt(snap.netProfit * 12)
+  document.getElementById('m-arpu').textContent = '$' + snap.arpu.toFixed(2)
+  document.getElementById('m-paid-users').textContent = fmtN(snap.paidUsers) + ' paying'
+
+  // BREAKEVEN
+  let beUsers = null
+  for (let u = 50; u <= 500000; u += 50) {
+    if (calcMonth(u, inp).netProfit >= 0) { beUsers = u; break }
+  }
+  const bePct = beUsers ? Math.min(100, Math.round(inp.users/beUsers*100)) : 0
+  const beReached = inp.users >= (beUsers||999999)
+  document.getElementById('be-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+      <span style="color:var(--text2)">Breakeven: <strong style="color:var(--text)">${beUsers?fmtN(beUsers)+' users':'> 500k users'}</strong></span>
+      <span style="color:${beReached?'var(--green)':'var(--accent)'};font-family:'JetBrains Mono';font-size:11px">${beReached?'✓ PROFITABLE':'Need '+fmtN((beUsers||500000)-inp.users)+' more'}</span>
+    </div>
+    <div class="be-bar"><div class="be-fill" style="width:${bePct}%;background:${beReached?'var(--green)':'var(--grad)'}"></div></div>
+    <div class="be-labels"><span>0</span><span>${bePct}% there</span><span>${beUsers?fmtN(beUsers):'>500k'}</span></div>
+  `
+
+  // TIER TABLE
+  const mixTotal = ['starter','basic','pro','elite'].reduce((s,t)=>s+inp.mix[t],0)
+  document.getElementById('tierTable').innerHTML = `
+    <thead><tr><th>Tier</th><th>Price</th><th>Users</th><th class="num">Gross rev</th><th class="num">After Stripe</th><th class="num">% of revenue</th></tr></thead>
+    <tbody>
+    ${snap.tiers.map(t=>`<tr>
+      <td>${t.name.charAt(0).toUpperCase()+t.name.slice(1)}</td>
+      <td style="color:var(--text3);font-family:'JetBrains Mono'">$${t.price}</td>
+      <td>${fmtN(t.users)}</td>
+      <td class="num ${t.gross>0?'grn':''}">${fmt(t.gross)}</td>
+      <td class="num">${fmt(t.net)}</td>
+      <td class="num" style="color:var(--text3)">${snap.grossMRR>0?fmtP(t.gross/snap.grossMRR*100):'—'}</td>
+    </tr>`).join('')}
+    <tr style="border-top:1px solid var(--border2)">
+      <td colspan="2" style="color:var(--text)">Free (${fmtN(inp.users-snap.paidUsers)} users)</td>
+      <td>${fmtN(inp.users-snap.paidUsers)}</td>
+      <td class="num" style="color:var(--text3)">$0</td>
+      <td class="num" style="color:var(--text3)">$0</td>
+      <td class="num" style="color:var(--text3)">—</td>
+    </tr>
+    <tr style="background:rgba(0,200,248,.04)">
+      <td colspan="2" style="color:var(--text);font-weight:600">TOTAL</td>
+      <td style="font-weight:600">${fmtN(inp.users)}</td>
+      <td class="num grn" style="font-weight:600">${fmt(snap.grossMRR)}</td>
+      <td class="num grn" style="font-weight:600">${fmt(snap.grossMRR-snap.totalStripe)}</td>
+      <td class="num" style="color:var(--text3)">100%</td>
+    </tr>
+    </tbody>`
+
+  // COST TABLES
+  const fixedRows = [
+    ['Sportmonks API', fmt(inp.costs.sm)],
+    ['The Odds API', fmt(inp.costs.odds)],
+    ['AI + server', fmt(inp.costs.ai)],
+    ['Other fixed', fmt(inp.costs.other)],
+    ['TOTAL FIXED', fmt(snap.fixedCosts)]
+  ]
+  document.getElementById('fixedCostTable').innerHTML = `
+    <thead><tr><th>Item</th><th class="num">Cost</th></tr></thead>
+    <tbody>${fixedRows.map((r,i)=>`<tr${i===fixedRows.length-1?' style="background:rgba(255,59,92,.05)"':''}><td${i===fixedRows.length-1?' style="color:var(--red)"':''}>${r[0]}</td><td class="num" style="color:${i===fixedRows.length-1?'var(--red)':'var(--text2)'}">${r[1]}</td></tr>`).join('')}</tbody>`
+
+  const varRows = [
+    ['Payment processing', fmt(snap.totalStripe)],
+    ['Bandwidth / var', fmt(snap.varCosts)],
+    ['TOTAL VARIABLE', fmt(snap.totalStripe+snap.varCosts)],
+    ['GRAND TOTAL', fmt(snap.totalCosts)]
+  ]
+  document.getElementById('varCostTable').innerHTML = `
+    <thead><tr><th>Item</th><th class="num">Cost</th></tr></thead>
+    <tbody>${varRows.map((r,i)=>`<tr${i>=varRows.length-2?' style="background:rgba(255,59,92,.05)"':''}><td${i>=varRows.length-2?' style="color:var(--red)"':''}>${r[0]}</td><td class="num" style="color:${i>=varRows.length-2?'var(--red)':'var(--text2)'}">${r[1]}</td></tr>`).join('')}</tbody>`
+
+  // PROJECTION TABLE
+  document.getElementById('proj-table-lbl').textContent = inp.months + ' months'
+  document.getElementById('chart-months-lbl').textContent = inp.months + ' months'
+  const showEvery = inp.months <= 12 ? 1 : inp.months <= 24 ? 2 : 3
+  const tableRows = proj.filter((r,i) => i % showEvery === 0 || i === proj.length-1)
+  document.getElementById('projTable').innerHTML = `
+    <thead><tr>
+      <th>Month</th><th>Users</th><th>Paid users</th><th>Gross MRR</th><th>Total costs</th>
+      <th>Net profit</th><th>Margin</th><th>${inp.f1name}</th><th>${inp.f2name}</th>
+    </tr></thead>
+    <tbody>${tableRows.map((r,i)=>{
+      const isNow = r.month === 0
+      const f1 = r.netProfit * f1share, f2 = r.netProfit * f2share
+      const profitClass = r.netProfit>=0?'pos':'neg'
+      return `<tr${isNow?' class="highlight"':''}>
+        <td>${isNow?'NOW':'Mo '+r.month}</td>
+        <td class="neutral">${fmtN(r.users)}</td>
+        <td class="neutral">${fmtN(r.paidUsers)}</td>
+        <td style="color:var(--accent)">${fmt(r.grossMRR)}</td>
+        <td style="color:var(--red)">${fmt(r.totalCosts)}</td>
+        <td class="${profitClass}">${fmt(r.netProfit)}</td>
+        <td class="${profitClass}">${r.grossMRR>0?fmtP(r.margin):'—'}</td>
+        <td class="${profitClass}">${fmt(f1)}</td>
+        <td class="${profitClass}">${fmt(f2)}</td>
+      </tr>`}).join('')}</tbody>`
+
+  // MILESTONES
+  const msDefs = [
+    { users: beUsers||999, label: 'Breakeven', sub: 'First month of profit', icon: '◆', val: beUsers ? fmtN(beUsers)+' users' : 'Not reached yet' },
+    { users: Math.ceil((inp.costs.sm/((inp.prices.elite||129.99)-inp.prices.elite*inp.stripe-0.30))), label: 'SM API covered by Elite', sub: 'Sportmonks paid by Elite subs alone', icon: '★', val: '' },
+    { users: 5000, label: '5,000 users', sub: '$'+fmt(calcMonth(5000,inp).netProfit)+'/mo profit', icon: '▲', val: '' },
+    { users: 10000, label: '10,000 users', sub: '$'+fmt(calcMonth(10000,inp).netProfit)+'/mo profit', icon: '▲', val: '' },
+    { users: 50000, label: '50,000 users', sub: '$'+fmt(calcMonth(50000,inp).netProfit)+'/mo profit', icon: '▲', val: '' },
+  ]
+  document.getElementById('milestones').innerHTML = msDefs.map(ms => {
+    const reached = inp.users >= ms.users
+    const isNext = !reached && msDefs.filter(x=>inp.users<x.users)[0]?.users === ms.users
+    const cls = reached ? 'reached' : isNext ? 'next' : ''
+    return `<div class="milestone ${cls}">
+      <div class="ms-icon ${!reached&&!isNext?'locked':''}">${ms.icon}</div>
+      <div class="ms-info">
+        <div class="ms-title">${ms.label}</div>
+        <div class="ms-sub">${ms.sub}</div>
+      </div>
+      <div class="ms-val">${reached?'✓':isNext?fmtN(ms.users-inp.users)+' to go':fmtN(ms.users)}</div>
+    </div>`
+  }).join('')
+
+  // CHART
+  const labels = proj.filter((_,i)=>i%Math.max(1,Math.floor(proj.length/16))===0||i===proj.length-1).map(r=>r.month===0?'Now':'Mo '+r.month)
+  const filtered = proj.filter((_,i)=>i%Math.max(1,Math.floor(proj.length/16))===0||i===proj.length-1)
+  const profits = filtered.map(r=>Math.round(r.netProfit))
+  const revenues = filtered.map(r=>Math.round(r.grossMRR))
+  const costs = filtered.map(r=>Math.round(r.totalCosts))
+  const f1arr = filtered.map(r=>Math.round(r.netProfit*f1share))
+
+  if (mainChart) { mainChart.destroy(); mainChart = null }
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Net profit',data:profits,borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,.06)',fill:true,tension:.3,pointRadius:2,borderWidth:2},
+        {label:'Gross MRR',data:revenues,borderColor:'#00c8f8',fill:false,tension:.3,pointRadius:2,borderWidth:1.5},
+        {label:'Total costs',data:costs,borderColor:'#ff3b5c',fill:false,tension:.3,pointRadius:2,borderWidth:1.5,borderDash:[4,4]},
+        {label:inp.f1name,data:f1arr,borderColor:'#a855f7',fill:false,tension:.3,pointRadius:2,borderWidth:1.5,borderDash:[2,3]},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+(c.raw<0?'-$'+Math.abs(c.raw).toLocaleString():'$'+c.raw.toLocaleString())}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(128,128,128,.08)'},ticks:{color:'#3a5a7a',font:{size:10},maxRotation:0,autoSkip:true}},
+        y:{grid:{color:'rgba(128,128,128,.08)'},ticks:{color:'#3a5a7a',font:{size:10},callback:v=>v>=0?'$'+Math.round(Math.abs(v)/1000)+'k':(v<0?'-$'+Math.round(Math.abs(v)/1000)+'k':'$0')}}
+      }
+    }
+  })
+}
+
+function setScenario(n) {
+  document.getElementById('inp-users').value = n
+  document.getElementById('lbl-users').textContent = n.toLocaleString()
+  document.querySelectorAll('.sc-pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.textContent.replace(/[^0-9]/g,''))===n)
+  })
+  calculate()
+}
+
+function showToast(msg) {
+  const t = document.createElement('div'); t.className='toast'; t.textContent=msg
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2500)
+}
+
+window.addEventListener('DOMContentLoaded', () => { updateMixTotal(); calculate() })
+</script>
+</body>
+</html>

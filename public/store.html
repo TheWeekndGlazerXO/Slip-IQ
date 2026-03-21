@@ -30,7 +30,8 @@
   .plan-card.c-starter::before{background:var(--accent)}
   .plan-card.c-basic::before{background:var(--green)}
   .plan-card.c-pro::before{background:#9b6dff}
-  .plan-card.c-elite::before{background:var(--gold)}
+  .plan-card.c-elite::before{background:var(--gold)} 
+  .plan-card.c-elite::before{background:var(--black)} 
   .popular-badge{position:absolute;top:10px;right:10px;background:var(--accent);color:#000;font-size:8px;font-weight:800;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono';letter-spacing:1px}
   .plan-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;margin-bottom:4px}
   .c-free .plan-name{color:var(--text3)}
@@ -38,6 +39,7 @@
   .c-basic .plan-name{color:var(--green)}
   .c-pro .plan-name{color:#9b6dff}
   .c-elite .plan-name{color:var(--gold)}
+  .c-platinum .plan-name{color:var(--black)}
   .plan-price{font-family:'Bebas Neue';font-size:36px;margin:10px 0 4px}
   .plan-period{font-size:10px;color:var(--text3);font-family:'JetBrains Mono'}
   .plan-features{margin-top:14px;display:flex;flex-direction:column;gap:7px}
@@ -178,7 +180,23 @@
       </div>
       <a href="#stripe-elite" class="plan-btn">Subscribe →</a>
     </div>
-
+    <div class="plan-card c-platinum">
+        <div class="plan-name">Platinum</div>
+        <div class="plan-price">$129.99</div>
+        <div class="plan-period">per month</div>
+        <div class="plan-features">
+          <div class="plan-feature">Everything in Elite</div>
+          <div class="plan-feature">Unlimited AI credits</div>
+          <div class="plan-feature">Unlimited parlays</div>
+          <div class="plan-feature">Unlimited Saved parlays</div>
+          <div class="plan-feature">Unlimited parlay data</div>
+          <div class="plan-feature">Priority data refresh</div>
+          <div class="plan-feature">Custom league access</div>
+          <div class="plan-feature">Export predictions CSV</div>
+          <div class="plan-feature">Early access features</div>
+        </div>
+        <a href="#stripe-platinum" class="plan-btn">Subscribe →</a>
+      </div>
   </div>
 
   <!-- CREDIT PACKS -->
@@ -190,7 +208,7 @@
       <div class="credit-pack-name">AI Analysis Pack</div>
       <div class="credit-pack-amount">50</div>
       <div class="credit-pack-type">AI ANALYSIS CREDITS</div>
-      <div class="credit-pack-price">$4.99</div>
+      <div class="credit-pack-price">$9.99</div>
       <div class="credit-pack-desc">50 deep AI match analyses with player-level breakdowns, tactical insights, and value bet detection.</div>
       <!-- Replace with Stripe link -->
       <a href="#stripe-ai-50" class="credit-pack-btn">Buy 50 AI Credits →</a>
@@ -201,7 +219,7 @@
       <div class="credit-pack-name">Parlay Builder Pack</div>
       <div class="credit-pack-amount">25</div>
       <div class="credit-pack-type">AI PARLAY CREDITS</div>
-      <div class="credit-pack-price">$3.99</div>
+      <div class="credit-pack-price">$14.99</div>
       <div class="credit-pack-desc">25 AI-optimized auto-parlay builds with Monte Carlo simulation and full value edge scoring.</div>
       <a href="#stripe-parlay-25" class="credit-pack-btn">Buy 25 Parlay Credits →</a>
     </div>
@@ -211,7 +229,7 @@
       <div class="credit-pack-name">Mega Bundle</div>
       <div class="credit-pack-amount">200</div>
       <div class="credit-pack-type">MIXED CREDITS</div>
-      <div class="credit-pack-price">$14.99</div>
+      <div class="credit-pack-price">$19.99</div>
       <div class="credit-pack-desc">150 AI analysis + 50 AI parlay credits. Best value for power users who want full coverage.</div>
       <a href="#stripe-bundle" class="credit-pack-btn">Buy Mega Bundle →</a>
     </div>
@@ -227,7 +245,7 @@
       <div>
         <div class="addon-name">Additional Sport — NFL / NBA / NHL</div>
         <div class="addon-desc">Add a single sport to your Starter or Basic plan. Includes full predictions, player ELOs, and AI analysis for that sport.</div>
-        <div class="addon-price">$1.99 / month per sport</div>
+        <div class="addon-price">$9.99 / month per sport</div>
         <a href="#stripe-sport-addon" class="addon-btn">Add Sport →</a>
       </div>
     </div>
@@ -237,7 +255,7 @@
       <div>
         <div class="addon-name">Tennis + NCAA Bundle</div>
         <div class="addon-desc">ATP, WTA, and NCAA Basketball & Football predictions with player matchup analysis and tournament tracking.</div>
-        <div class="addon-price">$2.99 / month</div>
+        <div class="addon-price">$9.99 / month</div>
         <a href="#stripe-tennis-ncaa" class="addon-btn">Add Bundle →</a>
       </div>
     </div>
@@ -247,7 +265,7 @@
       <div>
         <div class="addon-name">Extended League Pack</div>
         <div class="addon-desc">Unlock 20+ additional football leagues: Eredivisie, Primeira Liga, Brasileirão, Super Lig, and more.</div>
-        <div class="addon-price">$1.49 / month</div>
+        <div class="addon-price">$5.49 / month</div>
         <a href="#stripe-leagues" class="addon-btn">Add Leagues →</a>
       </div>
     </div>
@@ -257,7 +275,7 @@
       <div>
         <div class="addon-name">Value Bet Alerts</div>
         <div class="addon-desc">Real-time push notifications when our model detects a 5%+ edge vs bookmaker odds. Never miss a value bet.</div>
-        <div class="addon-price">$0.99 / month</div>
+        <div class="addon-price">$4.99 / month</div>
         <a href="#stripe-alerts" class="addon-btn">Add Alerts →</a>
       </div>
     </div>
