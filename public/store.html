@@ -4,304 +4,389 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SLIP IQ — Store & Pricing</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{--bg:#070a0f;--bg2:#0d1117;--panel:#0f1822;--border:#1e2d3d;--border2:#243547;--accent:#00d4ff;--accent2:#0099cc;--green:#00ff88;--red:#ff3b5c;--orange:#ff8c42;--gold:#ffd700;--text:#e8f0fe;--text2:#8899aa;--text3:#556677;--glow:0 0 20px rgba(0,212,255,0.3)}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh}
-  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1000}
-  .header{background:linear-gradient(180deg,#050810 0%,transparent 100%);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
-  .logo{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:var(--glow);text-decoration:none}
-  .nav-link{padding:5px 13px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .2s;text-transform:uppercase;color:var(--text2);text-decoration:none;font-family:'JetBrains Mono'}
-  .nav-link:hover{color:var(--accent)}
-  .content{max-width:1100px;margin:0 auto;padding:40px 24px}
-  .page-hero{text-align:center;margin-bottom:48px}
-  .page-hero h1{font-family:'Bebas Neue';font-size:52px;color:var(--text);letter-spacing:3px;margin-bottom:8px}
-  .page-hero p{font-size:14px;color:var(--text2);max-width:500px;margin:0 auto}
-  .section-label{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;color:var(--text2);text-align:center;margin-bottom:24px;margin-top:48px}
-  .plans-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:48px}
-  .plan-card{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:20px 16px;position:relative;transition:all .2s;overflow:hidden}
-  .plan-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:13px 13px 0 0}
-  .plan-card.featured{border-color:var(--accent);box-shadow:var(--glow)}
-  .plan-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
-  .plan-card.c-free::before{background:var(--text3)}
-  .plan-card.c-starter::before{background:var(--accent)}
-  .plan-card.c-basic::before{background:var(--green)}
-  .plan-card.c-pro::before{background:#9b6dff}
-  .plan-card.c-elite::before{background:var(--gold)} 
-  .plan-card.c-elite::before{background:var(--black)} 
-  .popular-badge{position:absolute;top:10px;right:10px;background:var(--accent);color:#000;font-size:8px;font-weight:800;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono';letter-spacing:1px}
-  .plan-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;margin-bottom:4px}
-  .c-free .plan-name{color:var(--text3)}
-  .c-starter .plan-name{color:var(--accent)}
-  .c-basic .plan-name{color:var(--green)}
-  .c-pro .plan-name{color:#9b6dff}
-  .c-elite .plan-name{color:var(--gold)}
-  .c-platinum .plan-name{color:var(--black)}
-  .plan-price{font-family:'Bebas Neue';font-size:36px;margin:10px 0 4px}
-  .plan-period{font-size:10px;color:var(--text3);font-family:'JetBrains Mono'}
-  .plan-features{margin-top:14px;display:flex;flex-direction:column;gap:7px}
-  .plan-feature{font-size:11px;color:var(--text2);display:flex;align-items:flex-start;gap:6px}
-  .plan-feature::before{content:'✓';color:var(--green);flex-shrink:0;margin-top:1px}
-  .plan-feature.locked::before{content:'✗';color:var(--text3)}
-  .plan-feature.locked{color:var(--text3)}
-  .plan-btn{display:block;width:100%;margin-top:16px;padding:10px;border-radius:7px;font-family:'Space Grotesk';font-size:12px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;transition:all .2s;letter-spacing:.5px;border:none}
-  .c-free .plan-btn{background:rgba(85,102,119,.2);color:var(--text2)}
-  .c-starter .plan-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
-  .c-basic .plan-btn{background:linear-gradient(135deg,var(--green),#00cc66);color:#000}
-  .c-pro .plan-btn{background:linear-gradient(135deg,#9b6dff,#7b4dcc);color:#fff}
-  .c-elite .plan-btn{background:linear-gradient(135deg,var(--gold),var(--orange));color:#000}
-  .plan-btn:hover{opacity:.9;transform:translateY(-1px)}
-  .credits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px}
-  .credit-pack{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:20px;text-align:center;transition:all .2s}
-  .credit-pack:hover{border-color:var(--accent);transform:translateY(-1px)}
-  .credit-pack-icon{font-size:32px;margin-bottom:10px}
-  .credit-pack-name{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent);margin-bottom:6px}
-  .credit-pack-amount{font-family:'Bebas Neue';font-size:42px;color:var(--text);margin-bottom:4px}
-  .credit-pack-type{font-size:10px;color:var(--text3);font-family:'JetBrains Mono';letter-spacing:1px;margin-bottom:12px}
-  .credit-pack-price{font-family:'Bebas Neue';font-size:28px;color:var(--gold);margin-bottom:4px}
-  .credit-pack-desc{font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.5}
-  .credit-pack-btn{display:block;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,153,204,.1));border:1px solid var(--accent);color:var(--accent);padding:9px;border-radius:7px;font-family:'Space Grotesk';font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s}
-  .credit-pack-btn:hover{background:rgba(0,212,255,.2)}
-  .addon-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .addon-card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:18px;display:flex;gap:14px;align-items:flex-start;transition:all .2s}
-  .addon-card:hover{border-color:var(--border2)}
-  .addon-icon{font-size:28px;flex-shrink:0}
-  .addon-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
-  .addon-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px}
-  .addon-price{font-family:'JetBrains Mono';font-size:14px;color:var(--gold);margin-bottom:10px}
-  .addon-btn{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold);padding:7px 14px;border-radius:6px;font-size:11px;font-family:'JetBrains Mono';cursor:pointer;transition:all .2s;text-decoration:none;display:inline-block}
-  .addon-btn:hover{background:rgba(255,215,0,.18)}
-  .faq{margin-top:48px}
-  .faq-item{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:16px 18px;margin-bottom:8px}
-  .faq-q{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
-  .faq-a{font-size:12px;color:var(--text2);line-height:1.6}
+:root{--bg:#070a0f;--bg2:#0d1117;--panel:#0f1822;--border:#1e2d3d;--border2:#243547;--accent:#00d4ff;--accent2:#0099cc;--green:#00ff88;--red:#ff3b5c;--orange:#ff8c42;--gold:#ffd700;--text:#e8f0fe;--text2:#8899aa;--text3:#556677;--purple:#9b6dff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:999}
+/* HEADER */
+.header{background:linear-gradient(180deg,#050810 0%,transparent 100%);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:12px;height:56px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+.logo{font-family:'Bebas Neue';font-size:24px;color:var(--accent);letter-spacing:4px;text-decoration:none;text-shadow:0 0 20px rgba(0,212,255,.3)}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+.nav-link{padding:4px 12px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .2s;color:var(--text2);text-decoration:none;font-family:'JetBrains Mono';text-transform:uppercase}
+.nav-link:hover{color:var(--accent);border-color:var(--border2)}
+.btn-login{border:1px solid var(--border2);color:var(--text2);background:transparent;padding:5px 14px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono';text-transform:uppercase;transition:all .2s}
+.btn-login:hover{border-color:var(--accent);color:var(--accent)}
+.btn-signup{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;padding:5px 14px;border-radius:4px;font-size:10px;font-weight:800;cursor:pointer;font-family:'JetBrains Mono';text-transform:uppercase}
+.avatar-btn{width:28px;height:28px;border-radius:50%;background:rgba(0,212,255,.15);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--accent);text-decoration:none}
+.tier-badge{background:linear-gradient(135deg,#ffd700,#ff8c42);color:#000;padding:3px 10px;border-radius:3px;font-size:9px;font-weight:800;letter-spacing:1.5px;font-family:'JetBrains Mono';text-decoration:none}
+/* HERO */
+.hero{text-align:center;padding:60px 20px 40px;background:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,.08) 0%,transparent 60%)}
+.hero-label{font-family:'JetBrains Mono';font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px}
+.hero-title{font-family:'Bebas Neue';font-size:52px;letter-spacing:4px;line-height:1;margin-bottom:12px}
+.hero-title span{color:var(--accent)}
+.hero-sub{font-size:14px;color:var(--text2);max-width:520px;margin:0 auto 8px;line-height:1.6}
+.current-badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);font-family:'JetBrains Mono';font-size:10px;padding:4px 12px;border-radius:20px;margin-top:8px}
+/* PLANS */
+.section{max-width:1100px;margin:0 auto;padding:20px 24px 50px}
+.section-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;color:var(--text2);margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.plans-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:50px}
+.plan-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px 18px;position:relative;transition:all .2s}
+.plan-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.plan-card.featured{border-color:var(--accent);background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(0,153,204,.04))}
+.plan-card.current{border-color:var(--green)}
+.plan-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-family:'JetBrains Mono';font-size:9px;font-weight:800;padding:3px 10px;border-radius:10px;white-space:nowrap}
+.plan-badge.green{background:var(--green)}
+.plan-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;color:var(--text);margin-bottom:4px}
+.plan-price{font-family:'Bebas Neue';font-size:36px;color:var(--accent);line-height:1;margin-bottom:3px}
+.plan-price.gold{color:var(--gold)}
+.plan-period{font-size:10px;color:var(--text3);font-family:'JetBrains Mono';margin-bottom:14px}
+.plan-features{list-style:none;margin-bottom:18px}
+.plan-features li{font-size:11px;color:var(--text2);padding:4px 0;border-bottom:1px solid rgba(30,45,61,.5);display:flex;align-items:flex-start;gap:7px;line-height:1.4}
+.plan-features li:last-child{border-bottom:none}
+.plan-features .check{color:var(--green);font-size:10px;flex-shrink:0;margin-top:2px}
+.plan-features .x{color:var(--text3);font-size:10px;flex-shrink:0;margin-top:2px}
+.plan-btn{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text2);font-family:'Space Grotesk';font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center;text-decoration:none;display:block}
+.plan-btn:hover{border-color:var(--accent);color:var(--accent)}
+.plan-btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#000}
+.plan-btn.primary:hover{opacity:.9;transform:translateY(-1px)}
+.plan-btn.gold-btn{background:linear-gradient(135deg,var(--gold),var(--orange));border-color:transparent;color:#000}
+.plan-btn.gold-btn:hover{opacity:.9}
+.plan-btn.current-btn{background:rgba(0,255,136,.1);border-color:var(--green);color:var(--green);cursor:default}
+/* CREDITS */
+.credits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:50px}
+.credit-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all .2s}
+.credit-card:hover{border-color:var(--border2)}
+.credit-icon{font-size:28px;margin-bottom:10px}
+.credit-name{font-family:'Bebas Neue';font-size:16px;letter-spacing:1.5px;color:var(--text);margin-bottom:3px}
+.credit-amount{font-family:'Bebas Neue';font-size:28px;color:var(--accent);margin-bottom:2px}
+.credit-desc{font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5}
+.credit-price{font-family:'JetBrains Mono';font-size:14px;color:var(--gold);font-weight:600;margin-bottom:12px}
+/* ADDONS */
+.addons-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:50px}
+.addon-card{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:16px;display:flex;align-items:center;gap:14px;transition:all .2s}
+.addon-card:hover{border-color:var(--border2)}
+.addon-icon{font-size:22px;flex-shrink:0}
+.addon-info{flex:1}
+.addon-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.addon-desc{font-size:11px;color:var(--text2)}
+.addon-price{font-family:'JetBrains Mono';font-size:12px;color:var(--gold);flex-shrink:0}
+/* FAQ */
+.faq-item{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:8px}
+.faq-q{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.faq-a{font-size:12px;color:var(--text2);line-height:1.6}
+/* AUTH MODAL */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.auth-overlay.open{display:flex}
+.auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:13px;width:380px;max-width:95vw;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.9)}
+.auth-logo{font-family:'Bebas Neue';font-size:22px;color:var(--accent);letter-spacing:3px;text-align:center;margin-bottom:4px}
+.auth-title{font-size:13px;color:var(--text2);text-align:center;margin-bottom:22px}
+.auth-input{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;font-size:12px;font-family:'Space Grotesk';outline:none;margin-bottom:10px;transition:border-color .2s}
+.auth-input:focus{border-color:var(--accent)}
+.auth-btn{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;border-radius:7px;font-size:12px;font-weight:800;font-family:'Space Grotesk';cursor:pointer;margin-top:3px}
+.auth-switch{text-align:center;margin-top:14px;font-size:11px;color:var(--text3)}
+.auth-switch a{color:var(--accent);cursor:pointer}
+.auth-error{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--red);padding:8px;border-radius:6px;font-size:11px;margin-bottom:10px;display:none}
+.auth-error.show{display:block}
+.auth-close{position:absolute;top:13px;right:13px;color:var(--text3);cursor:pointer;font-size:17px}
+/* RESPONSIVE */
+@media(max-width:900px){.plans-grid{grid-template-columns:1fr 1fr;gap:10px}.credits-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.plans-grid{grid-template-columns:1fr}.addons-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="header">
   <a href="index.html" class="logo">SLIP IQ</a>
-  <div style="display:flex;gap:8px">
-    <a href="index.html" class="nav-link">← Predictions</a>
-    <a href="profile.html" class="nav-link">Profile</a>
+  <a href="index.html" class="nav-link">← App</a>
+  <a href="profile.html" class="nav-link">Profile</a>
+  <div class="header-right" id="headerRight">
+    <button class="btn-login" onclick="openAuth('login')">Sign In</button>
+    <button class="btn-signup" onclick="openAuth('signup')">Start Free →</button>
   </div>
 </div>
 
-<div class="content">
-  <div class="page-hero">
-    <h1>PLANS & PRICING</h1>
-    <p>Professional sports intelligence powered by real data, AI analysis, and Monte Carlo simulations.</p>
-  </div>
+<div class="hero">
+  <div class="hero-label">Plans & Pricing</div>
+  <div class="hero-title">ELEVATE YOUR <span>EDGE</span></div>
+  <div class="hero-sub">Real bookmaker odds, AI-powered analysis, Monte Carlo simulations across 15 top leagues. Start free, upgrade anytime.</div>
+  <div class="current-badge" id="currentBadge" style="display:none">Your current plan: <strong id="currentPlanLabel">Free</strong></div>
+</div>
 
-  <!-- SUBSCRIPTION PLANS -->
-  <div class="section-label">SUBSCRIPTION PLANS</div>
+<div class="section">
+  <div class="section-title">SUBSCRIPTION PLANS</div>
   <div class="plans-grid">
-
-    <div class="plan-card c-free">
+    <!-- FREE -->
+    <div class="plan-card" id="card-free">
       <div class="plan-name">Free</div>
       <div class="plan-price">$0</div>
       <div class="plan-period">forever</div>
-      <div class="plan-features">
-        <div class="plan-feature">Football predictions</div>
-        <div class="plan-feature">Basic match analysis</div>
-        <div class="plan-feature">5 AI credits / month</div>
-        <div class="plan-feature">3 parlay credits / month</div>
-        <div class="plan-feature locked">NFL / NBA / NHL / Tennis</div>
-        <div class="plan-feature locked">Save unlimited slips</div>
-        <div class="plan-feature locked">Real bookmaker odds</div>
-      </div>
-      <a href="index.html" class="plan-btn">Get Started</a>
+      <ul class="plan-features">
+        <li><span class="check">✓</span>Football predictions</li>
+        <li><span class="check">✓</span>5 AI credits</li>
+        <li><span class="check">✓</span>3 parlay builder uses</li>
+        <li><span class="check">✓</span>Premier League, La Liga, Serie A</li>
+        <li><span class="x">—</span>Advanced markets</li>
+        <li><span class="x">—</span>Other sports</li>
+        <li><span class="x">—</span>Value bet alerts</li>
+      </ul>
+      <a href="index.html" class="plan-btn current-btn" id="btn-free">CURRENT PLAN</a>
     </div>
-
-    <div class="plan-card c-starter">
+    <!-- STARTER -->
+    <div class="plan-card" id="card-starter">
       <div class="plan-name">Starter</div>
       <div class="plan-price">$2.99</div>
-      <div class="plan-period">per month</div>
-      <div class="plan-features">
-        <div class="plan-feature">Football predictions</div>
-        <div class="plan-feature">Full match analysis</div>
-        <div class="plan-feature">25 AI credits / month</div>
-        <div class="plan-feature">15 parlay credits / month</div>
-        <div class="plan-feature">Save up to 25 slips</div>
-        <div class="plan-feature locked">NFL / NBA / NHL / Tennis</div>
-        <div class="plan-feature">Real bookmaker odds</div>
-      </div>
-      <!-- Replace href with your Stripe payment link -->
-      <a href="#stripe-starter" class="plan-btn">Subscribe →</a>
+      <div class="plan-period">/month</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span>All football leagues</li>
+        <li><span class="check">✓</span>25 AI credits/month</li>
+        <li><span class="check">✓</span>Unlimited parlay builder</li>
+        <li><span class="check">✓</span>BTTS & O/U markets</li>
+        <li><span class="check">✓</span>Real SM odds</li>
+        <li><span class="x">—</span>Other sports</li>
+        <li><span class="x">—</span>Value bet alerts</li>
+      </ul>
+      <a href="#stripe-starter" class="plan-btn" id="btn-starter">UPGRADE →</a>
     </div>
-
-    <div class="plan-card c-basic">
+    <!-- BASIC -->
+    <div class="plan-card" id="card-basic">
       <div class="plan-name">Basic</div>
       <div class="plan-price">$4.99</div>
-      <div class="plan-period">per month</div>
-      <div class="plan-features">
-        <div class="plan-feature">Football + NFL</div>
-        <div class="plan-feature">Full match analysis</div>
-        <div class="plan-feature">75 AI credits / month</div>
-        <div class="plan-feature">30 parlay credits / month</div>
-        <div class="plan-feature">Save unlimited slips</div>
-        <div class="plan-feature">Player ELO profiles</div>
-        <div class="plan-feature locked">NBA / NHL / Tennis</div>
-      </div>
-      <a href="#stripe-basic" class="plan-btn">Subscribe →</a>
+      <div class="plan-period">/month</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span>All football + NFL</li>
+        <li><span class="check">✓</span>60 AI credits/month</li>
+        <li><span class="check">✓</span>Value bet alerts</li>
+        <li><span class="check">✓</span>Player profiles & ELO</li>
+        <li><span class="check">✓</span>Correct score markets</li>
+        <li><span class="check">✓</span>1v1 matchup analysis</li>
+        <li><span class="x">—</span>NBA/NHL/Tennis</li>
+      </ul>
+      <a href="#stripe-basic" class="plan-btn" id="btn-basic">UPGRADE →</a>
     </div>
-
-    <div class="plan-card c-pro featured">
-      <div class="popular-badge">MOST POPULAR</div>
+    <!-- PRO -->
+    <div class="plan-card featured" id="card-pro">
+      <div class="plan-badge">MOST POPULAR</div>
       <div class="plan-name">Pro</div>
       <div class="plan-price">$14.99</div>
-      <div class="plan-period">per month</div>
-      <div class="plan-features">
-        <div class="plan-feature">All 6 sports</div>
-        <div class="plan-feature">Full AI analysis</div>
-        <div class="plan-feature">300 AI credits / month</div>
-        <div class="plan-feature">100 parlay credits / month</div>
-        <div class="plan-feature">Unlimited slips</div>
-        <div class="plan-feature">Value bet alerts</div>
-        <div class="plan-feature">Player 1v1 matchups</div>
-      </div>
-      <a href="#stripe-pro" class="plan-btn">Subscribe →</a>
+      <div class="plan-period">/month</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span>ALL 6 sports</li>
+        <li><span class="check">✓</span>150 AI credits/month</li>
+        <li><span class="check">✓</span>NFL, NBA, NHL, NCAA, Tennis</li>
+        <li><span class="check">✓</span>Real bookmaker odds</li>
+        <li><span class="check">✓</span>Full parlay analytics</li>
+        <li><span class="check">✓</span>SM value bets</li>
+        <li><span class="check">✓</span>Priority support</li>
+      </ul>
+      <a href="#stripe-pro" class="plan-btn primary" id="btn-pro">GET PRO →</a>
     </div>
-
-    <div class="plan-card c-elite">
+    <!-- ELITE -->
+    <div class="plan-card" id="card-elite">
+      <div class="plan-badge green">ELITE</div>
       <div class="plan-name">Elite</div>
-      <div class="plan-price">$49.99</div>
-      <div class="plan-period">per month</div>
-      <div class="plan-features">
-        <div class="plan-feature">Everything in Pro</div>
-        <div class="plan-feature">Unlimited AI credits</div>
-        <div class="plan-feature">Unlimited parlays</div>
-        <div class="plan-feature">Priority data refresh</div>
-        <div class="plan-feature">Custom league access</div>
-        <div class="plan-feature">Export predictions CSV</div>
-        <div class="plan-feature">Early access features</div>
-      </div>
-      <a href="#stripe-elite" class="plan-btn">Subscribe →</a>
+      <div class="plan-price gold">$49.99</div>
+      <div class="plan-period">/month</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span>Everything in Pro</li>
+        <li><span class="check">✓</span>Unlimited AI credits</li>
+        <li><span class="check">✓</span>API access</li>
+        <li><span class="check">✓</span>Affiliate program</li>
+        <li><span class="check">✓</span>White-label data</li>
+        <li><span class="check">✓</span>Custom league filters</li>
+        <li><span class="check">✓</span>Dedicated support</li>
+      </ul>
+      <a href="#stripe-elite" class="plan-btn gold-btn" id="btn-elite">GET ELITE →</a>
     </div>
-    <div class="plan-card c-platinum">
-        <div class="plan-name">Platinum</div>
-        <div class="plan-price">$129.99</div>
-        <div class="plan-period">per month</div>
-        <div class="plan-features">
-          <div class="plan-feature">Everything in Elite</div>
-          <div class="plan-feature">Unlimited AI credits</div>
-          <div class="plan-feature">Unlimited parlays</div>
-          <div class="plan-feature">Unlimited Saved parlays</div>
-          <div class="plan-feature">Unlimited parlay data</div>
-          <div class="plan-feature">Priority data refresh</div>
-          <div class="plan-feature">Custom league access</div>
-          <div class="plan-feature">Export predictions CSV</div>
-          <div class="plan-feature">Early access features</div>
-        </div>
-        <a href="#stripe-platinum" class="plan-btn">Subscribe →</a>
-      </div>
   </div>
 
-  <!-- CREDIT PACKS -->
-  <div class="section-label">CREDIT PACKS (one-time)</div>
+  <div class="section-title">CREDIT PACKS</div>
   <div class="credits-grid">
-
-    <div class="credit-pack">
-      <div class="credit-pack-icon">⚡</div>
-      <div class="credit-pack-name">AI Analysis Pack</div>
-      <div class="credit-pack-amount">50</div>
-      <div class="credit-pack-type">AI ANALYSIS CREDITS</div>
-      <div class="credit-pack-price">$9.99</div>
-      <div class="credit-pack-desc">50 deep AI match analyses with player-level breakdowns, tactical insights, and value bet detection.</div>
-      <!-- Replace with Stripe link -->
-      <a href="#stripe-ai-50" class="credit-pack-btn">Buy 50 AI Credits →</a>
+    <div class="credit-card">
+      <div class="credit-icon">🤖</div>
+      <div class="credit-name">AI ANALYSIS PACK</div>
+      <div class="credit-amount">50 Credits</div>
+      <div class="credit-desc">50 full AI match analyses with real player data, tactical breakdown, and value bet detection. Never expires.</div>
+      <div class="credit-price">$4.99</div>
+      <a href="#stripe-ai-50" class="plan-btn primary">BUY AI CREDITS →</a>
     </div>
-
-    <div class="credit-pack">
-      <div class="credit-pack-icon">🎯</div>
-      <div class="credit-pack-name">Parlay Builder Pack</div>
-      <div class="credit-pack-amount">25</div>
-      <div class="credit-pack-type">AI PARLAY CREDITS</div>
-      <div class="credit-pack-price">$14.99</div>
-      <div class="credit-pack-desc">25 AI-optimized auto-parlay builds with Monte Carlo simulation and full value edge scoring.</div>
-      <a href="#stripe-parlay-25" class="credit-pack-btn">Buy 25 Parlay Credits →</a>
+    <div class="credit-card">
+      <div class="credit-icon">⚡</div>
+      <div class="credit-name">PARLAY BUILDER PACK</div>
+      <div class="credit-amount">25 Credits</div>
+      <div class="credit-desc">25 AI-optimized auto-parlay builds across any leagues. Includes full value analysis and risk scoring.</div>
+      <div class="credit-price">$3.99</div>
+      <a href="#stripe-parlay-25" class="plan-btn primary">BUY PARLAY CREDITS →</a>
     </div>
-
-    <div class="credit-pack">
-      <div class="credit-pack-icon">📦</div>
-      <div class="credit-pack-name">Mega Bundle</div>
-      <div class="credit-pack-amount">200</div>
-      <div class="credit-pack-type">MIXED CREDITS</div>
-      <div class="credit-pack-price">$19.99</div>
-      <div class="credit-pack-desc">150 AI analysis + 50 AI parlay credits. Best value for power users who want full coverage.</div>
-      <a href="#stripe-bundle" class="credit-pack-btn">Buy Mega Bundle →</a>
+    <div class="credit-card">
+      <div class="credit-icon">🏆</div>
+      <div class="credit-name">MEGA BUNDLE</div>
+      <div class="credit-amount">200 Credits</div>
+      <div class="credit-desc">200 mixed AI credits — use for match analysis OR parlay builds. Best value. 4× more credits for 3× the price.</div>
+      <div class="credit-price">$14.99 <span style="font-size:10px;color:var(--green)">SAVE 50%</span></div>
+      <a href="#stripe-bundle" class="plan-btn gold-btn">BUY BUNDLE →</a>
     </div>
-
   </div>
 
-  <!-- ADD-ONS -->
-  <div class="section-label">ADD-ONS & EXTRAS</div>
-  <div class="addon-grid">
-
+  <div class="section-title">ADD-ONS</div>
+  <div class="addons-grid">
     <div class="addon-card">
       <div class="addon-icon">🏈</div>
-      <div>
-        <div class="addon-name">Additional Sport — NFL / NBA / NHL</div>
-        <div class="addon-desc">Add a single sport to your Starter or Basic plan. Includes full predictions, player ELOs, and AI analysis for that sport.</div>
-        <div class="addon-price">$9.99 / month per sport</div>
-        <a href="#stripe-sport-addon" class="addon-btn">Add Sport →</a>
+      <div class="addon-info">
+        <div class="addon-name">NFL + NCAA Add-on</div>
+        <div class="addon-desc">Full American football coverage — NFL weekly predictions, college game analysis, player props</div>
       </div>
+      <div class="addon-price">$1.99/mo</div>
     </div>
-
     <div class="addon-card">
       <div class="addon-icon">🎾</div>
-      <div>
-        <div class="addon-name">Tennis + NCAA Bundle</div>
-        <div class="addon-desc">ATP, WTA, and NCAA Basketball & Football predictions with player matchup analysis and tournament tracking.</div>
-        <div class="addon-price">$9.99 / month</div>
-        <a href="#stripe-tennis-ncaa" class="addon-btn">Add Bundle →</a>
+      <div class="addon-info">
+        <div class="addon-name">Tennis + NCAA Basketball</div>
+        <div class="addon-desc">ATP/WTA match predictions, surface analysis, college basketball brackets</div>
       </div>
+      <div class="addon-price">$2.99/mo</div>
     </div>
-
     <div class="addon-card">
-      <div class="addon-icon">📊</div>
-      <div>
-        <div class="addon-name">Extended League Pack</div>
-        <div class="addon-desc">Unlock 20+ additional football leagues: Eredivisie, Primeira Liga, Brasileirão, Super Lig, and more.</div>
-        <div class="addon-price">$5.49 / month</div>
-        <a href="#stripe-leagues" class="addon-btn">Add Leagues →</a>
+      <div class="addon-icon">⚽</div>
+      <div class="addon-info">
+        <div class="addon-name">Extended Leagues</div>
+        <div class="addon-desc">Add Brazilian Serie A, Turkish Super Lig, Scottish Premiership, and 5 more leagues</div>
       </div>
+      <div class="addon-price">$1.49/mo</div>
     </div>
-
     <div class="addon-card">
       <div class="addon-icon">🔔</div>
-      <div>
+      <div class="addon-info">
         <div class="addon-name">Value Bet Alerts</div>
-        <div class="addon-desc">Real-time push notifications when our model detects a 5%+ edge vs bookmaker odds. Never miss a value bet.</div>
-        <div class="addon-price">$4.99 / month</div>
-        <a href="#stripe-alerts" class="addon-btn">Add Alerts →</a>
+        <div class="addon-desc">Real-time push notifications when high-edge value bets are detected across all your leagues</div>
       </div>
+      <div class="addon-price">$0.99/mo</div>
     </div>
-
   </div>
 
-  <!-- FAQ -->
-  <div class="faq">
-    <div class="section-label">FAQ</div>
-    <div class="faq-item"><div class="faq-q">How do credits work?</div><div class="faq-a">Credits are consumed when you use AI features. 1 AI Analysis credit = 1 deep match analysis. 1 Parlay credit = 1 auto-built AI parlay. Monthly plan credits reset each billing cycle. Purchased credit packs never expire.</div></div>
-    <div class="faq-item"><div class="faq-q">Can I use a referral code?</div><div class="faq-a">Yes — enter a referral code when signing up to get 25% off your first month. If you refer 3 friends to Pro, you get 1 month of Pro free.</div></div>
-    <div class="faq-item"><div class="faq-q">What payment methods do you accept?</div><div class="faq-a">All major credit cards via Stripe. Secure, encrypted payments. Cancel anytime from your profile.</div></div>
-    <div class="faq-item"><div class="faq-q">Is the data really live?</div><div class="faq-a">Yes. We pull live fixtures, lineups, odds, and player stats from Sportmonks v3 and The Odds API. ELOs update from real Sportmonks team rankings. Odds refresh every 5 minutes.</div></div>
-    <div class="faq-item"><div class="faq-q">How is the AI trained?</div><div class="faq-a">We use GitHub Models (GPT-4o / GPT-5) combined with our own Monte Carlo simulation engine (40,000+ iterations per match), real xG models, and Sportmonks probability predictions. The AI has context of real player names, stats, ELOs, and bookmaker odds for every analysis.</div></div>
-  </div>
+  <div class="section-title">FAQ</div>
+  <div class="faq-item"><div class="faq-q">What are AI credits?</div><div class="faq-a">Each AI credit unlocks one full match analysis — including tactical breakdown, key player profiles with real Sportmonks stats, value bet assessment, BTTS/O2.5 insight, and H2H context. Credits never expire and roll over month to month.</div></div>
+  <div class="faq-item"><div class="faq-q">Where does the data come from?</div><div class="faq-a">Real fixture data and player statistics from Sportmonks v3 (official data provider). Real bookmaker odds from The Odds API (Bet365, Pinnacle, William Hill). AI analysis from GitHub Models (GPT-5). All predictions use Monte Carlo simulation (60k runs per match).</div></div>
+  <div class="faq-item"><div class="faq-q">Is La Liga the right one?</div><div class="faq-a">Yes — we specifically use La Liga Primera División (SM League ID 564), the top Spanish division featuring Real Madrid, Barcelona, Atletico Madrid, and Sevilla. Not La Liga 2 or any lower tier.</div></div>
+  <div class="faq-item"><div class="faq-q">Can I cancel anytime?</div><div class="faq-a">Yes — cancel anytime with one click. You keep access until the end of your billing period. No refunds on partial months.</div></div>
+  <div class="faq-item"><div class="faq-q">Do referrals actually work?</div><div class="faq-a">Yes. Your personal referral code is on your profile page. Refer 3 friends to Pro and get 1 month free. Each person you refer gets 25% off their first month. Affiliate partners earn 25% first month + 10% recurring commission.</div></div>
+</div>
 
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authOverlay" onclick="if(event.target===this)closeAuth()">
+  <div class="auth-card" style="position:relative">
+    <div class="auth-close" onclick="closeAuth()">✕</div>
+    <div class="auth-logo">SLIP IQ</div>
+    <div class="auth-title" id="authTitle">Sign in to your account</div>
+    <div class="auth-error" id="authError"></div>
+    <input type="email" class="auth-input" id="authEmail" placeholder="Email address">
+    <input type="password" class="auth-input" id="authPassword" placeholder="Password">
+    <button class="auth-btn" id="authBtn" onclick="submitAuth()">Sign In</button>
+    <div class="auth-switch" id="authSwitch">No account? <a onclick="toggleAuthMode()">Sign up free</a></div>
+  </div>
 </div>
 
 <script>
 const SUPABASE_URL      = 'YOUR_SUPABASE_URL'
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
-const {createClient} = supabase
+const ADMIN_EMAIL       = 'zioncmulangala@gmail.com'
+const PLAN_PRICES = { free:'$0', starter:'$2.99', basic:'$4.99', pro:'$14.99', elite:'$49.99' }
+
+const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// You can add Stripe redirect logic here when you have payment links
-// e.g. document.querySelectorAll('a[href^="#stripe-"]').forEach(...)
+let currentUser = null, userPlan = 'free', authMode = 'login'
+
+async function init() {
+  const { data:{ session } } = await sb.auth.getSession()
+  if (session) await setUser(session.user)
+  renderHeader()
+  highlightCurrentPlan()
+  sb.auth.onAuthStateChange(async (ev, session) => {
+    if (session) { await setUser(session.user); renderHeader(); highlightCurrentPlan() }
+    else { currentUser=null; userPlan='free'; renderHeader(); highlightCurrentPlan() }
+  })
+}
+
+async function setUser(user) {
+  currentUser = user
+  const { data } = await sb.from('subscriptions').select('plan,status').eq('user_id', user.id).single().catch(()=>({data:null}))
+  userPlan = (data?.status==='active') ? (data.plan||'free') : 'free'
+}
+
+function renderHeader() {
+  const r = document.getElementById('headerRight')
+  if (!r) return
+  if (currentUser) {
+    const init = (currentUser.user_metadata?.name||currentUser.email||'?')[0].toUpperCase()
+    const isAdmin = currentUser.email === ADMIN_EMAIL
+    r.innerHTML = `${isAdmin?'<a href="admin.html" class="nav-link" style="color:#ff3b5c">⚙ Admin</a>':''}
+      <a href="profile.html" class="nav-link">Profile</a>
+      <a href="store.html" class="tier-badge">${userPlan.toUpperCase()} ↑</a>
+      <a href="profile.html" class="avatar-btn">${init}</a>`
+  } else {
+    r.innerHTML = `<button class="btn-login" onclick="openAuth('login')">Sign In</button><button class="btn-signup" onclick="openAuth('signup')">Start Free →</button>`
+  }
+}
+
+function highlightCurrentPlan() {
+  const badge = document.getElementById('currentBadge')
+  const label = document.getElementById('currentPlanLabel')
+  if (currentUser) {
+    badge.style.display = 'inline-block'
+    label.textContent = userPlan.charAt(0).toUpperCase()+userPlan.slice(1) + ' ('+PLAN_PRICES[userPlan]+')'
+  } else {
+    badge.style.display = 'none'
+  }
+  // Highlight current card, update buttons
+  const plans = ['free','starter','basic','pro','elite']
+  for (const p of plans) {
+    const card = document.getElementById('card-'+p)
+    const btn  = document.getElementById('btn-'+p)
+    if (!card||!btn) continue
+    if (p === userPlan) {
+      card.classList.add('current')
+      btn.className = 'plan-btn current-btn'
+      btn.textContent = '✓ CURRENT PLAN'
+      btn.removeAttribute('href')
+    } else {
+      card.classList.remove('current')
+    }
+  }
+}
+
+// AUTH
+function openAuth(mode) {
+  authMode = mode
+  document.getElementById('authOverlay').classList.add('open')
+  document.getElementById('authTitle').textContent = mode==='login'?'Sign in to your account':'Create your free account'
+  document.getElementById('authBtn').textContent = mode==='login'?'Sign In':'Create Account'
+  document.getElementById('authSwitch').innerHTML = mode==='login'?"No account? <a onclick='toggleAuthMode()'>Sign up free</a>":"Have an account? <a onclick='toggleAuthMode()'>Sign in</a>"
+  document.getElementById('authError').classList.remove('show')
+}
+function closeAuth() { document.getElementById('authOverlay').classList.remove('open') }
+function toggleAuthMode() { openAuth(authMode==='login'?'signup':'login') }
+
+async function submitAuth() {
+  const email = document.getElementById('authEmail').value.trim()
+  const password = document.getElementById('authPassword').value
+  const errEl = document.getElementById('authError')
+  const btn = document.getElementById('authBtn')
+  if (!email||!password) { errEl.textContent='Please fill in all fields.'; errEl.classList.add('show'); return }
+  btn.disabled=true; btn.textContent='Loading...'
+  try {
+    const result = authMode==='login'
+      ? await sb.auth.signInWithPassword({email,password})
+      : await sb.auth.signUp({email,password})
+    if (result.error) { errEl.textContent=result.error.message; errEl.classList.add('show'); return }
+    if (authMode==='signup'&&!result.data.session) { errEl.style.color='var(--green)'; errEl.textContent='✅ Check your email to confirm!'; errEl.classList.add('show'); return }
+    closeAuth()
+  } finally { btn.disabled=false; btn.textContent=authMode==='login'?'Sign In':'Create Account' }
+}
+
+window.addEventListener('DOMContentLoaded', init)
 </script>
 </body>
 </html>
