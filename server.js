@@ -60,12 +60,16 @@ const smAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 3500
 app.use(cors())
 app.use("/webhook/stripe", express.raw({ type: "application/json" }))
 app.use(express.json({ limit: "15mb" }))
+// Serve HTML from both /public and root directory (handles Render deployments)
 app.use(express.static(path.join(__dirname, "public")))
+app.use(express.static(__dirname, { extensions: ["html"] }))
 
 // ── ENV ───────────────────────────────────────────────────
 const SM_KEY   = process.env.SPORTMONKS_API_KEY
 const ODDS_KEY = process.env.ODDS_API_KEY
 const NEWS_KEY = process.env.NEWS_API_KEY
+// football-data.org — free standings API (sign up at football-data.org)
+const FD_KEY_ENV = process.env.FOOTBALL_DATA_KEY || ""
 const STRIPE_SECRET_KEY     = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 const _raw     = process.env.MODEL_NAME || "openai/gpt-4o"
@@ -145,7 +149,9 @@ const trophyBonus  = new Map()   // team → extra ELO from trophies (decays)
 const prevEloSnap  = new Map()   // team → ELO last time /elo/rankings was called
 
 function sbSave(table, row, conflict) {
-  if (sb) sb.from(table).upsert(row, { onConflict: conflict }).catch(() => {})
+  if (!sb) return
+  const q = sb.from(table).upsert(row, { onConflict: conflict })
+  if (typeof q.then === 'function') q.then(() => {}).catch(() => {})
 }
 
 // ── SUPABASE LOAD ─────────────────────────────────────────
@@ -155,7 +161,7 @@ async function loadSupabase() {
     const [tr, pr, mr] = await Promise.all([
       sb.from("team_ratings").select("*"),
       sb.from("player_ratings").select("*").limit(200000),
-      sb.from("manager_ratings").select("*").catch(() => ({ data: [] }))
+      sb.from("manager_ratings").select("*").then(r => r).catch(() => ({ data: [] }))
     ])
     if (tr.data) for (const t of tr.data) teamDB.set(t.team_name, t)
     if (pr.data) {
@@ -326,7 +332,7 @@ const MANAGER_SEEDS = {
   "Pep Guardiola":          { team: "Man City",         base: 1920, style: "Possession" },
   "Carlo Ancelotti":        { team: "Real Madrid",      base: 1900, style: "Flexible" },
   "Hansi Flick":            { team: "Barcelona",        base: 1870, style: "High Press" },
-  "Mikel Arteta":           { team: "Arsenal",          base: 1870, style: "Rigid" },
+  "Mikel Arteta":           { team: "Arsenal",          base: 1870, style: "Pressing" },
   "Diego Simeone":          { team: "Atletico Madrid",  base: 1850, style: "Defensive" },
   "Thomas Tuchel":          { team: "Bayern Munich",    base: 1870, style: "Counter-press" },
   "Luis Enrique":           { team: "PSG",              base: 1890, style: "Possession" },
@@ -389,7 +395,7 @@ const PLAYSTYLES = {
   LB:  { name: "Attack Fullback", desc: "Overlapping runs, dangerous in final third",        icon: "🏃" },
   RB:  { name: "Attack Fullback", desc: "Overlapping runs, dangerous in final third",        icon: "🏃" },
   CDM: { name: "Press Conductor", desc: "Sets press triggers, shields the backline",         icon: "🔥" },
-  CM:  { name: "Box-to-Box",      desc: "Covers ground, creates  play and very technical",         icon: "⚙️" },
+  CM:  { name: "Box-to-Box",      desc: "Covers ground, contributes in both phases",         icon: "⚙️" },
   CAM: { name: "Playmaker",       desc: "Creates between lines, key passes & shooting",      icon: "✨" },
   LW:  { name: "Inverted Winger", desc: "Cuts inside onto stronger foot, half-space threat", icon: "↩️" },
   RW:  { name: "Inverted Winger", desc: "Cuts inside onto stronger foot, half-space threat", icon: "↩️" },
@@ -563,39 +569,96 @@ function buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league) {
 // ── LEAGUE NORMALISATION ──────────────────────────────────
 function normLeague(raw) {
   if (!raw) return null
+  // Strip season year suffixes like "2024/25", "2025/2026", "2025-26"
+  const clean = raw.replace(/\s*\d{4}[/-]\d{2,4}$/,"").replace(/\s*\d{4}$/,"").trim()
   const map = {
-    "Premier League":"Premier League","English Premier League":"Premier League","EPL":"Premier League","Barclays Premier League":"Premier League",
-    "La Liga":"La Liga","LaLiga":"La Liga","Spanish La Liga":"La Liga","Primera Division":"La Liga","La Liga Santander":"La Liga",
-    "Serie A":"Serie A","Italian Serie A":"Serie A",
+    // Premier League
+    "Premier League":"Premier League","English Premier League":"Premier League","EPL":"Premier League",
+    "Barclays Premier League":"Premier League","Barclays PL":"Premier League",
+    // La Liga
+    "La Liga":"La Liga","LaLiga":"La Liga","Spanish La Liga":"La Liga","Primera Division":"La Liga",
+    "La Liga Santander":"La Liga","La Liga EA Sports":"La Liga",
+    // Serie A
+    "Serie A":"Serie A","Italian Serie A":"Serie A","Serie A TIM":"Serie A",
+    // Bundesliga
     "Bundesliga":"Bundesliga","German Bundesliga":"Bundesliga","Bundesliga 1":"Bundesliga",
+    "1. Bundesliga":"Bundesliga",
+    // Ligue 1
     "Ligue 1":"Ligue 1","French Ligue 1":"Ligue 1","Ligue 1 Uber Eats":"Ligue 1",
+    "Ligue 1 McDonald's":"Ligue 1",
+    // Champions League — SM uses various names
     "UEFA Champions League":"Champions League","Champions League":"Champions League",
+    "UCL":"Champions League","UEFA CL":"Champions League",
+    // Europa League
     "UEFA Europa League":"Europa League","Europa League":"Europa League",
+    "UEL":"Europa League",
+    // Conference League
     "UEFA Conference League":"Conference League","Conference League":"Conference League",
-    "EFL Championship":"Championship","Championship":"Championship",
+    "UEFA Europa Conference League":"Conference League","UECL":"Conference League",
+    // EFL
+    "EFL Championship":"Championship","Championship":"Championship","The Championship":"Championship",
     "Scottish Premiership":"Scottish Premiership","Scottish Premier League":"Scottish Premiership",
-    "Primeira Liga":"Primeira Liga","Liga Portugal":"Primeira Liga","Liga NOS":"Primeira Liga","Liga Portugal Betclic":"Primeira Liga",
+    "Scottish Premiership SPFL":"Scottish Premiership",
+    // Portugal
+    "Primeira Liga":"Primeira Liga","Liga Portugal":"Primeira Liga","Liga NOS":"Primeira Liga",
+    "Liga Portugal Betclic":"Primeira Liga","Liga Betclic":"Primeira Liga",
+    // Netherlands
     "Eredivisie":"Eredivisie","Dutch Eredivisie":"Eredivisie",
-    "Süper Lig":"Süper Lig","Super Lig":"Süper Lig","Turkish Super Lig":"Süper Lig","Turkish Süper Lig":"Süper Lig",
-    "Belgian First Division A":"Belgian Pro League","Jupiler Pro League":"Belgian Pro League","Belgian Pro League":"Belgian Pro League",
-    "Argentine Primera División":"Argentine Primera","Liga Profesional Argentina":"Argentine Primera","Argentine Primera":"Argentine Primera",
-    "Brasileirao Serie A":"Brasileirão","Brazilian Serie A":"Brasileirão","Brasileirão Serie A":"Brasileirão",
+    // Turkey
+    "Süper Lig":"Süper Lig","Super Lig":"Süper Lig","Turkish Super Lig":"Süper Lig",
+    "Turkish Süper Lig":"Süper Lig","Trendyol Süper Lig":"Süper Lig",
+    // Belgium
+    "Belgian First Division A":"Belgian Pro League","Jupiler Pro League":"Belgian Pro League",
+    "Belgian Pro League":"Belgian Pro League","Betplay First Division A":"Belgian Pro League",
+    // Argentina
+    "Argentine Primera División":"Argentine Primera","Liga Profesional Argentina":"Argentine Primera",
+    "Argentine Primera":"Argentine Primera","Primera División":"Argentine Primera",
+    "Liga Profesional de Fútbol":"Argentine Primera",
+    // Brazil
+    "Brasileirao Serie A":"Brasileirão","Brazilian Serie A":"Brasileirão",
+    "Brasileirão Serie A":"Brasileirão","Brasileirão":"Brasileirão","Brasileiro Série A":"Brasileirão",
+    // USA
     "Major League Soccer":"MLS","MLS":"MLS",
+    // Saudi
     "Saudi Professional League":"Saudi Pro League","Saudi Pro League":"Saudi Pro League",
+    "Roshn Saudi League":"Saudi Pro League","Saudi Premier League":"Saudi Pro League",
+    // Cups
     "FA Cup":"FA Cup","English FA Cup":"FA Cup","The FA Cup":"FA Cup",
     "EFL Cup":"Carabao Cup","Football League Cup":"Carabao Cup","Carabao Cup":"Carabao Cup",
-    "2. Bundesliga":"Bundesliga 2","Bundesliga 2":"Bundesliga 2",
-    "LaLiga2":"La Liga 2","La Liga 2":"La Liga 2","Segunda Division":"La Liga 2",
-    "Danish Superliga":"Danish Superliga","Denmark Superliga":"Danish Superliga",
-    "Greek Super League":"Greek Super League","Super League Greece":"Greek Super League","Super League 1":"Greek Super League",
+    "League Cup":"Carabao Cup",
+    // Lower leagues
+    "2. Bundesliga":"Bundesliga 2","Bundesliga 2":"Bundesliga 2","2. Bundesliga":"Bundesliga 2",
+    "LaLiga2":"La Liga 2","La Liga 2":"La Liga 2","Segunda Division":"La Liga 2","La Liga Hypermotion":"La Liga 2",
+    // Nordics / Etc
+    "Danish Superliga":"Danish Superliga","Denmark Superliga":"Danish Superliga","Superliga":"Danish Superliga",
+    "Greek Super League":"Greek Super League","Super League Greece":"Greek Super League",
+    "Super League 1":"Greek Super League","Super League":"Greek Super League",
     "Czech First League":"Czech Liga","Fortuna Liga":"Czech Liga","Czech Liga":"Czech Liga","HET Liga":"Czech Liga",
-    "Zambia Super League":"Zambian Super League","FAZ Super League":"Zambian Super League","Zambian Super League":"Zambian Super League",
-    "Premier Soccer League":"South African PSL","DStv Premiership":"South African PSL","South African PSL":"South African PSL",
+    // Africa
+    "Zambia Super League":"Zambian Super League","FAZ Super League":"Zambian Super League",
+    "Zambian Super League":"Zambian Super League",
+    "Premier Soccer League":"South African PSL","DStv Premiership":"South African PSL",
+    "South African PSL":"South African PSL","Betway Premiership":"South African PSL",
+    // Estonia
     "Meistriliiga":"Estonian Meistriliiga","Estonian Meistriliiga":"Estonian Meistriliiga",
+    // Cups
     "Copa del Rey":"Copa del Rey","Coppa Italia":"Coppa Italia","DFB Pokal":"DFB Pokal",
     "Coupe de France":"Coupe de France","DBU Pokalen":"DBU Pokalen",
   }
-  return map[raw] || null
+  // Try exact match on cleaned name first
+  if (map[clean]) return map[clean]
+  // Try exact match on raw
+  if (map[raw]) return map[raw]
+  // Try case-insensitive match
+  const cleanLo = clean.toLowerCase()
+  for (const [k, v] of Object.entries(map)) {
+    if (k.toLowerCase() === cleanLo) return v
+  }
+  // Fuzzy: check if any known key is contained within the SM name
+  for (const [k, v] of Object.entries(map)) {
+    if (cleanLo.includes(k.toLowerCase()) || k.toLowerCase().includes(cleanLo)) return v
+  }
+  return null
 }
 
 function leagueFlag(c) {
@@ -615,46 +678,79 @@ function inferTactics(elo, form) {
 //  SPORTMONKS — FULL PAID TIER (all includes enabled)
 //  KEY: No filters[leagueIds] — was causing 400 on fixtures
 // ══════════════════════════════════════════════════════════
-async function smFixtures(days) {
-  days = Math.min(days || 14, 14)
-  if (!SM_KEY) return []
-  return cached("sm_fix_" + days, async () => {
-    const now    = new Date()
-    const end    = new Date(now.getTime() + days * 86400000)
-    const start  = now.toISOString().slice(0, 10)
-    const endStr = end.toISOString().slice(0, 10)
-    const url    = `${SM_BASE}/fixtures/between/${start}/${endStr}`
-    console.log(`📡 SM fixtures ${start} → ${endStr}`)
-    const fullInc = "participants;league;league.country;scores;state;odds;predictions;lineups.player;lineups.details.type;xGFixture"
+// SM include tiers — tried in order until one succeeds
+// IMPORTANT: lineups/xGFixture are fetched separately per-fixture, NOT here
+// Tier 1: core data with odds+predictions. Tier 2: no odds. Tier 3: bare. Tier 4: minimal
+const SM_INCLUDE_TIERS = [
+  "participants;league;league.country;scores;state;odds;predictions",
+  "participants;league;league.country;scores;state",
+  "participants;league;league.country;scores",
+  "participants;league;league.country",
+  "participants;league",
+]
+
+async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
+  // Check cache first
+  const hit = cache.get(cacheKey)
+  if (hit && Date.now() - hit.ts < (ttl || TTL.S)) return hit.data
+
+  for (let ti = 0; ti < SM_INCLUDE_TIERS.length; ti++) {
     try {
       const all = []; let page = 1, hasMore = true
       while (hasMore && page <= 15 && all.length < 600) {
-        const r    = await http(url, { api_token: SM_KEY, include: fullInc, order: "asc", per_page: 50, page })
-        const data = r.data?.data || []; all.push(...data)
+        const r = await http(url, { api_token: SM_KEY, include: SM_INCLUDE_TIERS[ti], order: "asc", per_page: 50, page, ...extraParams })
+        const data = r.data?.data || []
+        all.push(...data)
         hasMore = r.data?.pagination?.has_more === true && data.length === 50
         page++
-        if (hasMore) await sleep(250)
+        if (hasMore) await sleep(200)
       }
-      console.log(`  ✅ SM: ${all.length} fixtures`); return all
+      if (ti > 0) console.log(`  ✅ SM tier-${ti+1} fallback worked: ${all.length} results`)
+      else console.log(`  ✅ SM: ${all.length} fixtures (full tier)`)
+      cache.set(cacheKey, { data: all, ts: Date.now() })
+      return all
     } catch(e) {
-      console.log("⚠️  SM full includes:", e.response?.status || e.message)
-      try {
-        const r2   = await http(url, { api_token: SM_KEY, include: "participants;league;league.country;scores;state;odds;predictions", order: "asc", per_page: 50 })
-        const data = r2.data?.data || []
-        console.log(`  ✅ SM fallback: ${data.length}`); return data
-      } catch(e2) { console.log("⚠️  SM all failed:", e2.message); return [] }
+      const status = e.response?.status || e.code || "?"
+      if (ti < SM_INCLUDE_TIERS.length - 1) {
+        console.log(`  ⚠️  SM tier-${ti+1} (status ${status}) → trying simpler includes...`)
+        await sleep(500)
+      } else {
+        console.log(`  ❌ SM all tiers failed (last status: ${status})`)
+        if (hit) return hit.data  // return stale cache if all tiers failed
+        return []
+      }
     }
-  }, TTL.S)
+  }
+  return []
+}
+
+async function smFixtures(days) {
+  days = Math.min(days || 14, 14)
+  if (!SM_KEY) return []
+  const now    = new Date()
+  const end    = new Date(now.getTime() + days * 86400000)
+  const start  = now.toISOString().slice(0, 10)
+  const endStr = end.toISOString().slice(0, 10)
+  const url    = `${SM_BASE}/fixtures/between/${start}/${endStr}`
+  console.log(`📡 SM fixtures ${start} → ${endStr}`)
+  return smFetchWithFallback(url, {}, `sm_fix_${days}`, TTL.S)
 }
 
 async function smLive() {
   if (!SM_KEY) return []
   return cached("sm_live", async () => {
-    try {
-      const r    = await http(`${SM_BASE}/livescores`, { api_token: SM_KEY, include: "participants;league;league.country;scores;state;odds;predictions;xGFixture;lineups.player;lineups.details.type" })
-      const data = r.data?.data || []
-      console.log(`✅ SM Live: ${data.length}`); return data
-    } catch(e) { console.log("⚠️  smLive:", e.message); return [] }
+    for (const inc of SM_INCLUDE_TIERS) {
+      try {
+        const r    = await http(`${SM_BASE}/livescores`, { api_token: SM_KEY, include: inc })
+        const data = r.data?.data || []
+        console.log(`✅ SM Live: ${data.length}`); return data
+      } catch(e) {
+        const status = e.response?.status
+        if (status === 403 || status === 401 || status === 422) { await sleep(300); continue }
+        console.log("⚠️  smLive:", e.message); return []
+      }
+    }
+    return []
   }, TTL.LIVE)
 }
 
@@ -721,72 +817,315 @@ async function smPreMatchNews() {
   }, TTL.M)
 }
 
-// Real SM squad — player names come directly from SM response
+// Real SM squad — tries all known SM v3 squad endpoint patterns
+// SM v3 full paid: GET /football/squads/seasons/{seasonId}/teams/{teamId}
+// SM v3 basic:     GET /football/squads/teams/{teamId}
+// SM fallback:     GET /football/teams/{teamId}?include=players
+const squadFetchLock = new Set() // prevent duplicate concurrent fetches
+
 async function smSquad(teamId, teamName, seasonId) {
   if (!SM_KEY || !teamId) return []
-  return cached(`sm_squad_${teamId}_${seasonId || "cur"}`, async () => {
-    try {
-      const params = { api_token: SM_KEY, "filters[teams]": teamId, include: "player;player.statistics.details.type;player.position" }
-      if (seasonId) params["filters[seasons]"] = seasonId
-      const r     = await http(`${SM_BASE}/squads/teams`, params)
-      const squad = r.data?.data || []
-      if (!squad.length) return []
-      const tElo = getElo(teamName) || 1550
-      const built = squad.map(sq => {
-        const p   = sq.player || {}
-        const pos = mapPosId(p.position_id || sq.position_id)
-        const details = (p.statistics?.[0]?.details) || []
-        const getStat = id => { const d = details.find(x => x.type_id === id); return d?.value ? (d.value.total || d.value.average || 0) : 0 }
-        const goals   = getStat(52), assists = getStat(78), apps = getStat(321) || getStat(79)
-        const mins    = getStat(119) || getStat(80), rating = getStat(118) || getStat(149)
-        const keyPass = getStat(117), shotOT = getStat(86), tackles = getStat(105)
-        // Real player name from SM (was disabled in v11, causing generic names)
-        const pName = p.display_name || p.common_name || (p.firstname && p.lastname ? `${p.firstname} ${p.lastname}` : null) || p.name || "Unknown"
-        const pElo  = buildPlayerElo(pName, pos, tElo, rating, goals, apps)
-        const attrs = buildPlayerAttrs(pName, pos, pElo, tElo, rating)
-        const row = {
-          player_name: pName, team_name: teamName, sm_player_id: p.id, position: pos,
-          nationality: p.nationality_id, age: p.age || null, image_path: p.image_path || null, jersey: sq.jersey_number || null,
-          elo: pElo, speed: attrs.speed, attack: attrs.attack, defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
-          playstyle_name: attrs.playstyle.name,
-          goals_this_season: Math.round(goals), assists_this_season: Math.round(assists), appearances: Math.round(apps),
-          minutes_played: Math.round(mins), real_rating: rating ? Math.round(rating * 10) / 10 : null,
-          key_passes: Math.round(keyPass), shots_on_target: Math.round(shotOT), tackles: Math.round(tackles),
-          updated_at: new Date().toISOString()
+  const cacheKey = `sm_squad_${teamId}_${seasonId || "cur"}`
+  const hit = cache.get(cacheKey)
+  if (hit && Date.now() - hit.ts < TTL.L) return hit.data
+  // Prevent duplicate fetches for same team
+  if (squadFetchLock.has(cacheKey)) return []
+  squadFetchLock.add(cacheKey)
+  try {
+    // SM v3 squad endpoints — ordered by most likely to work
+    const endpoints = []
+    if (seasonId) {
+      endpoints.push({ url: `${SM_BASE}/squads/seasons/${seasonId}/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position;player.statistics.details" } })
+      endpoints.push({ url: `${SM_BASE}/squads/seasons/${seasonId}/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position" } })
+      endpoints.push({ url: `${SM_BASE}/squads/seasons/${seasonId}/teams/${teamId}`, params: { api_token: SM_KEY, include: "player" } })
+    }
+    // SM v3: squads/teams endpoint (requires squad subscription)
+    endpoints.push({ url: `${SM_BASE}/squads/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position;player.statistics.details" } })
+    endpoints.push({ url: `${SM_BASE}/squads/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position" } })
+    endpoints.push({ url: `${SM_BASE}/squads/teams/${teamId}`, params: { api_token: SM_KEY, include: "player" } })
+    // SM v3: teams endpoint with squad include (works on basic plans)
+    endpoints.push({ url: `${SM_BASE}/teams/${teamId}`, params: { api_token: SM_KEY, include: "squad;squad.position" } })
+    endpoints.push({ url: `${SM_BASE}/teams/${teamId}`, params: { api_token: SM_KEY, include: "players;players.position" } })
+    endpoints.push({ url: `${SM_BASE}/teams/${teamId}`, params: { api_token: SM_KEY, include: "players" } })
+    // SM v3: players/teams endpoint
+    endpoints.push({ url: `${SM_BASE}/players/teams/${teamId}`, params: { api_token: SM_KEY, include: "position" } })
+
+    let entries = null
+    for (const ep of endpoints) {
+      try {
+        const r   = await http(ep.url, ep.params)
+        const raw = r.data?.data
+        if (!raw) continue
+        // SM returns different shapes depending on endpoint:
+        // /squads/teams/{id} → array of squad entries with .player
+        // /teams/{id}?include=squad → object with .squad array
+        // /teams/{id}?include=players → object with .players array
+        // /players/teams/{id} → array of player objects directly
+        if (Array.isArray(raw)) {
+          entries = raw
+        } else if (raw.squad?.data || raw.squad) {
+          entries = raw.squad?.data || raw.squad || []
+        } else if (raw.players?.data || raw.players) {
+          entries = raw.players?.data || raw.players || []
+        } else {
+          entries = []
         }
-        playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses })
-        if (!squadDB.has(teamName)) squadDB.set(teamName, [])
-        const ex  = squadDB.get(teamName)
-        const idx = ex.findIndex(x => x.player_name === pName)
-        if (idx >= 0) ex[idx] = { ...row, playstyle: attrs.playstyle }
-        else ex.push({ ...row, playstyle: attrs.playstyle })
-        sbSave("player_ratings", row, "player_name,team_name")
-        return { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses }
-      })
-      console.log(`  👥 ${teamName}: ${built.length} real SM players`); return built
-    } catch(e) { console.log(`⚠️  smSquad ${teamName}:`, e.message?.slice(0, 60)); return [] }
-  }, TTL.L)
+        if (entries.length > 0) {
+          console.log(`  👥 ${teamName}: ${entries.length} players via ${ep.url.replace(SM_BASE,"")}`)
+          break
+        }
+      } catch(e2) {
+        const status = e2.response?.status  // number, not string
+        if (status === 404 || status === 403 || status === 422) continue
+        if (e2.code === "ECONNABORTED" || e2.code === "ETIMEDOUT") { await sleep(1000); continue }
+        break // unknown error — stop trying
+      }
+    }
+
+    if (!entries || !entries.length) {
+      cache.set(cacheKey, { data: [], ts: Date.now() }) // cache empty so we don't retry immediately
+      return []
+    }
+
+    const tElo = getElo(teamName) || 1550
+    const built = entries.map(sq => {
+      // SM returns different entry shapes per endpoint
+      // /squads/teams → sq = { player: {...}, jersey_number, position_id }
+      // /teams?include=squad → sq = { id, name, ... directly a player object }
+      // /players/teams → sq = direct player object
+      const p = sq.player || (sq.id && sq.name ? sq : null) || sq
+      const posId  = p.position_id || sq.position_id || p.position?.id
+      const posAbbr = sq.position?.abbreviation || p.position?.abbreviation || p.position?.name
+      const pos    = posId ? mapPosId(posId) : (posAbbr ? posAbbr.toUpperCase().slice(0,3) : "CM")
+      const details = (p.statistics?.[0]?.details) || []
+      const getStat = id => { const d = details.find(x => x.type_id === id); return d?.value ? (d.value.total || d.value.average || 0) : 0 }
+      const goals   = getStat(52), assists = getStat(78), apps = getStat(321) || getStat(79)
+      const mins    = getStat(119) || getStat(80), rating = getStat(118) || getStat(149)
+      const keyPass = getStat(117), shotOT = getStat(86), tackles = getStat(105)
+      const pName   = p.display_name || p.common_name || (p.firstname && p.lastname ? `${p.firstname} ${p.lastname}` : null) || p.name || "Unknown"
+      const pElo    = buildPlayerElo(pName, pos, tElo, rating, goals, apps)
+      const attrs   = buildPlayerAttrs(pName, pos, pElo, tElo, rating)
+      const row = {
+        player_name: pName, team_name: teamName, sm_player_id: p.id, position: pos,
+        nationality: p.nationality_id, age: p.age || null, image_path: p.image_path || null,
+        jersey: sq.jersey_number || null,
+        elo: pElo, speed: attrs.speed, attack: attrs.attack, defense: attrs.defense,
+        big_match: attrs.bigMatch, is_key: attrs.isKey,
+        playstyle_name: attrs.playstyle.name,
+        goals_this_season: Math.round(goals), assists_this_season: Math.round(assists),
+        appearances: Math.round(apps), minutes_played: Math.round(mins),
+        real_rating: rating ? Math.round(rating * 10) / 10 : null,
+        key_passes: Math.round(keyPass), shots_on_target: Math.round(shotOT), tackles: Math.round(tackles),
+        updated_at: new Date().toISOString()
+      }
+      playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses })
+      if (!squadDB.has(teamName)) squadDB.set(teamName, [])
+      const ex  = squadDB.get(teamName)
+      const idx = ex.findIndex(x => x.player_name === pName)
+      if (idx >= 0) ex[idx] = { ...row, playstyle: attrs.playstyle }
+      else ex.push({ ...row, playstyle: attrs.playstyle })
+      sbSave("player_ratings", row, "player_name,team_name")
+      return { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses }
+    })
+    cache.set(cacheKey, { data: built, ts: Date.now() })
+    return built
+  } catch(e) {
+    console.log(`⚠️  smSquad ${teamName}:`, e.message?.slice(0, 60))
+    return []
+  } finally {
+    squadFetchLock.delete(cacheKey)
+  }
 }
 
-// Real SM standings — full paid tier
+// ── FOOTBALL-DATA.ORG — live 25/26 standings ─────────────
+// Free API, 10 req/min, covers top 10 competitions
+// Add FOOTBALL_DATA_KEY to your .env
+const FD_KEY  = process.env.FOOTBALL_DATA_KEY || ""
+const FD_BASE = "https://api.football-data.org/v4"
+
+// football-data.org competition codes → our league names
+const FD_COMPETITIONS = {
+  "PL":  "Premier League",
+  "PD":  "La Liga",
+  "SA":  "Serie A",
+  "BL1": "Bundesliga",
+  "FL1": "Ligue 1",
+  "CL":  "Champions League",
+  "EL":  "Europa League",
+  "ECL": "Conference League",
+  "ELC": "Championship",
+  "PPL": "Primeira Liga",
+  "DED": "Eredivisie",
+  "BSA": "Brasileirão",
+}
+// Reverse: league name → FD code
+const FD_COMPETITIONS_REVERSE = Object.fromEntries(Object.entries(FD_COMPETITIONS).map(([k,v])=>[v,k]))
+// Also map by name directly
+const FD_COMP_BY_NAME = { ...FD_COMPETITIONS_REVERSE }
+
+async function fdStandings(code) {
+  if (!FD_KEY) return null
+  return cached(`fd_standings_${code}`, async () => {
+    try {
+      const r = await axios.get(`${FD_BASE}/competitions/${code}/standings`, {
+        headers: { "X-Auth-Token": FD_KEY },
+        timeout: 15000,
+      })
+      const data = r.data
+      console.log(`✅ FD standings ${code}: ${data?.competition?.name}`)
+      return data
+    } catch(e) {
+      const st = e.response?.status
+      console.log(`⚠️  FD standings ${code}: ${st||e.message?.slice(0,50)}`)
+      return null
+    }
+  }, TTL.M)
+}
+
+// Parse football-data.org standings into our table format
+function parseFdStandings(fdData) {
+  if (!fdData?.standings) return []
+  // Get the TOTAL standings table (not home/away split)
+  const table = (fdData.standings.find(s => s.type === "TOTAL") || fdData.standings[0])?.table || []
+  return table.map(row => {
+    const team = row.team || {}
+    // Form: recent results e.g. "W,W,D,L,W"
+    const formStr = row.form || ""
+    const form = formStr.split(",").filter(c => ["W","D","L"].includes(c)).slice(0,5)
+    const pld  = row.playedGames || 0
+    const w    = row.won || 0
+    const d    = row.draw || 0
+    const l    = row.lost || 0
+    const gf   = row.goalsFor || 0
+    const ga   = row.goalsAgainst || 0
+    const pts  = row.points || (w*3+d)
+    const xg   = parseFloat((gf>0 ? gf*(0.82+Math.random()*0.08) : 0).toFixed(1))
+    const xga  = parseFloat((ga>0 ? ga*(0.82+Math.random()*0.08) : 0).toFixed(1))
+    const pos  = row.position || 0
+    return {
+      pos, name: team.shortName || team.name || "Unknown",
+      fullName: team.name, fdTeamId: team.id,
+      imagePath: team.crest || null,
+      pld, w, d, l, gf, ga, gd: row.goalDifference || (gf-ga), pts, xg, xga, form,
+      titleChance: Math.max(0, Math.round((20-pos)*8 + Math.random()*7)),
+      relChance: 0,
+      source: "football-data.org"
+    }
+  }).map((t,i,arr) => {
+    t.relChance = Math.max(0, Math.round((i-arr.length+5)*14+Math.random()*8))
+    return t
+  })
+}
+
+// SM season ID lookup — use /seasons endpoint filtered by league ID
+const SM_LEAGUE_IDS = {
+  "Champions League":     2,
+  "Europa League":        5,
+  "Conference League":    2286,
+  "Premier League":       8,
+  "Championship":         9,
+  "FA Cup":               24,
+  "Carabao Cup":          27,
+  "La Liga":              564,
+  "La Liga 2":            567,
+  "Copa del Rey":         570,
+  "Serie A":              384,
+  "Coppa Italia":         390,
+  "Bundesliga":           82,
+  "Bundesliga 2":         85,
+  "DFB Pokal":            109,
+  "Ligue 1":              301,
+  "Coupe de France":      307,
+  "Primeira Liga":        462,
+  "Eredivisie":           72,
+  "Süper Lig":            600,
+  "Belgian Pro League":   208,
+  "Scottish Premiership": 501,
+  "Argentine Primera":    636,
+  "Brasileirão":          325,  // SM ID for Brazilian Serie A
+  "MLS":                  779,
+  "Saudi Pro League":     944,
+  "Danish Superliga":     271,
+  "Greek Super League":   325,
+  "Czech Liga":           262,
+  "Zambian Super League": 890,
+  "South African PSL":    806,
+  "Estonian Meistriliiga":286,
+  "DBU Pokalen":          null,
+}
+
+// Cache for SM season IDs fetched via /seasons endpoint
+const smSeasonCache = {}
+
+async function getSmSeasonId(leagueName) {
+  if (smSeasonCache[leagueName] !== undefined) return smSeasonCache[leagueName]
+  const smLeagueId = SM_LEAGUE_IDS[leagueName]
+  if (!smLeagueId || !SM_KEY) { smSeasonCache[leagueName] = null; return null }
+  try {
+    // Fetch seasons for this league, get the most recent/current one
+    const r = await http(`${SM_BASE}/seasons`, {
+      api_token: SM_KEY,
+      "filters[league_id]": smLeagueId,
+      per_page: 10,
+      order: "desc"
+    })
+    const seasons = r.data?.data || []
+    // Find current season (has_standings = true OR is the most recent)
+    const current = seasons.find(s => s.is_current_season) || seasons[0]
+    const id = current?.id || null
+    smSeasonCache[leagueName] = id
+    if (id) console.log(`✅ SM season ID for ${leagueName}: ${id} (${current?.name})`)
+    else console.log(`⚠️  No current season found for ${leagueName} (league ID ${smLeagueId})`)
+    return id
+  } catch(e) {
+    console.log(`⚠️  getSmSeasonId ${leagueName}: ${e.response?.status||e.message?.slice(0,40)}`)
+    smSeasonCache[leagueName] = null
+    return null
+  }
+}
+
+// Real SM standings — tries multiple include tiers
 async function smStandings(seasonId) {
   if (!SM_KEY || !seasonId) return []
   return cached(`sm_standings_${seasonId}`, async () => {
-    try {
-      const r = await http(`${SM_BASE}/standings/seasons/${seasonId}`, { api_token: SM_KEY, include: "participant;details;rule" })
-      return r.data?.data || []
-    } catch(e) { console.log(`⚠️  smStandings ${seasonId}:`, e.message?.slice(0, 50)); return [] }
+    const includes = ["participant;details;rule","participant;details","participant",""]
+    for (const inc of includes) {
+      try {
+        const params = { api_token: SM_KEY }
+        if (inc) params.include = inc
+        const r = await http(`${SM_BASE}/standings/seasons/${seasonId}`, params)
+        const data = r.data?.data || []
+        if (data.length > 0) {
+          console.log(`✅ SM Standings season ${seasonId}: ${data.length} groups (inc: "${inc||"none"}")`)
+          return data
+        }
+      } catch(e) {
+        const st = e.response?.status
+        console.log(`⚠️  smStandings ${seasonId} (${inc||"bare"}): ${st||e.message?.slice(0,40)}`)
+        if (st === 401 || st === 402) break
+      }
+    }
+    return []
   }, TTL.L)
 }
 
-// Get SM leagues with current season IDs
+// Get SM leagues — used only for squad season IDs now
 async function smLeagues() {
   if (!SM_KEY) return []
   return cached("sm_leagues", async () => {
     try {
-      const r = await http(`${SM_BASE}/leagues`, { api_token: SM_KEY, include: "country;currentSeason", per_page: 100 })
-      return r.data?.data || []
-    } catch(e) { return [] }
+      const all = []; let page = 1, hasMore = true
+      while (hasMore && page <= 5) {
+        const r = await http(`${SM_BASE}/leagues`, { api_token: SM_KEY, include: "country;currentSeason", per_page: 50, page })
+        const data = r.data?.data || []
+        all.push(...data)
+        hasMore = r.data?.pagination?.has_more === true && data.length === 50
+        page++
+        if (hasMore) await sleep(200)
+      }
+      console.log(`✅ SM Leagues: ${all.length} loaded`)
+      return all
+    } catch(e) { console.log("⚠️  smLeagues:", e.message?.slice(0,60)); return [] }
   }, TTL.XL)
 }
 
@@ -985,12 +1324,18 @@ async function buildPrediction(smFix, oddsMap) {
     const rawLeague = (smFix.league && smFix.league.name) || "Football"
     const country   = (smFix.league && smFix.league.country && smFix.league.country.name) || ""
     let league = normLeague(rawLeague)
-    if (league === "Premier League"     && country && country !== "England")       league = null
-    if (league === "Scottish Premiership"&&country && country !== "Scotland")      league = null
-    if (league === "Argentine Primera"  && country && !["Argentina",""].includes(country)) league = null
-    if (league === "Danish Superliga"   && country && country !== "Denmark")       league = null
-    if (league === "Greek Super League" && country && country !== "Greece")        league = null
-    if (league === "South African PSL"  && country && country !== "South Africa")  league = null
+    // Only filter by country when we have country data — some SM tiers don't include it
+    if (country) {
+      if (league === "Premier League"      && country !== "England")       league = null
+      if (league === "Scottish Premiership"&& country !== "Scotland")      league = null
+      if (league === "Argentine Primera"   && country !== "Argentina")     league = null
+      if (league === "Danish Superliga"    && country !== "Denmark")       league = null
+      if (league === "Greek Super League"  && country !== "Greece")        league = null
+      if (league === "South African PSL"   && country !== "South Africa")  league = null
+      if (league === "Czech Liga"          && country !== "Czech Republic") league = null
+      if (league === "Zambian Super League"&& country !== "Zambia")        league = null
+      if (league === "Estonian Meistriliiga"&&country !== "Estonia")       league = null
+    }
     if (!league) return null
 
     const kickMs = smFix.starting_at_timestamp ? smFix.starting_at_timestamp * 1000 : new Date(smFix.starting_at || 0).getTime()
@@ -1093,9 +1438,17 @@ async function buildPrediction(smFix, oddsMap) {
     const homeLineup = buildLu(homeId, home, hElo)
     const awayLineup = buildLu(awayId, away, aElo)
 
-    // Kick off background squad load so DB fills up (doesn't block this response)
-    if (homeId && !squadDB.has(home)) smSquad(homeId, home, smFix.season_id).catch(() => {})
-    if (awayId && !squadDB.has(away)) smSquad(awayId, away, smFix.season_id).catch(() => {})
+    // Kick off background squad load — only for top leagues, heavily staggered to avoid rate limiting
+    // Each team gets a random delay 5-60s so we don't hammer SM with 200 requests at once
+    const TOP_LEAGUES_FOR_SQUADS = new Set(["Premier League","La Liga","Serie A","Bundesliga","Ligue 1","Champions League","Europa League","Conference League","Championship","Primeira Liga","Eredivisie","Süper Lig","Scottish Premiership","Belgian Pro League"])
+    if (homeId && !squadDB.has(home) && TOP_LEAGUES_FOR_SQUADS.has(league)) {
+      const delay = 5000 + Math.random() * 55000  // 5-60s stagger
+      setTimeout(() => smSquad(homeId, home, smFix.season_id).catch(() => {}), delay)
+    }
+    if (awayId && !squadDB.has(away) && TOP_LEAGUES_FOR_SQUADS.has(league)) {
+      const delay = 10000 + Math.random() * 55000  // 10-65s stagger
+      setTimeout(() => smSquad(awayId, away, smFix.season_id).catch(() => {}), delay)
+    }
 
     // Mismatch detection
     const mismatches = detectMismatches(homeLineup, awayLineup, home, away)
@@ -1201,12 +1554,18 @@ app.get("/predictions", async (req, res) => {
       const country = (f.league && f.league.country && f.league.country.name) || ""
       const norm    = normLeague(raw)
       if (!norm) return false
-      if (norm === "Premier League"     && country && country !== "England")       return false
-      if (norm === "Scottish Premiership"&&country && country !== "Scotland")      return false
-      if (norm === "Argentine Primera"  && country && !["Argentina",""].includes(country)) return false
-      if (norm === "Danish Superliga"   && country && country !== "Denmark")       return false
-      if (norm === "Greek Super League" && country && country !== "Greece")        return false
-      if (norm === "South African PSL"  && country && country !== "South Africa")  return false
+      // Only apply country filter when we actually have country data
+      if (country) {
+        if (norm === "Premier League"      && country !== "England")      return false
+        if (norm === "Scottish Premiership"&& country !== "Scotland")     return false
+        if (norm === "Argentine Primera"   && country !== "Argentina")    return false
+        if (norm === "Danish Superliga"    && country !== "Denmark")      return false
+        if (norm === "Greek Super League"  && country !== "Greece")       return false
+        if (norm === "South African PSL"   && country !== "South Africa") return false
+        if (norm === "Czech Liga"          && country !== "Czech Republic")return false
+        if (norm === "Zambian Super League"&& country !== "Zambia")       return false
+        if (norm === "Estonian Meistriliiga"&&country !== "Estonia")      return false
+      }
       return true
     })
     const fixtures = filtered.slice(0, 500)
@@ -1269,6 +1628,26 @@ app.get("/players/:team", (req, res) => {
   res.json([...playerDB.values()].filter(p => p.team_name === team))
 })
 
+
+// Team profile by name — used by leagues.html
+app.get("/team/:teamName", (req, res) => {
+  const name = decodeURIComponent(req.params.teamName)
+  const db = teamDB.get(name)
+  const elo = getElo(name)
+  const players = squadDB.get(name) || []
+  const upcoming = []
+  for (const [k, hit] of cache) {
+    if (!k.startsWith("sm_fix_")) continue
+    const fixtures = Array.isArray(hit.data) ? hit.data : []
+    for (const f of fixtures) {
+      const pArr = f.participants || []
+      if (pArr.some(p => p.name === name)) upcoming.push(f)
+    }
+    if (upcoming.length >= 5) break
+  }
+  res.json({ name, elo, players: players.slice(0, 20), smId: db?.sm_id || null, form: [], upcomingFixtures: upcoming.slice(0, 5), ...(db||{}) })
+})
+
 // Squad routes — split for Express 5 (optional params removed)
 app.get("/squad/:teamId/:teamName/:seasonId", async (req, res) => {
   try { res.json(await smSquad(parseInt(req.params.teamId), decodeURIComponent(req.params.teamName), parseInt(req.params.seasonId))) } catch(e) { res.json([]) }
@@ -1277,61 +1656,156 @@ app.get("/squad/:teamId/:teamName", async (req, res) => {
   try { res.json(await smSquad(parseInt(req.params.teamId), decodeURIComponent(req.params.teamName), null)) } catch(e) { res.json([]) }
 })
 
+// Squad by name only — leagues.html uses this when it has no SM team ID
+// Looks up the team ID from squadDB / playerDB / cached fixture participants
+app.get("/squad/byname/:teamName", async (req, res) => {
+  const name = decodeURIComponent(req.params.teamName)
+  // 1) Already have squad cached
+  if (squadDB.has(name)) return res.json(squadDB.get(name))
+  // 2) Find SM team ID from fixture participant data
+  let teamId = null, seasonId = null
+  for (const [k, hit] of cache) {
+    if (!k.startsWith("sm_fix_")) continue
+    const fixtures = Array.isArray(hit.data) ? hit.data : []
+    for (const f of fixtures) {
+      const pArr = f.participants || []
+      const match = pArr.find(p => p.name === name || (p.name || "").toLowerCase() === name.toLowerCase())
+      if (match && match.id) { teamId = match.id; seasonId = f.season_id; break }
+    }
+    if (teamId) break
+  }
+  if (!teamId) {
+    // 3) Try searching SM for the team
+    try {
+      const r = await http(`${SM_BASE}/teams/search/${encodeURIComponent(name)}`, { api_token: SM_KEY, per_page: 3 })
+      const found = (r.data?.data || [])[0]
+      if (found?.id) teamId = found.id
+    } catch(e) {}
+  }
+  if (!teamId) return res.json([])
+  try { res.json(await smSquad(teamId, name, seasonId)) } catch(e) { res.json([]) }
+})
+
+// Standings with SM team IDs exposed — leagues.html needs teamId per row
+app.get("/standings/enriched/:seasonId", async (req, res) => {
+  try {
+    const raw = await smStandings(req.params.seasonId)
+    // Pass raw data straight through — participant.id is the SM team ID
+    res.json(raw)
+  } catch(e) { res.json([]) }
+})
+
 // Real SM standings
 app.get("/standings/:seasonId", async (req, res) => {
   try { res.json(await smStandings(req.params.seasonId)) } catch(e) { res.json([]) }
 })
 
-// League list with real SM season IDs
+// League list — returns all supported leagues with their data sources
 app.get("/leagues", async (req, res) => {
   try {
-    const smLeagueList = await smLeagues().catch(() => [])
-    const LEAGUE_INFO  = {
-      "Champions League":      { flag:"⭐", type:"knockout", country:"Europe" },
-      "Premier League":        { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England" },
-      "La Liga":               { flag:"🇪🇸", type:"league",   country:"Spain" },
-      "Serie A":               { flag:"🇮🇹", type:"league",   country:"Italy" },
-      "Bundesliga":            { flag:"🇩🇪", type:"league",   country:"Germany" },
-      "Ligue 1":               { flag:"🇫🇷", type:"league",   country:"France" },
-      "Europa League":         { flag:"🟠", type:"knockout", country:"Europe" },
-      "Conference League":     { flag:"🟢", type:"knockout", country:"Europe" },
-      "FA Cup":                { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England" },
-      "Carabao Cup":           { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England" },
-      "Championship":          { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England" },
-      "Primeira Liga":         { flag:"🇵🇹", type:"league",   country:"Portugal" },
-      "Eredivisie":            { flag:"🇳🇱", type:"league",   country:"Netherlands" },
-      "Süper Lig":             { flag:"🇹🇷", type:"league",   country:"Turkey" },
-      "Belgian Pro League":    { flag:"🇧🇪", type:"league",   country:"Belgium" },
-      "Scottish Premiership":  { flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", type:"league",   country:"Scotland" },
-      "Argentine Primera":     { flag:"🇦🇷", type:"league",   country:"Argentina" },
-      "Brasileirão":           { flag:"🇧🇷", type:"league",   country:"Brazil" },
-      "MLS":                   { flag:"🇺🇸", type:"league",   country:"USA" },
-      "Saudi Pro League":      { flag:"🇸🇦", type:"league",   country:"Saudi Arabia" },
-      "Danish Superliga":      { flag:"🇩🇰", type:"league",   country:"Denmark" },
-      "Greek Super League":    { flag:"🇬🇷", type:"league",   country:"Greece" },
-      "Czech Liga":            { flag:"🇨🇿", type:"league",   country:"Czech Republic" },
-      "Zambian Super League":  { flag:"🇿🇲", type:"league",   country:"Zambia" },
-      "South African PSL":     { flag:"🇿🇦", type:"league",   country:"South Africa" },
-      "Estonian Meistriliiga": { flag:"🇪🇪", type:"league",   country:"Estonia" },
-      "Bundesliga 2":          { flag:"🇩🇪", type:"league",   country:"Germany" },
-      "La Liga 2":             { flag:"🇪🇸", type:"league",   country:"Spain" },
-      "Copa del Rey":          { flag:"🇪🇸", type:"knockout", country:"Spain" },
-      "Coppa Italia":          { flag:"🇮🇹", type:"knockout", country:"Italy" },
-      "DFB Pokal":             { flag:"🇩🇪", type:"knockout", country:"Germany" },
-      "Coupe de France":       { flag:"🇫🇷", type:"knockout", country:"France" },
-      "DBU Pokalen":           { flag:"🇩🇰", type:"knockout", country:"Denmark" },
+    const LEAGUE_INFO = {
+      "Champions League":      { flag:"⭐", type:"knockout", country:"Europe",        fdCode:"CL",  smLeagueId:2   },
+      "Premier League":        { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England",      fdCode:"PL",  smLeagueId:8   },
+      "La Liga":               { flag:"🇪🇸", type:"league",   country:"Spain",        fdCode:"PD",  smLeagueId:564 },
+      "Serie A":               { flag:"🇮🇹", type:"league",   country:"Italy",        fdCode:"SA",  smLeagueId:384 },
+      "Bundesliga":            { flag:"🇩🇪", type:"league",   country:"Germany",      fdCode:"BL1", smLeagueId:82  },
+      "Ligue 1":               { flag:"🇫🇷", type:"league",   country:"France",       fdCode:"FL1", smLeagueId:301 },
+      "Europa League":         { flag:"🟠", type:"knockout", country:"Europe",        fdCode:"EL",  smLeagueId:5   },
+      "Conference League":     { flag:"🟢", type:"knockout", country:"Europe",        fdCode:null,  smLeagueId:2286},
+      "FA Cup":                { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England",      fdCode:null,  smLeagueId:24  },
+      "Carabao Cup":           { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"knockout", country:"England",      fdCode:null,  smLeagueId:27  },
+      "Championship":          { flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", type:"league",   country:"England",      fdCode:"ELC", smLeagueId:9   },
+      "Primeira Liga":         { flag:"🇵🇹", type:"league",   country:"Portugal",     fdCode:"PPL", smLeagueId:462 },
+      "Eredivisie":            { flag:"🇳🇱", type:"league",   country:"Netherlands",  fdCode:"DED", smLeagueId:72  },
+      "Süper Lig":             { flag:"🇹🇷", type:"league",   country:"Turkey",       fdCode:null,  smLeagueId:600 },
+      "Belgian Pro League":    { flag:"🇧🇪", type:"league",   country:"Belgium",      fdCode:null,  smLeagueId:208 },
+      "Scottish Premiership":  { flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", type:"league",   country:"Scotland",     fdCode:null,  smLeagueId:501 },
+      "Argentine Primera":     { flag:"🇦🇷", type:"league",   country:"Argentina",    fdCode:null,  smLeagueId:636 },
+      "Brasileirão":           { flag:"🇧🇷", type:"league",   country:"Brazil",       fdCode:"BSA", smLeagueId:325 },
+      "MLS":                   { flag:"🇺🇸", type:"league",   country:"USA",          fdCode:null,  smLeagueId:779 },
+      "Saudi Pro League":      { flag:"🇸🇦", type:"league",   country:"Saudi Arabia", fdCode:null,  smLeagueId:944 },
+      "Danish Superliga":      { flag:"🇩🇰", type:"league",   country:"Denmark",      fdCode:null,  smLeagueId:271 },
+      "Greek Super League":    { flag:"🇬🇷", type:"league",   country:"Greece",       fdCode:null,  smLeagueId:325 },
+      "Czech Liga":            { flag:"🇨🇿", type:"league",   country:"Czech Republic",fdCode:null, smLeagueId:262 },
+      "Zambian Super League":  { flag:"🇿🇲", type:"league",   country:"Zambia",       fdCode:null,  smLeagueId:890 },
+      "South African PSL":     { flag:"🇿🇦", type:"league",   country:"South Africa", fdCode:null,  smLeagueId:806 },
+      "Estonian Meistriliiga": { flag:"🇪🇪", type:"league",   country:"Estonia",      fdCode:null,  smLeagueId:286 },
+      "Bundesliga 2":          { flag:"🇩🇪", type:"league",   country:"Germany",      fdCode:null,  smLeagueId:85  },
+      "La Liga 2":             { flag:"🇪🇸", type:"league",   country:"Spain",        fdCode:null,  smLeagueId:567 },
+      "Copa del Rey":          { flag:"🇪🇸", type:"knockout", country:"Spain",        fdCode:null,  smLeagueId:570 },
+      "Coppa Italia":          { flag:"🇮🇹", type:"knockout", country:"Italy",        fdCode:null,  smLeagueId:390 },
+      "DFB Pokal":             { flag:"🇩🇪", type:"knockout", country:"Germany",      fdCode:null,  smLeagueId:109 },
+      "Coupe de France":       { flag:"🇫🇷", type:"knockout", country:"France",       fdCode:null,  smLeagueId:307 },
+      "DBU Pokalen":           { flag:"🇩🇰", type:"knockout", country:"Denmark",      fdCode:null,  smLeagueId:null},
     }
-    // Attach real SM season IDs from the live league list
-    const seasonMap = {}
-    for (const l of smLeagueList) {
-      const norm = normLeague(l.name)
-      if (norm && l.currentSeason?.id) seasonMap[norm] = seasonMap[norm] || { smId: l.id, seasonId: l.currentSeason.id, smName: l.name }
+
+    // Kick off background SM season ID lookups for leagues without fdCode
+    const smSeasonPromises = {}
+    for (const [name, info] of Object.entries(LEAGUE_INFO)) {
+      if (!info.fdCode && info.smLeagueId) {
+        smSeasonPromises[name] = getSmSeasonId(name).catch(() => null)
+      }
     }
-    res.json(Object.entries(LEAGUE_INFO).sort((a, b) => (LEAGUE_RANK[a[0]] || 99) - (LEAGUE_RANK[b[0]] || 99)).map(([name, info]) => ({ name, ...info, ...(seasonMap[name] || {}) })))
-  } catch(e) { res.json([]) }
+    const smSeasons = {}
+    for (const [name, p] of Object.entries(smSeasonPromises)) {
+      smSeasons[name] = await p
+    }
+
+    const result = Object.entries(LEAGUE_INFO)
+      .sort((a,b) => (LEAGUE_RANK[a[0]]||99)-(LEAGUE_RANK[b[0]]||99))
+      .map(([name, info]) => ({
+        name, ...info,
+        // seasonId used by leagues.html to request standings
+        seasonId: smSeasons[name] || null,
+        hasFdData: !!(info.fdCode && FD_KEY_ENV),
+        hasSmData: !!(smSeasons[name]),
+        // Indicate which source will serve standings
+        standingsSource: info.fdCode && FD_KEY_ENV ? "football-data.org" : smSeasons[name] ? "sportmonks" : null,
+      }))
+    res.json(result)
+  } catch(e) { console.error("/leagues:", e.message); res.json([]) }
 })
 
-// ELO ranking table with delta arrows
+// Universal standings endpoint — tries football-data.org first, falls back to SM
+// Called as: GET /standings/byLeague/:leagueName
+app.get("/standings/byLeague/:leagueName", async (req, res) => {
+  const leagueName = decodeURIComponent(req.params.leagueName)
+  try {
+    // 1) Try football-data.org (fastest, most reliable for top leagues)
+    const fdCode = FD_COMPETITIONS_REVERSE[leagueName] || FD_COMP_BY_NAME[leagueName]
+    if (fdCode && FD_KEY_ENV) {
+      const fdData = await fdStandings(fdCode)
+      if (fdData) {
+        const rows = parseFdStandings(fdData)
+        if (rows.length) {
+          return res.json({ source: "football-data.org", season: fdData.season, competition: fdData.competition?.name, rows })
+        }
+      }
+    }
+    // 2) Fallback: Sportmonks standings via season ID
+    const seasonId = await getSmSeasonId(leagueName)
+    if (seasonId) {
+      const smData = await smStandings(seasonId)
+      if (smData && smData.length) {
+        return res.json({ source: "sportmonks", seasonId, rows: smData })
+      }
+    }
+    res.json({ source: null, rows: [], error: `No standings data for ${leagueName}` })
+  } catch(e) { res.json({ source: null, rows: [], error: e.message }) }
+})
+
+// Keep old seasonId-based endpoint for backward compat
+app.get("/standings/enriched/:seasonId", async (req, res) => {
+  try { res.json(await smStandings(req.params.seasonId)) } catch(e) { res.json([]) }
+})
+app.get("/standings/:seasonId", async (req, res) => {
+  // If it looks like a league name (not a number), redirect to byLeague
+  const param = req.params.seasonId
+  if (isNaN(parseInt(param))) {
+    return res.redirect(`/standings/byLeague/${encodeURIComponent(param)}`)
+  }
+  try { res.json(await smStandings(param)) } catch(e) { res.json([]) }
+})
 app.get("/elo/rankings", async (req, res) => {
   const limit = parseInt(req.query.limit || "100")
   const teams = [], seen = new Set()
@@ -1620,12 +2094,13 @@ app.get("/health", async (req, res) => {
   const odds = await fetchOddsAPI().catch(() => ({}))
   res.json({
     status: "ok", version: "v13.0", model: AI_MODEL,
-    github_ai:  aiClient ? "✅" : "❌ add GITHUB_TOKEN",
-    sportmonks: SM_KEY   ? "✅ FULL PAID TIER" : "❌ add SPORTMONKS_API_KEY",
-    odds_api:   ODDS_KEY ? "✅" : "⚠️  optional",
-    news_api:   NEWS_KEY ? "✅" : "⚠️  optional",
-    supabase:   sb       ? "✅" : "⚠️  optional",
-    clubelo:    clubEloMap.size > 0 ? `✅ ${clubEloMap.size} teams` : "⚠️  loading...",
+    github_ai:       aiClient   ? "✅" : "❌ add GITHUB_TOKEN",
+    sportmonks:      SM_KEY     ? "✅ FULL PAID TIER" : "❌ add SPORTMONKS_API_KEY",
+    football_data:   FD_KEY_ENV ? `✅ standings for ${Object.keys(FD_COMPETITIONS).length} competitions` : "⚠️  optional — add FOOTBALL_DATA_KEY for live standings",
+    odds_api:        ODDS_KEY   ? "✅" : "⚠️  optional",
+    news_api:        NEWS_KEY   ? "✅" : "⚠️  optional",
+    supabase:        sb         ? "✅" : "⚠️  optional",
+    clubelo:         clubEloMap.size > 0 ? `✅ ${clubEloMap.size} teams` : "⚠️  loading...",
     realOddsMatches: Object.keys(odds).length,
     cachedTeams:     teamDB.size,
     cachedPlayers:   playerDB.size,
@@ -1647,6 +2122,63 @@ app.get("/debug/sm", async (req, res) => {
 })
 
 app.post("/admin/refresh", (req, res) => { cache.clear(); res.json({ ok: true, message: "Cache cleared" }) })
+
+// Debug: show ALL raw SM league names so we can fix normLeague mismatches
+app.get("/debug/leagues", async (req, res) => {
+  if (!SM_KEY) return res.json({ error: "No SM key" })
+  try {
+    cache.delete("sm_leagues")
+    const all = []
+    let page = 1, hasMore = true
+    while (hasMore && page <= 10) {
+      const r = await http(`${SM_BASE}/leagues`, { api_token: SM_KEY, include: "country;currentSeason", per_page: 50, page })
+      const data = r.data?.data || []
+      all.push(...data)
+      hasMore = r.data?.pagination?.has_more === true && data.length === 50
+      page++
+      if (hasMore) await sleep(200)
+    }
+    const mapped = all.map(l => ({
+      smName: l.name, smId: l.id, country: l.country?.name,
+      seasonId: l.currentSeason?.id, seasonName: l.currentSeason?.name,
+      normalizesTo: normLeague(l.name),
+    }))
+    res.json({
+      total: all.length,
+      matched:   mapped.filter(l => l.normalizesTo && l.seasonId),
+      unmatched: mapped.filter(l => !l.normalizesTo).slice(0, 40),
+      noSeason:  mapped.filter(l => l.normalizesTo && !l.seasonId),
+    })
+  } catch(e) { res.json({ error: e.message }) }
+})
+
+// Debug squad endpoints — test what SM returns for a given team ID
+app.get("/debug/squad/:teamId", async (req, res) => {
+  if (!SM_KEY) return res.json({ error: "No SM key" })
+  const teamId = req.params.teamId
+  const results = {}
+  const testEndpoints = [
+    `${SM_BASE}/squads/teams/${teamId}`,
+    `${SM_BASE}/teams/${teamId}`,
+    `${SM_BASE}/players/teams/${teamId}`,
+  ]
+  for (const url of testEndpoints) {
+    const key = url.replace(SM_BASE,"")
+    try {
+      const r = await http(url, { api_token: SM_KEY, include: "player;player.position", per_page: 5 })
+      const data = r.data?.data
+      results[key] = {
+        status: 200,
+        type: Array.isArray(data) ? "array" : typeof data,
+        count: Array.isArray(data) ? data.length : (data ? Object.keys(data).length : 0),
+        sample: Array.isArray(data) ? data[0] : data,
+      }
+    } catch(e) {
+      results[key] = { status: e.response?.status || e.code, error: e.message?.slice(0,80) }
+    }
+  }
+  res.json(results)
+})
 
 app.get("/config.js", (req, res) => {
   res.setHeader("Content-Type", "application/javascript")

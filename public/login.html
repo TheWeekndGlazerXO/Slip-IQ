@@ -273,6 +273,25 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     }
   }
   
+
+  function switchTab(tab) {
+  const signinTab = document.getElementById('tab-signin')
+  const signupTab = document.getElementById('tab-signup')
+  const signinForm = document.getElementById('form-signin')
+  const signupForm = document.getElementById('form-signup')
+
+  if (tab === 'signin') {
+    signinTab.classList.add('active')
+    signupTab.classList.remove('active')
+    signinForm.classList.add('active')
+    signupForm.classList.remove('active')
+  } else {
+    signupTab.classList.add('active')
+    signinTab.classList.remove('active')
+    signupForm.classList.add('active')
+    signinForm.classList.remove('active')
+  }
+}
   /* =========================================================
      CREATE SUBSCRIPTION ROW (IMPORTANT)
   ========================================================= */

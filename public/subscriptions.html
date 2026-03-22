@@ -1,504 +1,598 @@
 <!DOCTYPE html>
-
-<script>
-    const { createClient } = supabase
-    const sb = createClient("YOUR_URL", "YOUR_KEY")
-    
-    async function protectPage() {
-      const { data: { session } } = await sb.auth.getSession()
-    
-      if (!session) {
-        window.location.href = "login.html"
-      }
-    }
-    
-    protectPage()
-    </script>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SLIP IQ — Plans</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Slip IQ — Plans & Credits</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#050709;--bg2:#080c10;--panel:#0b1118;--border:#16222e;--border2:#1e2f40;
-  --accent:#00d4ff;--accent2:#0090b8;--green:#00e87a;--red:#ff3355;--orange:#ff8c00;
-  --gold:#ffcc00;--purple:#9b6dff;--text:#ddeeff;--text2:#6a8aa8;--text3:#384d60;
-  --glow:0 0 30px rgba(0,212,255,0.2);
-}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(0,212,255,0.06),transparent);pointer-events:none;z-index:0}
-
-/* ── PAGE WRAP ── */
-.page-wrap{max-width:1160px;margin:0 auto;padding:60px 24px 80px;position:relative;z-index:1}
+:root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8);--sidebar:224px}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.nav-rail{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border2);display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:width .25s ease}
+.nav-rail.collapsed{width:52px}
+.nav-logo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:54px}
+.nav-logo-text{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap}
+.nav-logo-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;white-space:nowrap}
+.nav-toggle{position:absolute;top:14px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;z-index:2}
+.nav-toggle:hover{color:var(--accent)}
+.nav-section-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;padding:10px 14px 3px;white-space:nowrap}
+.nav-rail.collapsed .nav-section-lbl,.nav-rail.collapsed .nav-label,.nav-rail.collapsed .nav-logo-text,.nav-rail.collapsed .nav-logo-sub{display:none}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;color:var(--text2);font-size:13px;font-weight:500;white-space:nowrap;text-decoration:none}
+.nav-item:hover{background:rgba(0,200,248,.06);color:var(--text)}
+.nav-item.active{background:rgba(0,200,248,.1);border-left-color:var(--accent);color:var(--accent)}
+.nav-rail.collapsed .nav-item{padding:10px 14px;justify-content:center}
+.nav-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.nav-bottom{margin-top:auto;padding:10px;border-top:1px solid var(--border)}
+.nav-bottom-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px;border-radius:7px;border:none;cursor:pointer;display:block;width:100%;text-align:center;text-decoration:none}
+.nav-rail.collapsed .nav-bottom-btn{font-size:0;padding:9px 0}.nav-rail.collapsed .nav-bottom-btn::before{content:"←";font-size:16px}
+.main{margin-left:var(--sidebar);transition:margin-left .25s ease;min-height:100vh;position:relative;z-index:1}
+.main.collapsed{margin-left:52px}
+/* PAGE */
+.page-wrap{max-width:1100px;margin:0 auto;padding:40px 32px 80px}
 .page-header{text-align:center;margin-bottom:48px}
-.page-tag{font-family:'DM Mono';font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:16px;display:inline-block;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);padding:4px 14px;border-radius:20px}
-.page-title{font-family:'Bebas Neue';font-size:clamp(48px,7vw,80px);letter-spacing:3px;line-height:1;margin-bottom:14px;color:var(--text)}
-.hl{color:var(--accent);text-shadow:0 0 40px rgba(0,212,255,0.4)}
-.page-sub{font-size:15px;color:var(--text2);font-weight:400;max-width:460px;margin:0 auto}
-
-/* ── BILLING TOGGLE ── */
-.billing-toggle{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:44px}
-.btl{font-family:'DM Mono';font-size:11px;letter-spacing:2px;color:var(--text3);transition:color .2s;cursor:pointer;text-transform:uppercase}
-.btl.active{color:var(--text)}
-.toggle-track{width:44px;height:24px;background:var(--border2);border-radius:12px;cursor:pointer;position:relative;border:1px solid var(--border);transition:background .3s}
-.toggle-track.on{background:rgba(0,212,255,0.2);border-color:var(--accent)}
-.toggle-thumb{width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:transform .3s;box-shadow:0 2px 6px rgba(0,0,0,0.4)}
-.toggle-track.on .toggle-thumb{transform:translateX(20px);background:var(--accent)}
-.annual-badge{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;background:rgba(0,232,122,0.12);border:1px solid rgba(0,232,122,0.3);color:var(--green);padding:3px 9px;border-radius:20px}
-
-/* ── PLANS GRID ── */
-.plans-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start;margin-bottom:60px}
-@media(max-width:1100px){.plans-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.plans-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.plans-grid{grid-template-columns:1fr}}
-
-/* ── PLAN CARD ── */
-.plan-card{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:24px 20px;
-  position:relative;
-  cursor:pointer;
-  transition:transform .2s, border-color .2s, box-shadow .2s;
-  overflow:hidden;
-}
-.plan-card::before{
-  content:'';position:absolute;inset:0;border-radius:16px;
-  background:linear-gradient(135deg,rgba(255,255,255,0.02) 0%,transparent 60%);
-  pointer-events:none;
-}
-.plan-card:hover{transform:translateY(-4px);border-color:var(--border2);box-shadow:0 16px 40px rgba(0,0,0,0.4)}
-.plan-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent), 0 16px 40px rgba(0,0,0,0.4)}
-
-/* Popular card */
-.plan-card.popular{border-color:rgba(155,109,255,0.4);background:linear-gradient(160deg,rgba(155,109,255,0.06) 0%,var(--panel) 60%)}
-.plan-card.popular:hover{border-color:var(--purple);box-shadow:0 0 40px rgba(155,109,255,0.15),0 16px 40px rgba(0,0,0,0.4)}
-
-/* Elite card */
-.plan-card.elite-card{border-color:rgba(255,204,0,0.25);background:linear-gradient(160deg,rgba(255,204,0,0.05) 0%,var(--panel) 60%)}
-.plan-card.elite-card:hover{border-color:var(--gold);box-shadow:0 0 40px rgba(255,204,0,0.12),0 16px 40px rgba(0,0,0,0.4)}
-
-/* Top accent line */
-.plan-card::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:16px 16px 0 0;
-  opacity:0;transition:opacity .2s;
-}
-.plan-card:hover::after{opacity:1}
-.plan-card.popular::after{background:var(--purple);opacity:1}
-.plan-card.elite-card::after{background:linear-gradient(90deg,var(--gold),var(--orange));opacity:1}
-
-.plan-top-badge{
-  display:inline-block;
-  font-family:'DM Mono';font-size:9px;letter-spacing:2px;
-  background:rgba(155,109,255,0.15);border:1px solid rgba(155,109,255,0.3);
-  color:var(--purple);
-  padding:3px 10px;border-radius:20px;
-  margin-bottom:12px;
-}
-
-.plan-name{font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--text);margin-bottom:12px}
-.plan-price-row{display:flex;align-items:flex-end;gap:4px;margin-bottom:4px}
-.plan-price-num{font-family:'Bebas Neue';font-size:40px;line-height:1;color:var(--text)}
-.plan-price-num.grad{background:linear-gradient(135deg,var(--purple),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.plan-price-num.gold{background:linear-gradient(135deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.plan-price-period{font-family:'DM Mono';font-size:11px;color:var(--text3);padding-bottom:6px}
-.plan-annual-note{font-size:11px;color:var(--green);font-family:'DM Mono';min-height:16px;margin-bottom:2px}
-
-.plan-divider{height:1px;background:var(--border);margin:16px 0}
-
-/* Features */
-.plan-feats{display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
-.pf{display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:500;line-height:1.4}
-.pf.dim{color:var(--text3)}
-.pf-y{color:var(--green);flex-shrink:0;font-size:12px;font-weight:700;width:12px}
-.pf-n{color:var(--text3);flex-shrink:0;font-size:11px;width:12px}
-.pf.dim .pf-n{color:var(--text3)}
-
-/* ── BUTTONS ── */
-.plan-select-btn{
-  display:block;width:100%;padding:12px 16px;border-radius:10px;
-  font-family:'Outfit';font-size:13px;font-weight:700;letter-spacing:0.5px;
-  text-align:center;text-decoration:none;cursor:pointer;
-  transition:all .2s;border:none;
-}
-.psb-free{
-  background:transparent;color:var(--text2);border:1px solid var(--border2);
-}
-.psb-free:hover{background:var(--border);color:var(--text);border-color:var(--border2)}
-
-.psb-paid{
-  background:rgba(0,212,255,0.1);color:var(--accent);
-  border:1px solid rgba(0,212,255,0.3);
-}
-.psb-paid:hover{background:rgba(0,212,255,0.18);border-color:var(--accent);box-shadow:0 0 20px rgba(0,212,255,0.15);transform:translateY(-1px)}
-
-.psb-popular{
-  background:linear-gradient(135deg,rgba(155,109,255,0.2),rgba(0,212,255,0.1));
-  color:var(--text);border:1px solid rgba(155,109,255,0.4);
-  box-shadow:0 4px 20px rgba(155,109,255,0.15);
-}
-.psb-popular:hover{background:linear-gradient(135deg,rgba(155,109,255,0.3),rgba(0,212,255,0.18));box-shadow:0 6px 30px rgba(155,109,255,0.25);transform:translateY(-2px);border-color:var(--purple)}
-
-.psb-elite{
-  background:linear-gradient(135deg,rgba(255,204,0,0.15),rgba(255,140,0,0.1));
-  color:var(--gold);border:1px solid rgba(255,204,0,0.3);
-}
-.psb-elite:hover{background:linear-gradient(135deg,rgba(255,204,0,0.25),rgba(255,140,0,0.18));box-shadow:0 6px 30px rgba(255,204,0,0.2);transform:translateY(-2px);border-color:var(--gold)}
-
-/* ── CHECKOUT SECTION ── */
-.checkout-section{display:none}
-.checkout-section.visible{display:block}
-.checkout-box{
-  max-width:520px;margin:0 auto;
-  background:var(--panel);border:1px solid var(--border2);border-radius:20px;
-  overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.5),var(--glow);
-}
-.checkout-header{padding:24px 28px;background:linear-gradient(135deg,rgba(0,212,255,0.06) 0%,transparent 100%);border-bottom:1px solid var(--border)}
-.checkout-plan-name{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:2px}
-.checkout-plan-price{font-size:13px;color:var(--text2);margin-top:4px;font-family:'DM Mono'}
-.checkout-body{padding:28px}
-.success-screen{display:none;padding:48px 28px;text-align:center}
-.success-screen.show{display:block}
-.checkout-body.hide{display:none}
-.success-icon{font-size:48px;margin-bottom:16px}
-.success-title{font-family:'Bebas Neue';font-size:36px;color:var(--green);letter-spacing:2px;margin-bottom:8px}
-.success-sub{font-size:14px;color:var(--text2);margin-bottom:24px}
-.success-btn{display:inline-block;background:rgba(0,232,122,0.12);border:1px solid rgba(0,232,122,0.3);color:var(--green);padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;transition:all .2s}
-.success-btn:hover{background:rgba(0,232,122,0.2)}
-
-.order-summary{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
-.os-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
-.os-row+.os-row{border-top:1px solid var(--border)}
-.os-lbl{color:var(--text2)}.os-val{font-family:'DM Mono';font-weight:600}
-.os-lbl.os-total{color:var(--text);font-weight:700}.os-val.os-total{color:var(--green);font-size:16px}
-
-.form-group{margin-bottom:16px}
-.form-label{display:block;font-size:11px;font-family:'DM Mono';color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px}
-.form-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:10px;font-size:13px;font-family:'Outfit';outline:none;transition:border-color .2s}
+.page-title{font-family:'Bebas Neue';font-size:48px;letter-spacing:4px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.page-sub{font-size:16px;color:var(--text2);max-width:480px;margin:0 auto;line-height:1.6}
+/* BILLING TOGGLE */
+.billing-toggle{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:40px}
+.toggle-label{font-family:'JetBrains Mono';font-size:11px;color:var(--text3);letter-spacing:1px}
+.toggle-wrap{position:relative;width:48px;height:26px;background:var(--border2);border-radius:13px;cursor:pointer;transition:background .2s}
+.toggle-wrap.on{background:var(--accent)}
+.toggle-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle-wrap.on .toggle-knob{left:25px}
+.save-badge{background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:'JetBrains Mono';font-size:9px;padding:2px 8px;border-radius:10px;letter-spacing:1px}
+/* PLAN CARDS */
+.plans-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:48px}
+@media(max-width:900px){.plans-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.plans-grid{grid-template-columns:1fr}}
+.plan-card{background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:24px 20px;display:flex;flex-direction:column;gap:16px;position:relative;transition:all .2s;cursor:pointer}
+.plan-card:hover{border-color:rgba(0,200,248,.35);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,200,248,.1)}
+.plan-card.popular{border-color:var(--accent);box-shadow:0 0 28px rgba(0,200,248,.18)}
+.plan-card.selected{border-color:var(--green);box-shadow:0 0 28px rgba(0,255,136,.18)}
+.popular-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:3px 12px;border-radius:10px;letter-spacing:1px;white-space:nowrap}
+.plan-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;color:var(--text)}
+.plan-price{display:flex;align-items:flex-end;gap:4px}
+.plan-price-num{font-family:'Bebas Neue';font-size:36px;color:var(--accent);line-height:1}
+.plan-price-period{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);margin-bottom:6px}
+.plan-credits{font-family:'JetBrains Mono';font-size:10px;color:var(--gold);padding:4px 8px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:5px;display:inline-block}
+.plan-features{list-style:none;display:flex;flex-direction:column;gap:7px;flex:1}
+.plan-features li{font-size:12px;color:var(--text2);display:flex;align-items:flex-start;gap:7px}
+.plan-features li::before{content:"✓";color:var(--green);font-size:12px;flex-shrink:0;margin-top:1px}
+.plan-features li.no::before{content:"✗";color:var(--text3)}
+.plan-features li.no{color:var(--text3)}
+.plan-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:1px;padding:11px;border-radius:8px;border:none;cursor:pointer;transition:all .2s;text-align:center;margin-top:auto}
+.plan-btn:hover{opacity:.9;transform:translateY(-1px)}
+.plan-btn.outline{background:transparent;color:var(--accent);border:1px solid rgba(0,200,248,.4)}
+.plan-btn.outline:hover{background:rgba(0,200,248,.1)}
+.plan-btn.current{background:rgba(0,200,248,.1);color:var(--accent);border:1px solid rgba(0,200,248,.3);cursor:default}
+.plan-btn.current:hover{transform:none}
+/* CHECKOUT SECTION */
+.checkout-section{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;display:grid;grid-template-columns:1fr 360px;gap:32px;margin-bottom:40px}
+@media(max-width:740px){.checkout-section{grid-template-columns:1fr}}
+.checkout-form{display:flex;flex-direction:column;gap:20px}
+.checkout-title{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;color:var(--text);margin-bottom:4px}
+.checkout-sub{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:2px}
+.form-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:7px;font-family:'JetBrains Mono';font-size:12px;padding:10px 13px;outline:none;transition:border-color .2s;width:100%}
 .form-input:focus{border-color:var(--accent)}
 .form-input::placeholder{color:var(--text3)}
-
-.stripe-placeholder{
-  background:var(--bg);border:1px solid var(--border);border-radius:10px;
-  padding:14px 16px;display:flex;align-items:center;gap:10px;
-  font-size:12px;color:var(--text3);
-}
-.stripe-icon{font-size:18px;flex-shrink:0}
-.stripe-note{font-size:11px;color:var(--text3);margin-top:8px;display:flex;align-items:center;gap:4px}
-#stripeCardElement{padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px}
-
-.checkout-btn{
-  width:100%;padding:15px;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border:none;border-radius:12px;color:#000;
-  font-family:'Outfit';font-size:15px;font-weight:800;
-  letter-spacing:0.5px;cursor:pointer;
-  transition:all .2s;margin-bottom:16px;
-  box-shadow:0 6px 24px rgba(0,212,255,0.25);
-}
-.checkout-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,212,255,0.35)}
-.checkout-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
-
-.trust-row{display:flex;justify-content:center;gap:20px}
-.trust-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
-.trust-item span{font-size:13px}
+.referral-row{display:flex;gap:9px}
+.referral-row .form-input{flex:1}
+.referral-apply{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent);font-family:'JetBrains Mono';font-size:10px;padding:0 16px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:all .2s}
+.referral-apply:hover{background:rgba(0,200,248,.2)}
+.referral-status{font-family:'JetBrains Mono';font-size:10px;margin-top:4px}
+.referral-ok{color:var(--green)}
+.referral-err{color:var(--red)}
+.divider{height:1px;background:var(--border)}
+.checkout-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:13px;font-weight:700;letter-spacing:1px;padding:14px;border-radius:9px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 0 24px rgba(0,200,248,.25)}
+.checkout-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 0 36px rgba(0,200,248,.4)}
+.checkout-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.secure-note{display:flex;align-items:center;justify-content:center;gap:7px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)}
+/* ORDER SUMMARY */
+.order-summary{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:22px}
+.os-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--text);margin-bottom:16px}
+.os-plan-badge{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,248,.07);border:1px solid rgba(0,200,248,.2);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.os-plan-name{font-family:'Bebas Neue';font-size:20px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px}
+.os-plan-credits{font-family:'JetBrains Mono';font-size:10px;color:var(--gold)}
+.os-line{display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-bottom:9px}
+.os-line.total{color:var(--text);font-weight:700;font-size:15px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.os-line.discount{color:var(--green)}
+.os-features{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.os-feature{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-bottom:6px}
+.os-feature::before{content:"✓";color:var(--green);font-size:11px;flex-shrink:0}
+/* CREDITS ADDON */
+.credits-section{margin-bottom:40px}
+.credits-title{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;color:var(--text);margin-bottom:6px}
+.credits-sub{font-size:14px;color:var(--text2);margin-bottom:20px}
+.credits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:600px){.credits-grid{grid-template-columns:repeat(2,1fr)}}
+.credit-card{background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all .2s}
+.credit-card:hover{border-color:rgba(0,200,248,.35);transform:translateY(-2px)}
+.cc-amount{font-family:'Bebas Neue';font-size:32px;color:var(--gold);line-height:1;margin-bottom:4px}
+.cc-credits{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:10px}
+.cc-price{font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px}
+.cc-btn{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;padding:6px 14px;border-radius:5px;cursor:pointer;transition:all .2s;display:block;width:100%;letter-spacing:1px}
+.cc-btn:hover{background:rgba(0,200,248,.2)}
+/* FAQ */
+.faq-section{margin-top:48px}
+.faq-title{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;color:var(--text);margin-bottom:20px;text-align:center}
+.faq-item{background:var(--panel);border:1px solid var(--border2);border-radius:9px;padding:16px 20px;margin-bottom:10px;cursor:pointer}
+.faq-q{display:flex;justify-content:space-between;align-items:center;font-weight:600;color:var(--text)}
+.faq-arrow{color:var(--accent);transition:transform .2s;flex-shrink:0}
+.faq-a{font-size:13px;color:var(--text2);line-height:1.7;margin-top:10px;display:none}
+.faq-item.open .faq-a{display:block}
+.faq-item.open .faq-arrow{transform:rotate(180deg)}
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel);border:1px solid var(--green);color:var(--green);font-family:'JetBrains Mono';font-size:11px;padding:10px 20px;border-radius:8px;z-index:500;transition:transform .3s;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
+
+<div class="toast" id="toast">✅ Done!</div>
+
+<!-- NAV RAIL -->
+<div class="nav-rail" id="navRail">
+  <div class="nav-logo">
+    <div><div class="nav-logo-text">SLIP IQ</div><div class="nav-logo-sub">BETTING INTELLIGENCE v13</div></div>
+  </div>
+  <button class="nav-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="nav-section-lbl">MAIN</div>
+  <a class="nav-item" href="home.html"><span class="nav-icon">⚽</span><span class="nav-label">Matches</span></a>
+  <a class="nav-item" href="leagues.html"><span class="nav-icon">🏆</span><span class="nav-label">Leagues</span></a>
+  <a class="nav-item" href="home.html"><span class="nav-icon">📰</span><span class="nav-label">News</span></a>
+  <a class="nav-item" href="home.html"><span class="nav-icon">🎯</span><span class="nav-label">My Parlays</span></a>
+  <div class="nav-section-lbl">ACCOUNT</div>
+  <a class="nav-item" href="account.html"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></a>
+  <a class="nav-item active" href="subscriptions.html"><span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span></a>
+  <a class="nav-item" href="index.html"><span class="nav-icon">🏡</span><span class="nav-label">Home Page</span></a>
+  <div class="nav-bottom">
+    <a href="home.html" class="nav-bottom-btn">← BACK TO APP</a>
+  </div>
+</div>
+
+<div class="main" id="mainShell">
 <div class="page-wrap">
 
+  <!-- HEADER -->
   <div class="page-header">
-    <div class="page-tag">Subscription Plans</div>
-    <h1 class="page-title">Choose Your <span class="hl">Edge</span></h1>
-    <p class="page-sub">Start free. Upgrade when you want more power. Cancel anytime.</p>
+    <div class="page-title">CHOOSE YOUR PLAN</div>
+    <div class="page-sub">Get real-time AI match analysis, value bets, auto-parlay builder and more. Cancel anytime.</div>
   </div>
 
   <!-- BILLING TOGGLE -->
   <div class="billing-toggle">
-    <span class="btl active" id="lbl-monthly" onclick="setBilling('monthly')">MONTHLY</span>
-    <div class="toggle-track" id="billingToggle" onclick="toggleBilling()">
-      <div class="toggle-thumb"></div>
+    <span class="toggle-label">MONTHLY</span>
+    <div class="toggle-wrap" id="billingToggle" onclick="toggleBilling()">
+      <div class="toggle-knob"></div>
     </div>
-    <span class="btl" id="lbl-annual" onclick="setBilling('annual')">ANNUAL</span>
-    <span class="annual-badge" id="annualBadge" style="display:none">SAVE 10%</span>
+    <span class="toggle-label">ANNUAL</span>
+    <span class="save-badge">SAVE 20%</span>
   </div>
 
-  <!-- PLANS GRID -->
-  <div class="plans-grid" id="plansGrid">
-
+  <!-- PLAN CARDS -->
+  <div class="plans-grid">
     <!-- FREE -->
     <div class="plan-card" id="card-free" onclick="selectPlan('free')">
       <div class="plan-name">Free</div>
-      <div class="plan-price-row">
-        <span class="plan-price-num" id="price-free">$0</span>
-        <div class="plan-price-period">forever</div>
+      <div class="plan-price">
+        <div class="plan-price-num" style="color:var(--text2)">$0</div>
+        <div class="plan-price-period">/month</div>
       </div>
-      <div class="plan-annual-note" id="annual-free"></div>
-      <div class="plan-divider"></div>
-      <div class="plan-feats">
-        <div class="pf"><span class="pf-y">✓</span>1 parlay/day</div>
-        <div class="pf"><span class="pf-y">✓</span>3 leagues</div>
-        <div class="pf"><span class="pf-y">✓</span>Basic probabilities</div>
-        <div class="pf"><span class="pf-y">✓</span>3 AI analyses/day</div>
-        <div class="pf dim"><span class="pf-n">✗</span>Player profiles</div>
-        <div class="pf dim"><span class="pf-n">✗</span>1v1 matchups</div>
-        <div class="pf dim"><span class="pf-n">✗</span>Value alerts</div>
-      </div>
-      <button class="plan-select-btn psb-free" onclick="selectPlan('free');event.stopPropagation()">Start Free</button>
+      <div class="plan-credits">25 credits (one-time)</div>
+      <ul class="plan-features">
+        <li>Match predictions</li>
+        <li>Probability model</li>
+        <li>Basic parlay builder</li>
+        <li class="no">AI analysis</li>
+        <li class="no">Real odds</li>
+        <li class="no">Auto-parlay</li>
+        <li class="no">News intelligence</li>
+      </ul>
+      <button class="plan-btn outline" onclick="selectPlan('free')">CURRENT PLAN</button>
     </div>
-
-    <!-- STARTER -->
-    <div class="plan-card" id="card-starter" onclick="selectPlan('starter')">
-      <div class="plan-name">Starter</div>
-      <div class="plan-price-row">
-        <span class="plan-price-num" id="price-starter">$2.99</span>
-        <div class="plan-price-period" id="period-starter">/month</div>
-      </div>
-      <div class="plan-annual-note" id="annual-starter"></div>
-      <div class="plan-divider"></div>
-      <div class="plan-feats">
-        <div class="pf"><span class="pf-y">✓</span>3 parlays/day</div>
-        <div class="pf"><span class="pf-y">✓</span>5 leagues</div>
-        <div class="pf"><span class="pf-y">✓</span>Full probabilities</div>
-        <div class="pf"><span class="pf-y">✓</span>10 AI analyses/day</div>
-        <div class="pf"><span class="pf-y">✓</span>Basic player data</div>
-        <div class="pf dim"><span class="pf-n">✗</span>1v1 matchups</div>
-        <div class="pf dim"><span class="pf-n">✗</span>Value alerts</div>
-      </div>
-      <a class="plan-select-btn psb-paid" href="https://buy.stripe.com/fZu6oA5ZW8ws5B67ak1wY04" onclick="event.stopPropagation()">
-        Subscribe →
-      </a>
-    </div>
-
     <!-- BASIC -->
     <div class="plan-card" id="card-basic" onclick="selectPlan('basic')">
-      <div class="plan-name">Basic</div>
-      <div class="plan-price-row">
-        <span class="plan-price-num" id="price-basic">$4.99</span>
-        <div class="plan-price-period" id="period-basic">/month</div>
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">
+        <div class="plan-price-num" id="price-basic">$2.99</div>
+        <div class="plan-price-period">/month</div>
       </div>
-      <div class="plan-annual-note" id="annual-basic"></div>
-      <div class="plan-divider"></div>
-      <div class="plan-feats">
-        <div class="pf"><span class="pf-y">✓</span>10 parlays/day</div>
-        <div class="pf"><span class="pf-y">✓</span>8 leagues</div>
-        <div class="pf"><span class="pf-y">✓</span>Full AI analysis</div>
-        <div class="pf"><span class="pf-y">✓</span>25 AI analyses/day</div>
-        <div class="pf"><span class="pf-y">✓</span>Player ELO ratings</div>
-        <div class="pf"><span class="pf-y">✓</span>Basic 1v1 matchups</div>
-        <div class="pf dim"><span class="pf-n">✗</span>Value alerts</div>
-      </div>
-      <a class="plan-select-btn psb-paid" href="https://buy.stripe.com/8x27sEbkgdQMe7C2U41wY05" onclick="event.stopPropagation()">
-        Get Basic →
-      </a>
+      <div class="plan-credits">55 credits/month</div>
+      <ul class="plan-features">
+        <li>Everything in Free</li>
+        <li>GPT-4o match analysis</li>
+        <li>Real bookmaker odds</li>
+        <li>H2H history</li>
+        <li>News analysis</li>
+        <li class="no">Auto-parlay AI</li>
+        <li class="no">Full leagues hub</li>
+      </ul>
+      <button class="plan-btn outline" onclick="selectPlan('basic');event.stopPropagation()">SELECT</button>
     </div>
-
-    <!-- PRO -->
-    <div class="plan-card popular" id="card-pro" onclick="selectPlan('pro')">
-      <div class="plan-top-badge">⚡ MOST POPULAR</div>
-      <div class="plan-name" style="background:linear-gradient(135deg,var(--purple),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Pro</div>
-      <div class="plan-price-row">
-        <span class="plan-price-num grad" id="price-pro">$14.99</span>
-        <div class="plan-price-period" id="period-pro">/month</div>
+    <!-- PLUS / PRO -->
+    <div class="plan-card popular" id="card-plus" onclick="selectPlan('plus')">
+      <div class="popular-badge">MOST POPULAR</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">
+        <div class="plan-price-num" id="price-plus">$9.99</div>
+        <div class="plan-price-period">/month</div>
       </div>
-      <div class="plan-annual-note" id="annual-pro"></div>
-      <div class="plan-divider"></div>
-      <div class="plan-feats">
-        <div class="pf"><span class="pf-y">✓</span>Unlimited parlays</div>
-        <div class="pf"><span class="pf-y">✓</span>All 12 leagues</div>
-        <div class="pf"><span class="pf-y">✓</span>Unlimited AI analysis</div>
-        <div class="pf"><span class="pf-y">✓</span>Full player profiles</div>
-        <div class="pf"><span class="pf-y">✓</span>Full 1v1 matchups</div>
-        <div class="pf"><span class="pf-y">✓</span>Value bet detection</div>
-        <div class="pf"><span class="pf-y">✓</span>Odds movement alerts</div>
-      </div>
-      <a class="plan-select-btn psb-popular" href="https://buy.stripe.com/3cI14gewsaEAd3yamw1wY06" onclick="event.stopPropagation()">
-        Get Pro →
-      </a>
+      <div class="plan-credits">115 credits/month</div>
+      <ul class="plan-features">
+        <li>Everything in Starter</li>
+        <li>Auto-parlay AI builder</li>
+        <li>Full leagues hub</li>
+        <li>Player mismatch alerts</li>
+        <li>Team descriptors</li>
+        <li>Priority support</li>
+        <li>Team stats & ELO</li>
+      </ul>
+      <button class="plan-btn" onclick="selectPlan('plus');event.stopPropagation()">SELECT</button>
     </div>
-
     <!-- ELITE -->
-    <div class="plan-card elite-card" id="card-elite" onclick="selectPlan('elite')">
-      <div class="plan-name" style="background:linear-gradient(135deg,var(--gold),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Elite</div>
-      <div class="plan-price-row">
-        <span class="plan-price-num gold" id="price-elite">$49.99</span>
-        <div class="plan-price-period" id="period-elite">/month</div>
+    <div class="plan-card" id="card-elite" onclick="selectPlan('elite')">
+      <div class="plan-name">Elite</div>
+      <div class="plan-price">
+        <div class="plan-price-num" id="price-elite">$24.99</div>
+        <div class="plan-price-period">/month</div>
       </div>
-      <div class="plan-annual-note" id="annual-elite"></div>
-      <div class="plan-divider"></div>
-      <div class="plan-feats">
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Everything in Pro</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>API access</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Priority AI responses</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Real-time value alerts</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Historical model data</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Dedicated support</div>
-        <div class="pf"><span class="pf-y" style="color:var(--gold)">✓</span>Early feature access</div>
+      <div class="plan-credits">265 credits/month</div>
+      <ul class="plan-features">
+        <li>Everything in Pro</li>
+        <li>Advanced AI models</li>
+        <li>Parlay risk analysis</li>
+        <li>Real xG per match</li>
+        <li>Manager ELO tracking</li>
+        <li>Trophy ELO bonuses</li>
+        <li>Referral commissions</li>
+      </ul>
+      <button class="plan-btn outline" onclick="selectPlan('elite');event.stopPropagation()">SELECT</button>
+    </div>
+    <!-- PLATINUM -->
+    <div class="plan-card" id="card-platinum" onclick="selectPlan('platinum')">
+      <div class="plan-name" style="background:linear-gradient(135deg,#ffd700,#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Platinum</div>
+      <div class="plan-price">
+        <div class="plan-price-num" style="color:var(--gold)" id="price-platinum">$49.99</div>
+        <div class="plan-price-period">/month</div>
       </div>
-      <a class="plan-select-btn psb-elite" href="https://buy.stripe.com/9B69AM0FC4gce7CgKU1wY07" onclick="event.stopPropagation()">
-        Get Elite →
-      </a>
+      <div class="plan-credits" style="background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.3)">∞ Unlimited credits</div>
+      <ul class="plan-features">
+        <li>Everything in Elite</li>
+        <li>Unlimited AI calls</li>
+        <li>API access</li>
+        <li>White-label option</li>
+        <li>Dedicated support</li>
+        <li>Early feature access</li>
+        <li>Affiliate dashboard</li>
+      </ul>
+      <button class="plan-btn" style="background:linear-gradient(135deg,#ffd700,#ff8c42)" onclick="selectPlan('platinum');event.stopPropagation()">SELECT</button>
+    </div>
+  </div>
+
+  <!-- CHECKOUT SECTION -->
+  <div class="checkout-section" id="checkoutSection">
+    <!-- LEFT: FORM -->
+    <div class="checkout-form">
+      <div>
+        <div class="checkout-title">CHECKOUT</div>
+        <div class="checkout-sub" id="checkoutSub">SELECT A PLAN ABOVE TO CONTINUE</div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">EMAIL ADDRESS</div>
+        <input type="email" class="form-input" id="emailInput" placeholder="your@email.com">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">REFERRAL / PROMO CODE <span style="color:var(--text3)">(optional)</span></div>
+        <div class="referral-row">
+          <input type="text" class="form-input" id="referralInput" placeholder="Enter code..." oninput="this.value=this.value.toUpperCase()">
+          <button class="referral-apply" onclick="applyReferral()">APPLY</button>
+        </div>
+        <div id="referralStatus" class="referral-status"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">BILLING PERIOD</div>
+        <div style="display:flex;gap:8px">
+          <button id="btnMonthly" class="referral-apply" style="flex:1;padding:8px;font-size:10px" onclick="setBillingFromBtn('monthly')">MONTHLY</button>
+          <button id="btnAnnual" class="referral-apply" style="flex:1;padding:8px;font-size:10px" onclick="setBillingFromBtn('annual')">ANNUAL (-20%)</button>
+        </div>
+      </div>
+
+      <button class="checkout-btn" id="checkoutBtn" onclick="startCheckout()" disabled>
+        ⚡ CONTINUE TO PAYMENT
+      </button>
+      <div class="secure-note">
+        <span>🔒</span>
+        <span>Secured by Stripe · Cancel anytime · No hidden fees</span>
+      </div>
     </div>
 
-  </div><!-- /plans-grid -->
-
-  <!-- CHECKOUT (keep your existing checkout structure below) -->
-  <div class="checkout-section" id="checkoutSection">
-    <div class="checkout-box">
-      <div class="checkout-header">
-        <div class="checkout-plan-name" id="checkoutPlanName">PRO PLAN</div>
-        <div class="checkout-plan-price" id="checkoutPlanPrice">$14.99/month · Cancel anytime</div>
+    <!-- RIGHT: ORDER SUMMARY -->
+    <div class="order-summary">
+      <div class="os-title">ORDER SUMMARY</div>
+      <div class="os-plan-badge">
+        <div>
+          <div class="os-plan-name" id="osPlanName">—</div>
+          <div class="os-plan-credits" id="osPlanCredits">Select a plan</div>
+        </div>
+        <div style="font-family:'Bebas Neue';font-size:28px;color:var(--gold)" id="osPlanPrice">—</div>
       </div>
-      <div class="checkout-body" id="checkoutBody">
-        <div class="order-summary">
-          <div class="os-row">
-            <span class="os-lbl" id="osPlan">Pro Plan</span>
-            <span class="os-val" id="osPrice">$14.99</span>
-          </div>
-          <div class="os-row" id="osDiscountRow" style="display:none">
-            <span class="os-lbl">Annual discount (10%)</span>
-            <span class="os-val" style="color:var(--green)" id="osDiscount">-$18.00</span>
-          </div>
-          <div class="os-row">
-            <span class="os-lbl os-total">Total due today</span>
-            <span class="os-val os-total" id="osTotal">$14.99</span>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input type="email" class="form-input" id="emailInput" placeholder="you@example.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" class="form-input" id="nameInput" placeholder="John Smith">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Card Details</label>
-          <!-- Stripe Elements mounts here -->
-          <div id="stripeCardElement">
-            <div class="stripe-placeholder">
-              <span class="stripe-icon">💳</span>
-              <span>Stripe payment element — add your publishable key to enable</span>
-            </div>
-          </div>
-          <div class="stripe-note">🔒 Secured by Stripe · PCI DSS compliant</div>
-        </div>
-        <button class="checkout-btn" id="checkoutBtn" onclick="handleCheckout()">
-          ⚡ COMPLETE SUBSCRIPTION →
-        </button>
-        <div class="trust-row">
-          <div class="trust-item"><span>🔒</span>SSL Encrypted</div>
-          <div class="trust-item"><span>✓</span>Cancel Anytime</div>
-          <div class="trust-item"><span>↩</span>14-Day Refund</div>
-        </div>
-      </div>
-      <div class="success-screen" id="successScreen">
-        <div class="success-icon">⚡</div>
-        <div class="success-title">You're In!</div>
-        <div class="success-sub" id="successMsg">Your Slip IQ subscription is active. Time to find some edges.</div>
-        <a href="index.html" class="success-btn">Open Slip IQ →</a>
+      <div class="os-line"><span>Subtotal</span><span id="osSubtotal">—</span></div>
+      <div class="os-line discount" id="osDiscountRow" style="display:none"><span>Referral discount</span><span id="osDiscount">—</span></div>
+      <div class="os-line total"><span>Total / month</span><span id="osTotal" style="color:var(--accent)">—</span></div>
+      <div class="os-features" id="osFeatures"></div>
+      <div style="margin-top:16px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3);line-height:1.7">
+        Credits reset monthly on billing date.<br>
+        Cancel or change plan any time in your account.<br>
+        Annual billed as one payment upfront.
       </div>
     </div>
   </div>
 
-</div>
+  <!-- CREDIT TOP-UPS -->
+  <div class="credits-section">
+    <div class="credits-title">TOP UP CREDITS</div>
+    <div class="credits-sub">Need more credits? Buy a one-time top-up — no subscription required.</div>
+    <div class="credits-grid">
+      <div class="credit-card" onclick="buyCredits(50,'$2.49')">
+        <div class="cc-amount">50</div>
+        <div class="cc-credits">CREDITS</div>
+        <div class="cc-price">$2.49</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">≈ 3 match analyses</div>
+        <button class="cc-btn">BUY NOW</button>
+      </div>
+      <div class="credit-card" onclick="buyCredits(120,'$4.99')">
+        <div class="cc-amount">120</div>
+        <div class="cc-credits">CREDITS</div>
+        <div class="cc-price">$4.99</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">≈ 8 match analyses</div>
+        <button class="cc-btn">BUY NOW</button>
+      </div>
+      <div class="credit-card" style="border-color:rgba(0,200,248,.3)" onclick="buyCredits(300,'$9.99')">
+        <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--accent);text-align:center;margin-bottom:4px;letter-spacing:1px">BEST VALUE</div>
+        <div class="cc-amount">300</div>
+        <div class="cc-credits">CREDITS</div>
+        <div class="cc-price">$9.99</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">≈ 20 match analyses</div>
+        <button class="cc-btn">BUY NOW</button>
+      </div>
+      <div class="credit-card" onclick="buyCredits(700,'$19.99')">
+        <div class="cc-amount">700</div>
+        <div class="cc-credits">CREDITS</div>
+        <div class="cc-price">$19.99</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">≈ 46 match analyses</div>
+        <button class="cc-btn">BUY NOW</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section">
+    <div class="faq-title">FREQUENTLY ASKED QUESTIONS</div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span>What are credits?</span><span class="faq-arrow">▼</span></div>
+      <div class="faq-a">Credits are used each time you request an AI analysis. Match analysis costs 15 credits, news analysis 5 credits, auto-parlay 10 credits, and full parlay advice 20 credits. Credits reset monthly on your billing date. Platinum plan members get unlimited credits.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span>What data sources does Slip IQ use?</span><span class="faq-arrow">▼</span></div>
+      <div class="faq-a">Slip IQ uses Sportmonks v3 (live fixtures, real lineups, xG, odds, standings), The Odds API (real bookmaker odds from 40+ bookmakers), ClubElo (historical ELO ratings), NewsAPI (breaking football news), and GPT-4o for all AI analysis. ELO ratings update every 12 hours.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span>Can I cancel anytime?</span><span class="faq-arrow">▼</span></div>
+      <div class="faq-a">Yes. Cancel from your account page or by emailing support. Your plan stays active until the end of the billing period. Annual plans are refunded pro-rata if cancelled within the first 14 days.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span>How does the referral program work?</span><span class="faq-arrow">▼</span></div>
+      <div class="faq-a">Get your referral code from your account page. Share it with friends — they get 25% off their first month, you earn 25% commission on their first payment and 10% recurring. Every 3 referrals earns you a free month of your current plan.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span>Do you guarantee winning bets?</span><span class="faq-arrow">▼</span></div>
+      <div class="faq-a">No. Slip IQ is a betting intelligence tool — we provide data-driven analysis and AI-powered insights, not guaranteed picks. Gambling involves risk. Always bet responsibly and within your means. Our predictions are based on statistical models and real data, not certainties.</div>
+    </div>
+  </div>
+
+</div><!-- end page-wrap -->
+</div><!-- end main -->
 
 <script>
-let isAnnual = false
-let selectedPlan = null
+const API = ""
+const USER_ID = "user_" + (localStorage.getItem("slipiq_uid") || (() => { const id = Math.random().toString(36).slice(2); localStorage.setItem("slipiq_uid", id); return id })())
 
-const PLANS = {
-  free:    { name:"Free",    monthly:0,     annual:0,     period:"forever" },
-  starter: { name:"Starter", monthly:2.99,  annual:2.69,  period:"/month"  },
-  basic:   { name:"Basic",   monthly:4.99,  annual:4.49,  period:"/month"  },
-  pro:     { name:"Pro",     monthly:14.99, annual:13.49, period:"/month"  },
-  elite:   { name:"Elite",   monthly:49.99, annual:44.99, period:"/month"  }
+let isAnnual = false, selectedPlan = null, referralDiscount = 0, referralCode = ""
+let sidebarCollapsed = false
+
+// ── Stripe payment links — replace with your actual Stripe links
+const STRIPE_LINKS = {
+  basic:    { monthly: "https://buy.stripe.com/YOUR_BASIC_MONTHLY",    annual: "https://buy.stripe.com/YOUR_BASIC_ANNUAL" },
+  plus:     { monthly: "https://buy.stripe.com/YOUR_PLUS_MONTHLY",     annual: "https://buy.stripe.com/YOUR_PLUS_ANNUAL" },
+  elite:    { monthly: "https://buy.stripe.com/YOUR_ELITE_MONTHLY",    annual: "https://buy.stripe.com/YOUR_ELITE_ANNUAL" },
+  platinum: { monthly: "https://buy.stripe.com/YOUR_PLATINUM_MONTHLY", annual: "https://buy.stripe.com/YOUR_PLATINUM_ANNUAL" },
+}
+
+const PLAN_DATA = {
+  free:     { name:"Free",     credits:"25 (one-time)", monthlyPrice:0,   annualPrice:0,    features:["Match predictions","Probability model","Basic parlay builder"] },
+  basic:    { name:"Starter",  credits:"55/month",      monthlyPrice:2.99,annualPrice:2.39, features:["GPT-4o match analysis","Real bookmaker odds","H2H history","News analysis"] },
+  plus:     { name:"Pro",      credits:"115/month",     monthlyPrice:9.99,annualPrice:7.99, features:["Auto-parlay AI builder","Full leagues hub","Player mismatch alerts","Team descriptors","Team stats & ELO"] },
+  elite:    { name:"Elite",    credits:"265/month",     monthlyPrice:24.99,annualPrice:19.99,features:["Advanced AI models","Real xG per match","Manager ELO","Trophy ELO bonuses","Referral commissions"] },
+  platinum: { name:"Platinum", credits:"∞ Unlimited",   monthlyPrice:49.99,annualPrice:39.99,features:["Unlimited AI calls","API access","White-label option","Dedicated support","Affiliate dashboard"] },
+}
+
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed
+  document.getElementById("navRail").classList.toggle("collapsed", sidebarCollapsed)
+  document.getElementById("mainShell").classList.toggle("collapsed", sidebarCollapsed)
 }
 
 function toggleBilling() {
   isAnnual = !isAnnual
-  setBillingState()
+  document.getElementById("billingToggle").classList.toggle("on", isAnnual)
+  updatePrices()
+  if (selectedPlan) updateOrderSummary()
 }
-function setBilling(mode) {
-  isAnnual = mode === 'annual'
-  setBillingState()
+
+function setBillingFromBtn(period) {
+  isAnnual = period === "annual"
+  document.getElementById("billingToggle").classList.toggle("on", isAnnual)
+  document.getElementById("btnMonthly").style.background = isAnnual ? "" : "rgba(0,200,248,.2)"
+  document.getElementById("btnAnnual").style.background = isAnnual ? "rgba(0,200,248,.2)" : ""
+  updatePrices()
+  if (selectedPlan) updateOrderSummary()
 }
-function setBillingState() {
-  const toggle = document.getElementById("billingToggle")
-  toggle.classList.toggle("on", isAnnual)
-  document.getElementById("lbl-monthly").classList.toggle("active", !isAnnual)
-  document.getElementById("lbl-annual").classList.toggle("active", isAnnual)
-  document.getElementById("annualBadge").style.display = isAnnual ? "inline-block" : "none"
-  for (const [id, p] of Object.entries(PLANS)) {
-    const priceEl = document.getElementById("price-"+id)
-    const periodEl = document.getElementById("period-"+id)
-    const annualEl = document.getElementById("annual-"+id)
-    if (!priceEl) continue
-    const price = isAnnual ? p.annual : p.monthly
-    priceEl.textContent = price === 0 ? "$0" : "$"+price
-    if (periodEl) periodEl.textContent = p.period
-    if (annualEl) {
-      annualEl.textContent = isAnnual && p.monthly > 0 ? `$${(p.annual*12).toFixed(0)}/yr · save $${((p.monthly-p.annual)*12).toFixed(2)}` : ""
-    }
+
+function updatePrices() {
+  for (const [plan, data] of Object.entries(PLAN_DATA)) {
+    const el = document.getElementById(`price-${plan}`)
+    if (!el) continue
+    const price = isAnnual ? data.annualPrice : data.monthlyPrice
+    el.textContent = price === 0 ? "$0" : `$${price.toFixed(2)}`
   }
 }
 
-function selectPlan(id) {
-  selectedPlan = id
+function selectPlan(planId) {
+  if (planId === "free") return
+  selectedPlan = planId
   document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"))
-  const card = document.getElementById("card-"+id)
-  if (card) card.classList.add("selected")
-  if (id === "free") {
-    window.location.href = "index.html"
-    return
-  }
-  const p = PLANS[id]
-  const price = isAnnual ? p.annual : p.monthly
-  const periodLabel = isAnnual ? "/month (billed annually)" : "/month"
-  document.getElementById("checkoutPlanName").textContent = p.name.toUpperCase() + " PLAN"
-  document.getElementById("checkoutPlanPrice").textContent = `$${price}${periodLabel} · Cancel anytime`
-  document.getElementById("osPlan").textContent = p.name + " Plan"
-  document.getElementById("osPrice").textContent = "$"+price
-  const discRow = document.getElementById("osDiscountRow")
-  if (isAnnual && p.monthly > 0) {
-    discRow.style.display = "flex"
-    document.getElementById("osDiscount").textContent = `-$${((p.monthly-p.annual)*12).toFixed(2)}`
-  } else {
-    discRow.style.display = "none"
-  }
-  const total = isAnnual ? (p.annual*12).toFixed(2) : price
-  document.getElementById("osTotal").textContent = "$"+total
-  const cs = document.getElementById("checkoutSection")
-  cs.classList.add("visible")
-  cs.scrollIntoView({behavior:"smooth",block:"start"})
+  document.getElementById(`card-${planId}`)?.classList.add("selected")
+  updateOrderSummary()
+  document.getElementById("checkoutBtn").disabled = false
+  document.getElementById("checkoutSection").scrollIntoView({ behavior: "smooth", block: "nearest" })
 }
 
-function handleCheckout() {
+function updateOrderSummary() {
+  if (!selectedPlan) return
+  const data = PLAN_DATA[selectedPlan]
+  const price = isAnnual ? data.annualPrice : data.monthlyPrice
+  const discountAmt = referralDiscount > 0 ? price * referralDiscount / 100 : 0
+  const finalPrice = Math.max(0, price - discountAmt)
+
+  document.getElementById("osPlanName").textContent = data.name.toUpperCase()
+  document.getElementById("osPlanCredits").textContent = data.credits + " credits"
+  document.getElementById("osPlanPrice").textContent = `$${price.toFixed(2)}`
+  document.getElementById("osSubtotal").textContent = `$${price.toFixed(2)}`
+  document.getElementById("checkoutSub").textContent = `${data.name} Plan · ${isAnnual ? "Annual" : "Monthly"} · ${data.credits} credits`
+
+  if (discountAmt > 0) {
+    document.getElementById("osDiscountRow").style.display = "flex"
+    document.getElementById("osDiscount").textContent = `-$${discountAmt.toFixed(2)} (${referralDiscount}% off)`
+  } else {
+    document.getElementById("osDiscountRow").style.display = "none"
+  }
+  document.getElementById("osTotal").textContent = `$${finalPrice.toFixed(2)}`
+
+  const features = data.features || []
+  document.getElementById("osFeatures").innerHTML = features.map(f => `<div class="os-feature">${f}</div>`).join("")
+}
+
+async function applyReferral() {
+  const code = document.getElementById("referralInput").value.trim().toUpperCase()
+  if (!code) { document.getElementById("referralStatus").innerHTML = ""; return }
+  const statusEl = document.getElementById("referralStatus")
+  statusEl.textContent = "Checking..."
+  try {
+    const res = await fetch(`${API}/referral/validate/${code}`)
+    const data = await res.json()
+    if (data.valid) {
+      referralDiscount = data.discount_pct || 25
+      referralCode = code
+      statusEl.innerHTML = `<span class="referral-ok">✓ Code applied! ${referralDiscount}% off your first month${data.affiliate_name ? ` — referred by ${data.affiliate_name}` : ""}</span>`
+      if (selectedPlan) updateOrderSummary()
+    } else {
+      referralDiscount = 0; referralCode = ""
+      statusEl.innerHTML = `<span class="referral-err">✗ Invalid or expired code</span>`
+    }
+  } catch(e) {
+    statusEl.innerHTML = `<span class="referral-err">✗ Could not check code — try again</span>`
+  }
+}
+
+async function startCheckout() {
+  if (!selectedPlan) { alert("Please select a plan first."); return }
   const email = document.getElementById("emailInput").value.trim()
-  const name  = document.getElementById("nameInput").value.trim()
-  if (!email || !name) { alert("Please fill in your email and name."); return }
+  if (!email || !email.includes("@")) { alert("Please enter a valid email address."); return }
+
   const btn = document.getElementById("checkoutBtn")
   btn.disabled = true
-  btn.textContent = "⏳ Processing..."
-  setTimeout(() => {
-    document.getElementById("checkoutBody").classList.add("hide")
-    const s = document.getElementById("successScreen")
-    s.classList.add("show")
-    document.getElementById("successMsg").textContent = `Welcome, ${name.split(" ")[0]}! Your ${PLANS[selectedPlan]?.name||"Slip IQ"} subscription is now active.`
-    setTimeout(() => { window.location.href = "index.html" }, 3000)
-  }, 1800)
+  btn.textContent = "⏳ PREPARING CHECKOUT..."
+
+  try {
+    // 1) If referral code was used, record it server-side before Stripe
+    if (referralCode) {
+      await fetch(`${API}/referral/use`, {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ code: referralCode, referred_user_email: email, referred_user_id: USER_ID, subscription_plan: selectedPlan })
+      }).catch(() => {}) // non-blocking
+    }
+
+    // 2) Build Stripe URL
+    const stripeLinks = STRIPE_LINKS[selectedPlan]
+    const period = isAnnual ? "annual" : "monthly"
+    let stripeUrl = stripeLinks?.[period]
+
+    if (!stripeUrl || stripeUrl.includes("YOUR_")) {
+      // Dev mode — simulate
+      showToast(`✅ Plan selected: ${PLAN_DATA[selectedPlan].name} (Stripe not configured yet)`)
+      btn.disabled = false
+      btn.textContent = "⚡ CONTINUE TO PAYMENT"
+      return
+    }
+
+    // 3) Append metadata to Stripe URL
+    const params = new URLSearchParams({
+      prefilled_email: email,
+      client_reference_id: USER_ID,
+      'metadata[plan]': selectedPlan,
+      'metadata[billing]': period,
+      'metadata[referral_code]': referralCode,
+      'metadata[user_id]': USER_ID,
+    })
+
+    window.location.href = `${stripeUrl}?${params}`
+
+  } catch(e) {
+    btn.disabled = false
+    btn.textContent = "⚡ CONTINUE TO PAYMENT"
+    alert("Something went wrong. Please try again.")
+  }
 }
 
-// Handle ?plan= URL param
-const urlPlan = new URLSearchParams(window.location.search).get("plan")
-if (urlPlan && PLANS[urlPlan]) {
-  setTimeout(() => selectPlan(urlPlan), 300)
+function buyCredits(amount, price) {
+  // Credit top-up Stripe links
+  const CREDIT_LINKS = {
+    50:  "https://buy.stripe.com/YOUR_CREDITS_50",
+    120: "https://buy.stripe.com/YOUR_CREDITS_120",
+    300: "https://buy.stripe.com/YOUR_CREDITS_300",
+    700: "https://buy.stripe.com/YOUR_CREDITS_700",
+  }
+  const link = CREDIT_LINKS[amount]
+  if (!link || link.includes("YOUR_")) {
+    showToast(`Credits top-up: ${amount} credits for ${price} — Stripe not configured yet`)
+    return
+  }
+  const email = document.getElementById("emailInput").value.trim()
+  const params = new URLSearchParams({ client_reference_id: USER_ID, 'metadata[credits]': amount, 'metadata[user_id]': USER_ID })
+  if (email) params.set("prefilled_email", email)
+  window.location.href = `${link}?${params}`
 }
+
+function toggleFaq(el) { el.classList.toggle("open") }
+
+function showToast(msg) {
+  const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show")
+  setTimeout(() => t.classList.remove("show"), 3500)
+}
+
+// Init
+updatePrices()
+// Pre-select Pro
+selectPlan("plus")
+document.getElementById("btnMonthly").style.background = "rgba(0,200,248,.2)"
 </script>
 </body>
 </html>
