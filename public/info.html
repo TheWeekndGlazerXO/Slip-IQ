@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slip IQ — How To Use</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;--purple:#a855f7;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8);--sidebar:224px}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.nav-rail{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border2);display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:width .25s}
+.nav-rail.col{width:52px}
+.nav-logo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.nav-logo-text{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap}
+.nav-logo-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;white-space:nowrap}
+.nav-toggle{position:absolute;top:14px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;z-index:2}
+.nav-slbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;padding:10px 14px 3px;white-space:nowrap}
+.nav-rail.col .nav-slbl,.nav-rail.col .nlbl,.nav-rail.col .nav-logo-text,.nav-rail.col .nav-logo-sub{display:none}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;color:var(--text2);font-size:13px;font-weight:500;white-space:nowrap;text-decoration:none}
+.ni:hover{background:rgba(0,200,248,.06);color:var(--text)}
+.ni.active{background:rgba(0,200,248,.1);border-left-color:var(--accent);color:var(--accent)}
+.nav-rail.col .ni{padding:10px 14px;justify-content:center}
+.ni-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.nav-bottom{margin-top:auto;padding:10px;border-top:1px solid var(--border)}
+.upg-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px;border-radius:7px;border:none;cursor:pointer;display:block;width:100%;text-align:center;text-decoration:none;white-space:nowrap}
+.nav-rail.col .upg-btn{font-size:0;padding:9px 0}.nav-rail.col .upg-btn::before{content:"⭐";font-size:16px}
+.main{margin-left:var(--sidebar);transition:margin-left .25s;display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;overflow:hidden}
+.main.col{margin-left:52px}
+.topbar{height:50px;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 20px;flex-shrink:0}
+.topbar-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:3px;color:var(--text)}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--border2)}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,rgba(0,200,248,.08),rgba(0,229,200,.04));border:1px solid rgba(0,200,248,.2);border-radius:14px;padding:28px 32px;margin-bottom:28px;text-align:center}
+.hero-title{font-family:'Bebas Neue';font-size:42px;letter-spacing:4px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:8px}
+.hero-sub{font-size:15px;color:var(--text2);max-width:520px;margin:0 auto 16px;line-height:1.6}
+.hero-tags{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.hero-tag{font-family:'JetBrains Mono';font-size:9px;padding:4px 10px;border-radius:20px;letter-spacing:1px}
+
+/* SECTIONS */
+.section{margin-bottom:32px}
+.section-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.section-sub{font-size:13px;color:var(--text3);margin-bottom:16px;font-family:'JetBrains Mono'}
+
+/* FEATURE CARDS */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px}
+.feat-card{background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:16px}
+.feat-icon{font-size:26px;margin-bottom:8px}
+.feat-title{font-family:'Bebas Neue';font-size:17px;letter-spacing:1px;color:var(--text);margin-bottom:5px}
+.feat-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.feat-steps{list-style:none;padding:0}
+.feat-steps li{font-size:11px;color:var(--text2);padding:3px 0;padding-left:14px;position:relative;border-bottom:1px solid var(--border)}
+.feat-steps li:last-child{border-bottom:none}
+.feat-steps li::before{content:"→";position:absolute;left:0;color:var(--accent);font-size:10px}
+.feat-lock{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono';font-size:8px;padding:2px 7px;border-radius:3px;margin-top:8px}
+.lock-free{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green)}
+.lock-basic{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent)}
+.lock-plus{background:rgba(255,140,66,.1);border:1px solid rgba(255,140,66,.3);color:var(--orange)}
+.lock-pro{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:var(--purple)}
+
+/* TIER TABLE */
+.tier-table-wrap{overflow-x:auto;margin-bottom:16px}
+.tier-table{width:100%;border-collapse:collapse;font-size:12px}
+.tier-table th{font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;color:var(--text3);padding:8px 12px;border-bottom:2px solid var(--border2);text-align:center;white-space:nowrap}
+.tier-table th:first-child{text-align:left}
+.tier-table td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+.tier-table td:first-child{font-weight:500;color:var(--text);font-size:13px}
+.tier-table tr:last-child td{border-bottom:none}
+.tier-table tr:hover td{background:rgba(0,200,248,.03)}
+.tier-name{font-family:'Bebas Neue';font-size:17px;letter-spacing:1px}
+.tier-free{color:var(--green)}
+.tier-basic{color:var(--accent)}
+.tier-plus{color:var(--orange)}
+.tier-pro{color:var(--purple)}
+.tier-elite{color:var(--gold)}
+.check{color:var(--green);font-size:14px}
+.cross{color:var(--text3);font-size:14px;opacity:.4}
+.credits-badge{font-family:'JetBrains Mono';font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold)}
+
+/* HOW-TO STEPS */
+.steps-list{list-style:none;padding:0;counter-reset:steps}
+.steps-list li{counter-increment:steps;display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.steps-list li:last-child{border-bottom:none}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:14px;color:#000;flex-shrink:0;margin-top:2px}
+.step-body{flex:1}
+.step-title{font-weight:600;color:var(--text);margin-bottom:3px}
+.step-desc{font-size:12px;color:var(--text2);line-height:1.6}
+
+/* ELO / PLAYSTYLE EXPLAINERS */
+.explainer-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.exp-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;flex:1;min-width:200px}
+.exp-icon{font-size:20px;margin-bottom:5px}
+.exp-title{font-family:'Bebas Neue';font-size:15px;letter-spacing:1px;color:var(--text);margin-bottom:3px}
+.exp-desc{font-size:11px;color:var(--text2);line-height:1.6}
+
+/* CREDIT COST TABLE */
+.credit-table{width:100%;border-collapse:collapse;font-size:12px}
+.credit-table td,.credit-table th{padding:7px 10px;border-bottom:1px solid var(--border)}
+.credit-table th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3)}
+.credit-table tr:last-child td{border-bottom:none}
+
+/* FAQ */
+.faq-item{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden}
+.faq-q{padding:12px 14px;cursor:pointer;font-weight:500;display:flex;justify-content:space-between;align-items:center;background:var(--panel)}
+.faq-q:hover{background:rgba(0,200,248,.04)}
+.faq-a{padding:10px 14px;font-size:12px;color:var(--text2);line-height:1.7;border-top:1px solid var(--border);display:none}
+.faq-item.open .faq-a{display:block}
+.faq-arrow{color:var(--text3);transition:transform .2s;flex-shrink:0}
+.faq-item.open .faq-arrow{transform:rotate(180deg);color:var(--accent)}
+
+/* TABS */
+.info-tabs{display:flex;gap:0;border-bottom:1px solid var(--border2);margin-bottom:24px;flex-wrap:wrap}
+.info-tab{font-family:'JetBrains Mono';font-size:10px;letter-spacing:1px;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);transition:all .15s;white-space:nowrap}
+.info-tab:hover{color:var(--text2)}
+.info-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-section{display:none}
+.tab-section.active{display:block}
+</style>
+</head>
+<body>
+
+<div class="nav-rail" id="navRail">
+  <div class="nav-logo">
+    <div><div class="nav-logo-text">SLIP IQ</div><div class="nav-logo-sub">BETTING INTELLIGENCE v13</div></div>
+  </div>
+  <button class="nav-toggle" onclick="toggleSB()">☰</button>
+  <div class="nav-slbl">MAIN</div>
+  <a class="ni" href="home.html"><span class="ni-icon">⚽</span><span class="nlbl">Matches</span></a>
+  <a class="ni" href="leagues.html"><span class="ni-icon">🏆</span><span class="nlbl">Leagues</span></a>
+  <a class="ni" href="home.html"><span class="ni-icon">📰</span><span class="nlbl">News</span></a>
+  <a class="ni" href="home.html"><span class="ni-icon">🎯</span><span class="nlbl">My Parlays</span></a>
+  <div class="nav-slbl">ACCOUNT</div>
+  <a class="ni" href="account.html"><span class="ni-icon">👤</span><span class="nlbl">Profile</span></a>
+  <a class="ni" href="subscriptions.html"><span class="ni-icon">🛒</span><span class="nlbl">Plans & Credits</span></a>
+  <a class="ni active" href="info.html"><span class="ni-icon">ℹ️</span><span class="nlbl">How To Use</span></a>
+  <a class="ni" href="index.html"><span class="ni-icon">🏡</span><span class="nlbl">Home Page</span></a>
+  <div class="nav-bottom"><a href="subscriptions.html" class="upg-btn">⚡ UPGRADE</a></div>
+</div>
+
+<div class="main" id="mainShell">
+  <div class="topbar"><div class="topbar-title">HOW TO USE SLIP IQ</div></div>
+  <div class="content">
+
+    <div class="hero">
+      <div class="hero-title">SLIP IQ</div>
+      <div class="hero-sub">Your AI-powered football betting intelligence platform. Real player data from Sportmonks, GPT-4o analysis, live standings, ELO rankings, and smart parlay builder — all in one place.</div>
+      <div class="hero-tags">
+        <span class="hero-tag" style="background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green)">✅ Real Sportmonks Data</span>
+        <span class="hero-tag" style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent)">⚡ GPT-4o AI</span>
+        <span class="hero-tag" style="background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold)">📊 Live Standings</span>
+        <span class="hero-tag" style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:var(--purple)">🏅 ELO Rankings</span>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="info-tabs">
+      <div class="info-tab active" onclick="switchTab('features')">FEATURES</div>
+      <div class="info-tab" onclick="switchTab('tiers')">PLANS & TIERS</div>
+      <div class="info-tab" onclick="switchTab('howto')">HOW TO USE</div>
+      <div class="info-tab" onclick="switchTab('elo')">ELO & PLAYSTYLES</div>
+      <div class="info-tab" onclick="switchTab('faq')">FAQ</div>
+    </div>
+
+    <!-- FEATURES TAB -->
+    <div class="tab-section active" id="tab-features">
+      <div class="section">
+        <div class="section-title">⚽ MATCHES PAGE</div>
+        <div class="section-sub">home.html — your main prediction dashboard</div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <div class="feat-icon">📊</div>
+            <div class="feat-title">AI Match Predictions</div>
+            <div class="feat-desc">Every match gets win/draw/loss probabilities calculated from real ELO ratings, recent form, xG data, and head-to-head records from Sportmonks.</div>
+            <ul class="feat-steps">
+              <li>Open the Matches page</li>
+              <li>Click any match card to see full analysis</li>
+              <li>5 tabs: Overview, Team Data, Lineups, Markets, H2H</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ FREE</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">🎯</div>
+            <div class="feat-title">Match Analysis (15 credits)</div>
+            <div class="feat-desc">GPT-4o deep-dives into a match using real player names, formation mismatches, injury reports, and betting market data to give you a detailed edge.</div>
+            <ul class="feat-steps">
+              <li>Click any match card</li>
+              <li>Click "AI ANALYSIS" button in Overview tab</li>
+              <li>Costs 15 credits per analysis</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ FREE + BASIC</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">💰</div>
+            <div class="feat-title">Value Bet Detection</div>
+            <div class="feat-desc">Compares our model's true odds against bookmaker prices. When we find positive expected value (+EV), the match is flagged with a VALUE badge.</div>
+            <ul class="feat-steps">
+              <li>Look for orange VALUE badge on match cards</li>
+              <li>Check Markets tab for specific market edges</li>
+              <li>Edge % shown for each bet type</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ ALL PLANS</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">🔗</div>
+            <div class="feat-title">Auto Parlay Builder (10 credits)</div>
+            <div class="feat-desc">AI selects the best 3-5 match combination for a parlay based on confidence scores, value bets, and correlated outcomes to maximise EV.</div>
+            <ul class="feat-steps">
+              <li>Click "AUTO PARLAY" in top bar</li>
+              <li>AI selects optimal legs for you</li>
+              <li>Review and save or customise</li>
+            </ul>
+            <span class="feat-lock lock-plus">🔒 PLUS+</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">⚠️</div>
+            <div class="feat-title">Mismatch Detection</div>
+            <div class="feat-desc">Identifies tactical mismatches between teams — e.g. a fast winger against a slow fullback, or a high press vs a ball-playing GK under pressure.</div>
+            <ul class="feat-steps">
+              <li>Click match → Lineups & Mismatches tab</li>
+              <li>Red arrows show dangerous matchups</li>
+              <li>Based on real SM player attributes</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ ALL PLANS</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">📰</div>
+            <div class="feat-title">News + AI Betting Impact (5 credits)</div>
+            <div class="feat-desc">Live football news from Sportmonks and NewsAPI. Click any article to read the full story, then hit AI ANALYZE to get GPT-4o's betting impact assessment.</div>
+            <ul class="feat-steps">
+              <li>Click News in the sidebar</li>
+              <li>Select any article to read full content</li>
+              <li>Click "GPT-4o — AI BETTING ANALYSIS" button</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ FREE (AI costs 5 credits)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🏆 LEAGUES PAGE</div>
+        <div class="section-sub">leagues.html — live standings, team profiles, squad explorer</div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <div class="feat-icon">📋</div>
+            <div class="feat-title">Live 2025/26 Standings</div>
+            <div class="feat-desc">Real-time league tables from football-data.org (top 12 leagues) and Sportmonks. Shows P/W/D/L/GF/GA/GD/Pts and last 5 form results.</div>
+            <ul class="feat-steps">
+              <li>Click any league in the left panel</li>
+              <li>4 views: TABLE / FORM / xG / PREDICTIONS</li>
+              <li>Green dot = live data available</li>
+            </ul>
+            <span class="feat-lock lock-plus">🔒 PLUS+</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">👤</div>
+            <div class="feat-title">Team Profiles</div>
+            <div class="feat-desc">Click any team row to get full profile: ELO rating, team descriptors (attacking, timid, dominant etc.), xG stats, form, upcoming fixtures, and manager card.</div>
+            <ul class="feat-steps">
+              <li>Click any team row in the table</li>
+              <li>See descriptors, form, next 3 fixtures</li>
+              <li>Manager name, style, and ELO shown</li>
+            </ul>
+            <span class="feat-lock lock-plus">🔒 PLUS+</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">⚽</div>
+            <div class="feat-title">Real Squad + Formation</div>
+            <div class="feat-desc">Visual pitch showing the expected starting XI in real formation (4-3-3, 3-5-2 etc.) with real Sportmonks player names, positions, goals, ratings and ELO.</div>
+            <ul class="feat-steps">
+              <li>Click any team → scroll to FORMATION</li>
+              <li>Click any player dot for scout report</li>
+              <li>Full squad list below with playstyle icons</li>
+            </ul>
+            <span class="feat-lock lock-plus">🔒 PLUS+</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">🪄</div>
+            <div class="feat-title">Player Scout Reports (AI)</div>
+            <div class="feat-desc">Click any player to see their ELO, attributes (speed, attack, defense, big match), playstyle badge, goals/assists, and a GPT-4o generated scout report.</div>
+            <ul class="feat-steps">
+              <li>Open team profile → click any player</li>
+              <li>Or click player dot on the formation pitch</li>
+              <li>AI report includes strengths, weaknesses, similar players</li>
+            </ul>
+            <span class="feat-lock lock-plus">🔒 PLUS+</span>
+          </div>
+          <div class="feat-card">
+            <div class="feat-icon">🏅</div>
+            <div class="feat-title">ELO Rankings</div>
+            <div class="feat-desc">Top 200 teams worldwide ranked by ELO rating with daily changes from ClubElo. Shows rank, ELO, change arrow, and data source.</div>
+            <ul class="feat-steps">
+              <li>Click "ELO RANKINGS" button in top bar</li>
+              <li>▲ green = rising, ▼ red = falling</li>
+              <li>Updated daily from ClubElo.com</li>
+            </ul>
+            <span class="feat-lock lock-free">✅ ALL PLANS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIERS TAB -->
+    <div class="tab-section" id="tab-tiers">
+      <div class="section">
+        <div class="section-title">💳 PLANS & CREDITS</div>
+        <div class="section-sub">Credits reset monthly. Some features also require a minimum plan tier.</div>
+        <div class="tier-table-wrap">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th style="text-align:left">Feature</th>
+                <th><span class="tier-name tier-free">FREE</span></th>
+                <th><span class="tier-name tier-basic">BASIC</span></th>
+                <th><span class="tier-name tier-plus">PLUS</span></th>
+                <th><span class="tier-name tier-pro">PRO</span></th>
+                <th><span class="tier-name tier-elite">ELITE</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Monthly Credits</td><td><span class="credits-badge">25</span></td><td><span class="credits-badge">55</span></td><td><span class="credits-badge">115</span></td><td><span class="credits-badge">265</span></td><td><span class="credits-badge">900</span></td></tr>
+              <tr><td>Match Predictions (view)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Value Bet Detection</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>ELO Rankings</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Match Analysis (15cr)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>News AI Impact (5cr)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Leagues & Standings</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Team Profiles (15cr)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Player Scout Reports</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Auto Parlay (10cr)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Parlay AI Advice (20cr)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Risk Analysis (15cr)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>AI Agent Chat (10cr)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+              <tr><td>Priority Support</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-title" style="margin-top:24px">💰 CREDIT COSTS</div>
+        <div class="section-sub">Credits are spent on AI-powered features. They reset every 30 days with your plan.</div>
+        <table class="credit-table">
+          <thead><tr><th>Action</th><th>Credits</th><th>What you get</th></tr></thead>
+          <tbody>
+            <tr><td>Match Analysis</td><td><span class="credits-badge">15</span></td><td>Full GPT-4o breakdown — tactics, mismatches, recommendation</td></tr>
+            <tr><td>News AI Impact</td><td><span class="credits-badge">5</span></td><td>Betting impact assessment for any news article</td></tr>
+            <tr><td>Auto Parlay Build</td><td><span class="credits-badge">10</span></td><td>AI selects optimal 3-5 leg parlay from current fixtures</td></tr>
+            <tr><td>Parlay AI Advice</td><td><span class="credits-badge">20</span></td><td>Deep analysis of your custom parlay — risk, EV, suggestions</td></tr>
+            <tr><td>Team Stats</td><td><span class="credits-badge">15</span></td><td>Full team descriptor + squad analysis</td></tr>
+            <tr><td>Risk Analysis</td><td><span class="credits-badge">15</span></td><td>Portfolio-level risk breakdown for your active parlays</td></tr>
+            <tr><td>AI Agent</td><td><span class="credits-badge">10</span></td><td>Per message in the AI chat agent</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HOW TO USE TAB -->
+    <div class="tab-section" id="tab-howto">
+      <div class="section">
+        <div class="section-title">🚀 GETTING STARTED</div>
+        <div class="section-sub">Follow these steps to get the most out of Slip IQ</div>
+        <ol class="steps-list">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <div class="step-title">Check the Matches Page first</div>
+              <div class="step-desc">When you open Slip IQ, predictions load automatically from Sportmonks. You'll see upcoming fixtures from the top 5 leagues, Champions League, Europa League, and more — sorted by league ranking. Each card shows the teams, date, win probabilities, confidence score, and whether a value bet was detected.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <div class="step-title">Click a match for deep analysis</div>
+              <div class="step-desc">Click any match card to open the analysis modal. It has 5 tabs: <strong>Overview</strong> (probabilities, recommendation, key factors), <strong>Team Data</strong> (descriptors, form, ELO, manager), <strong>Lineups & Mismatches</strong> (real SM player names, mismatch bars), <strong>Markets</strong> (BTTS, over/under, correct score), and <strong>H2H</strong> (last 8 meetings). Hit "AI ANALYSIS" in Overview to spend 15 credits for a full GPT-4o writeup.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <div class="step-title">Build your parlay</div>
+              <div class="step-desc">Tick the checkbox on any match card to add it to your parlay slip. The parlay panel appears on the right side. Add 2-8 legs, then either manually review or hit "AUTO PARLAY" (Plus+) to let AI select the optimal combination. You can also click "PARLAY ADVICE" for a GPT-4o risk assessment of your picks.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <div class="step-title">Explore the Leagues page</div>
+              <div class="step-desc">Click Leagues in the sidebar. Select any league to see live 2025/26 standings — top leagues pull from football-data.org, others from Sportmonks. Click any team row to open the team profile in the right pane: descriptors, form, formation pitch with real players, manager card, and upcoming fixtures.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <div class="step-title">Read the news for edge</div>
+              <div class="step-desc">The News page pulls articles from Sportmonks pre-match news and NewsAPI. Click any article to read the full text. At the bottom, hit "GPT-4o — AI BETTING ANALYSIS" to get an impact assessment — HIGH/MEDIUM/LOW impact, which teams are affected, and what bet to consider.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">6</div>
+            <div class="step-body">
+              <div class="step-title">Filter matches by league</div>
+              <div class="step-desc">On the Matches page, use the league filter pills at the top of the match list to show only Premier League, Champions League, La Liga etc. The topbar shows live counts: how many games are live right now, upcoming today, average confidence, value bet count, and matches with real odds.</div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">7</div>
+            <div class="step-body">
+              <div class="step-title">Monitor your credits</div>
+              <div class="step-desc">Your current credit balance shows in the sidebar bottom as "💳 XX — CREDITS". Click it to go to your account page. Credits reset on your plan renewal date. If you run out, you can buy top-up credits from the Plans page without changing your subscription.</div>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ELO & PLAYSTYLES TAB -->
+    <div class="tab-section" id="tab-elo">
+      <div class="section">
+        <div class="section-title">🏅 WHAT IS ELO?</div>
+        <div class="section-sub">ELO is a chess-derived rating system adapted for football</div>
+        <div class="explainer-row">
+          <div class="exp-card">
+            <div class="exp-icon">📈</div>
+            <div class="exp-title">TEAM ELO</div>
+            <div class="exp-desc">Teams gain ELO when they win and lose it when they lose. The amount gained/lost depends on the opponent's rating — beating a top team gains more than beating a weaker side. Source: ClubElo.com, updated daily. Range: ~1300 (weak) to ~2000 (world class). Man City, Real Madrid, Bayern Munich typically sit above 1900.</div>
+          </div>
+          <div class="exp-card">
+            <div class="exp-icon">👤</div>
+            <div class="exp-title">PLAYER ELO</div>
+            <div class="exp-desc">Player ELO is derived from their team's ELO + real Sportmonks season statistics (goals, assists, appearances, average rating, key passes, tackles). A star player on a strong team will have a higher ELO than the same output on a weak team. Range: ~1200–2000+. 1800+ = Elite, 1700+ = World Class, 1600+ = Quality, 1500+ = Solid.</div>
+          </div>
+          <div class="exp-card">
+            <div class="exp-icon">🎖️</div>
+            <div class="exp-title">MANAGER ELO</div>
+            <div class="exp-desc">Manager ELO is seeded from known tactical reputation and win rates (e.g. Guardiola = 1920, Klopp = 1870, Ancelotti = 1850) and decays/grows based on results. It feeds into the match prediction model alongside team ELO — a high-rated manager coaching a weaker team gives them a slight uplift.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🎮 PLAYSTYLES</div>
+        <div class="section-sub">Each player is assigned a playstyle based on their position, stats, and a curated list of known players</div>
+        <div class="explainer-row">
+          <div class="exp-card"><div class="exp-icon">🪄</div><div class="exp-title">TRICKSTER</div><div class="exp-desc">Elite dribbler who loves taking on defenders — unpredictable, creative. Examples: Lamine Yamal, Vinicius Jr, Rayan Cherki, Désiré Doué, Jamal Musiala, Florian Wirtz, Pedri, Cole Palmer, Jeremy Doku.</div></div>
+          <div class="exp-card"><div class="exp-icon">⚡</div><div class="exp-title">RAPID</div><div class="exp-desc">Explosive pace — terrifying in behind, wins races, stretches defences. Examples: Kylian Mbappé, Bukayo Saka, Bradley Barcola, Anthony Gordon, Savinho, Pedro Neto, Garnacho, Doku.</div></div>
+          <div class="exp-card"><div class="exp-icon">↩️</div><div class="exp-title">INVERTED WINGER</div><div class="exp-desc">Cuts inside onto stronger foot, operates in half-spaces. Default for LW/RW without a special override. Classic: Salah, Robben-type players.</div></div>
+        </div>
+        <div class="explainer-row">
+          <div class="exp-card"><div class="exp-icon">🧤</div><div class="exp-title">SWEEPER KEEPER</div><div class="exp-desc">Commands area, sweeps behind the defensive line, builds play from back. GK default.</div></div>
+          <div class="exp-card"><div class="exp-icon">⚽</div><div class="exp-title">BALL-PLAYING CB</div><div class="exp-desc">Line-breaking passes, steps into midfield under pressure. CB default.</div></div>
+          <div class="exp-card"><div class="exp-icon">🔥</div><div class="exp-title">PRESS CONDUCTOR</div><div class="exp-desc">Sets press triggers, shields the backline, wins the ball back immediately. CDM default.</div></div>
+        </div>
+        <div class="explainer-row">
+          <div class="exp-card"><div class="exp-icon">⚙️</div><div class="exp-title">BOX-TO-BOX</div><div class="exp-desc">Covers ground in both directions, contributes in attack and defence. CM default.</div></div>
+          <div class="exp-card"><div class="exp-icon">✨</div><div class="exp-title">PLAYMAKER</div><div class="exp-desc">Creates between lines, key passes and shooting threat. CAM default.</div></div>
+          <div class="exp-card"><div class="exp-icon">🎯</div><div class="exp-title">TARGET STRIKER</div><div class="exp-desc">Holds up play, aerial threat, clinical finisher. ST default.</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🔍 TEAM DESCRIPTORS</div>
+        <div class="section-sub">Automatically generated from xG, form, ELO, and goal data</div>
+        <div class="explainer-row">
+          <div class="exp-card"><div class="exp-icon">⚡</div><div class="exp-title">ATTACKING</div><div class="exp-desc">xG &gt; 1.80 and goals/game &gt; 1.5 — consistently threatening, creates constantly.</div></div>
+          <div class="exp-card"><div class="exp-icon">🛡️</div><div class="exp-title">DEFENSIVELY SOUND</div><div class="exp-desc">xGA &lt; 0.85 — very hard to score against, concedes rarely.</div></div>
+          <div class="exp-card"><div class="exp-icon">😰</div><div class="exp-title">TIMID</div><div class="exp-desc">xG &lt; 0.90 — rarely threatens goal, plays cautiously or lacks quality.</div></div>
+        </div>
+        <div class="explainer-row">
+          <div class="exp-card"><div class="exp-icon">👑</div><div class="exp-title">CONTROLS GAMES</div><div class="exp-desc">High ELO + xG &gt; 1.40 — dominates possession and chances created.</div></div>
+          <div class="exp-card"><div class="exp-icon">🧲</div><div class="exp-title">FINNESSER</div><div class="exp-desc">Outplayed on xG but positive GD — wins ugly, very dangerous.</div></div>
+          <div class="exp-card"><div class="exp-icon">💪</div><div class="exp-title">STEPS UP</div><div class="exp-desc">Wins 20%+ of games vs strong teams — big-match performers.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ TAB -->
+    <div class="tab-section" id="tab-faq">
+      <div class="section">
+        <div class="section-title">❓ FREQUENTLY ASKED QUESTIONS</div>
+        <div class="section-sub">Common questions about using Slip IQ</div>
+
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">Why are some squads empty when I click a team? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">Squad data is loaded from Sportmonks when a match prediction is built for that team. Teams from leagues with upcoming fixtures will have squads cached within the first few minutes of the server running. For teams with no upcoming fixture in the next 14 days, go to the Matches page first and wait for predictions to build — this triggers squad loading for all featured teams. The Leagues page fetches squad data directly from Sportmonks on demand when you click a team, so even without a cached prediction it will attempt a live lookup.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">Why do some leagues show "no standings data"? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">The top 12 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Europa League, Championship, Primeira Liga, Eredivisie, Brasileirão) use football-data.org which requires FOOTBALL_DATA_KEY in your .env. For other leagues like Scottish Premiership, Süper Lig, Belgian Pro League etc., standings come from Sportmonks via the /seasons endpoint — if they're showing empty, the league's current season hasn't been indexed yet on SM.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">Why are Champions League / Europa League brackets showing old results? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">The bracket page first attempts to fetch live fixture data from Sportmonks for that competition. If the SM endpoint returns no data (e.g. fixtures aren't in the current 14-day window), it falls back to the known 2024/25 results hardcoded in the app. Once the next round of UCL/UEL fixtures are within 14 days, the live bracket will auto-populate.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">What are credits and when do they reset? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">Credits are consumed when you use AI-powered features: match analysis (15cr), news analysis (5cr), auto parlay (10cr), parlay advice (20cr), team stats (15cr), risk analysis (15cr), AI agent (10cr/message). Credits reset on your monthly plan renewal date. If you run out early, you can buy top-up bundles from the Plans page without changing your subscription tier.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">How accurate are the predictions? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">Slip IQ uses a multi-factor model combining ClubElo ratings (updated daily), real Sportmonks xG data, recent form (last 5 matches), head-to-head records, and when available, real bookmaker odds for calibration. The confidence score shown on each card represents the model's certainty — high confidence (70%+) picks have historically been more reliable. No prediction model is 100% accurate; use it as one input in your decision-making.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">Why do I see random club games in International Friendlies? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">Sportmonks categorises pre-season club friendlies under the same "Friendlies" umbrella as international fixtures. The server filters these out using SM league IDs — league IDs 14 (club friendlies), 17 (National League), 23 (Community Shield) and 39 (EFL Trophy) are excluded. If you still see club games, it means SM has tagged that fixture under the international competition ID, which is a data quality issue on SM's side.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">How do I get a referral bonus? <span class="faq-arrow">▼</span></div>
+          <div class="faq-a">Share your referral code (found in your Account page) with a friend. When they sign up and subscribe using your code, you both get a free month added to your subscription. Referral codes are tracked in the database and applied before Stripe processes the payment.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let sbCol=false
+function toggleSB(){
+  sbCol=!sbCol
+  document.getElementById("navRail").classList.toggle("col",sbCol)
+  document.getElementById("mainShell").classList.toggle("col",sbCol)
+}
+function switchTab(name){
+  document.querySelectorAll(".info-tab").forEach((t,i)=>t.classList.toggle("active",t.textContent.toLowerCase()===name||(name==="howto"&&t.textContent==="HOW TO USE")||(name==="elo"&&t.textContent==="ELO & PLAYSTYLES")))
+  document.querySelectorAll(".tab-section").forEach(s=>s.classList.toggle("active",s.id==="tab-"+name))
+}
+function toggleFaq(el){
+  el.classList.toggle("open")
+}
+</script>
+</body>
+</html>

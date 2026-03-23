@@ -404,6 +404,9 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
   <a class="nav-item" href="subscriptions.html">
     <span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span>
   </a>
+  <a class="nav-item" href="info.html">
+    <span class="nav-icon">ℹ️</span><span class="nav-label">How To Use</span>
+  </a>
   <a class="nav-item" href="index.html">
     <span class="nav-icon">🏡</span><span class="nav-label">Home Page</span>
   </a>
@@ -1388,22 +1391,25 @@ async function openNewsArticle(idx) {
   const a = allNewsArticles[idx]; if (!a) return
   document.querySelectorAll(".news-card").forEach((el, i) => el.classList.toggle("active", i === idx))
   const det = document.getElementById("newsDetail")
-  // Show full article body/description — real text from SM/NewsAPI
+  // Show what we have immediately
   const fullBody = a.body || a.description || ""
+  const isShort = fullBody.length < 300
   det.innerHTML = `<div style="max-width:700px">
     <div class="asection">
       <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:5px">${a.source||a.leagueName||"Football News"} · ${a.publishedAt ? new Date(a.publishedAt).toLocaleString("en-GB") : ""}</div>
       <div style="font-family:'Bebas Neue';font-size:21px;color:var(--text);letter-spacing:1px;line-height:1.2;margin-bottom:9px">${a.title||""}</div>
-      ${a.urlToImage ? `<img src="${a.urlToImage}" style="width:100%;border-radius:8px;margin-bottom:9px;max-height:200px;object-fit:cover" onerror="this.style.display='none'">` : ""}
-      <div class="ai-text" style="white-space:pre-line">${fullBody.replace(/\n\n/g,"<br><br>").replace(/\n/g,"<br>") || "Full article content not available in this feed."}</div>
-      ${a.url ? `<a href="${a.url}" target="_blank" style="display:inline-block;margin-top:9px;font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none">READ FULL ARTICLE ON SOURCE →</a>` : ""}
+      ${a.urlToImage ? `<img src="${a.urlToImage}" style="width:100%;border-radius:8px;margin-bottom:12px;max-height:220px;object-fit:cover" onerror="this.style.display='none'">` : ""}
+      <div id="articleBody" class="ai-text" style="white-space:pre-line;line-height:1.8;font-size:13px">${fullBody.replace(/\n\n/g,"<br><br>").replace(/\n/g,"<br>") || "<span style='color:var(--text3)'>Loading article content...</span>"}</div>
+      ${isShort && a.url ? `<div id="fetchingMore" style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:8px">⟳ Fetching full article...</div>` : ""}
+      ${a.url ? `<a href="${a.url}" target="_blank" rel="noopener" style="display:inline-block;margin-top:12px;font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:4px 10px;border-radius:4px">↗ READ ON ${(a.source||"SOURCE").toUpperCase()}</a>` : ""}
     </div>
-    <div style="margin-bottom:14px">
-      <button id="aiSummaryBtn" onclick="aiSummarizeArticle(${idx})" style="background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px 18px;border-radius:6px;border:none;cursor:pointer;box-shadow:0 0 14px rgba(0,200,248,.25)">🤖 GPT-4o — AI BETTING ANALYSIS</button>
+    <div style="margin:14px 0;padding-top:12px;border-top:1px solid var(--border)">
+      <button id="aiSummaryBtn" onclick="aiSummarizeArticle(${idx})" style="background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:9px 20px;border-radius:6px;border:none;cursor:pointer;box-shadow:0 0 16px rgba(0,200,248,.2)">🤖 GPT-4o — AI BETTING ANALYSIS</button>
+      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:5px">Costs 5 credits · Identifies betting impact, affected teams, recommended action</div>
     </div>
     <div id="newsAISection" style="display:none">
       <div class="asection"><div class="asection-title">GPT-4o IMPACT ANALYSIS</div>
-        <div id="newsAI"><div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="spinner" style="width:13px;height:13px;border-width:2px"></div><span style="font-size:10px;font-family:'JetBrains Mono'">Analyzing betting impact...</span></div></div>
+        <div id="newsAI"></div>
       </div>
     </div>
   </div>`

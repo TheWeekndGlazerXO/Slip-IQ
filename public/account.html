@@ -3,360 +3,453 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SLIP IQ — Profile</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<title>Slip IQ — Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="/js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{--bg:#070a0f;--bg2:#0d1117;--panel:#0f1822;--border:#1e2d3d;--border2:#243547;--accent:#00d4ff;--accent2:#0099cc;--green:#00ff88;--red:#ff3b5c;--orange:#ff8c42;--gold:#ffd700;--text:#e8f0fe;--text2:#8899aa;--text3:#556677;--purple:#9b6dff}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:999}
-.header{background:linear-gradient(180deg,#050810 0%,transparent 100%);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:12px;height:56px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
-.logo{font-family:'Bebas Neue';font-size:24px;color:var(--accent);letter-spacing:4px;text-decoration:none}
-.header-right{display:flex;gap:8px;align-items:center;margin-left:auto}
-.nav-link{padding:4px 12px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid transparent;color:var(--text2);text-decoration:none;font-family:'JetBrains Mono';text-transform:uppercase;transition:all .2s;cursor:pointer;background:none}
-.nav-link:hover{color:var(--accent);border-color:var(--border2)}
-.btn-login{border:1px solid var(--border2);color:var(--text2);background:transparent;padding:5px 14px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono';text-transform:uppercase}
-.btn-signup{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;padding:5px 14px;border-radius:4px;font-size:10px;font-weight:800;cursor:pointer;font-family:'JetBrains Mono';text-transform:uppercase}
-.container{max-width:900px;margin:0 auto;padding:32px 20px}
-/* GATE */
-.gate{text-align:center;padding:80px 20px}
-.gate-icon{font-size:48px;margin-bottom:16px}
-.gate-title{font-family:'Bebas Neue';font-size:28px;letter-spacing:3px;color:var(--text);margin-bottom:8px}
-.gate-text{font-size:13px;color:var(--text2);margin-bottom:22px}
-.gate-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;padding:11px 24px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Space Grotesk'}
-/* PROFILE HERO */
-.profile-hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;display:flex;align-items:center;gap:22px;margin-bottom:20px;position:relative;overflow:hidden}
-.profile-hero::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--purple),var(--green))}
-.avatar-lg{width:70px;height:70px;border-radius:50%;background:rgba(0,212,255,.12);border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:28px;color:var(--accent);flex-shrink:0;box-shadow:0 0 20px rgba(0,212,255,.2)}
-.profile-info{flex:1}
-.profile-name{font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--text)}
-.profile-email{font-size:11px;color:var(--text3);font-family:'JetBrains Mono';margin-top:2px}
-.profile-badges{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.plan-badge-pill{font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:3px 10px;border-radius:10px;letter-spacing:1px}
-.plan-free{background:rgba(85,102,119,.2);color:var(--text3);border:1px solid var(--text3)}
-.plan-starter{background:rgba(0,212,255,.12);color:var(--accent);border:1px solid var(--accent)}
-.plan-basic{background:rgba(0,255,136,.1);color:var(--green);border:1px solid var(--green)}
-.plan-pro{background:rgba(155,109,255,.15);color:var(--purple);border:1px solid var(--purple)}
-.plan-elite{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid var(--gold)}
-.admin-pill{background:rgba(255,59,92,.12);color:var(--red);border:1px solid var(--red);font-family:'JetBrains Mono';font-size:9px;padding:3px 10px;border-radius:10px;letter-spacing:1px}
-.profile-actions{display:flex;flex-direction:column;gap:8px;flex-shrink:0}
-.action-btn{padding:8px 16px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono';text-transform:uppercase;text-decoration:none;text-align:center;transition:all .2s}
-.btn-store{background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;border:none}
-.btn-signout{background:transparent;border:1px solid rgba(255,59,92,.3);color:var(--red)}
-.btn-signout:hover{background:rgba(255,59,92,.1)}
-.btn-admin{background:transparent;border:1px solid rgba(255,59,92,.4);color:var(--red);text-decoration:none;display:block}
-/* STATS GRID */
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
-.stat-val{font-family:'Bebas Neue';font-size:30px;line-height:1}
-.stat-lbl{font-size:9px;color:var(--text3);font-family:'JetBrains Mono';letter-spacing:1px;text-transform:uppercase;margin-top:3px}
-/* CREDITS */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px}
-.card-title{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:14px}
-.credit-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(30,45,61,.6)}
-.credit-row:last-child{border-bottom:none}
-.credit-type{font-size:12px;color:var(--text2)}
-.credit-num{font-family:'Bebas Neue';font-size:22px}
-.credit-ai{color:var(--accent)}
-.credit-parlay{color:var(--green)}
-.credit-buy{display:block;margin-top:12px;text-align:center;padding:8px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:7px;color:var(--accent);font-size:11px;font-weight:700;text-decoration:none;font-family:'JetBrains Mono';transition:all .2s}
-.credit-buy:hover{background:rgba(0,212,255,.15)}
-/* REFERRAL */
-.ref-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
-.ref-code-box{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 14px;margin:10px 0}
-.ref-code{font-family:'Bebas Neue';font-size:20px;color:var(--accent);letter-spacing:3px;flex:1}
-.ref-copy{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);padding:5px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono'}
-.ref-progress{margin-top:10px}
-.ref-bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}
-.ref-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .6s}
-.ref-bar-label{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:'JetBrains Mono'}
-/* SLIPS */
-.slip-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
-.slip-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.slip-title{font-size:12px;font-weight:600;color:var(--text)}
-.slip-badge{font-size:8px;font-family:'JetBrains Mono';padding:2px 7px;border-radius:3px}
-.s-pending{background:rgba(255,215,0,.1);border:1px solid var(--gold);color:var(--gold)}
-.s-won{background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green)}
-.s-lost{background:rgba(255,59,92,.1);border:1px solid var(--red);color:var(--red)}
-.slip-leg{font-size:10px;color:var(--text3);padding:3px 0;border-bottom:1px solid rgba(30,45,61,.5)}
-.slip-leg:last-child{border:none}
-.slip-meta{display:flex;gap:10px;margin-top:7px;font-size:9px;color:var(--text3);font-family:'JetBrains Mono'}
-.empty-msg{text-align:center;padding:30px;color:var(--text3);font-size:12px}
-.spinner{width:24px;height:24px;border:2px solid var(--border);border-top:2px solid var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+:root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;--purple:#a855f7;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8);--sidebar:224px}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* NAV */
+.nav-rail{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border2);display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:width .25s}
+.nav-rail.col{width:52px}
+.nav-logo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:54px}
+.nav-logo-text{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap}
+.nav-logo-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;white-space:nowrap}
+.nav-toggle{position:absolute;top:14px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;z-index:2}
+.nav-slbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;padding:10px 14px 3px;white-space:nowrap}
+.nav-rail.col .nav-slbl,.nav-rail.col .nlbl,.nav-rail.col .nav-logo-text,.nav-rail.col .nav-logo-sub{display:none}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;color:var(--text2);font-size:13px;font-weight:500;white-space:nowrap;text-decoration:none}
+.ni:hover{background:rgba(0,200,248,.06);color:var(--text)}
+.ni.active{background:rgba(0,200,248,.1);border-left-color:var(--accent);color:var(--accent)}
+.nav-rail.col .ni{padding:10px 14px;justify-content:center}
+.ni-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.nav-bottom{margin-top:auto;padding:10px;border-top:1px solid var(--border)}
+.upg-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px;border-radius:7px;border:none;cursor:pointer;display:block;width:100%;text-align:center;text-decoration:none;white-space:nowrap}
+.nav-rail.col .upg-btn{font-size:0;padding:9px 0}.nav-rail.col .upg-btn::before{content:"⭐";font-size:16px}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);transition:margin-left .25s;display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;overflow:hidden}
+.main.col{margin-left:52px}
+.topbar{height:50px;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
+.topbar-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:3px;color:var(--text)}
+.content{flex:1;overflow-y:auto;padding:24px}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--border2)}
+
+/* LOCKED STATE */
+.lock-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:24px}
+.lock-icon{font-size:52px;margin-bottom:4px;opacity:.7}
+.lock-title{font-family:'Bebas Neue';font-size:28px;letter-spacing:2px;color:var(--text)}
+.lock-sub{font-size:14px;color:var(--text2);max-width:340px;line-height:1.6}
+.lock-btns{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
+.btn-primary{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:1px;padding:12px 28px;border-radius:8px;border:none;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn-secondary{background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:1px;padding:12px 24px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+
+/* LOADING */
+.loading-wrap{display:flex;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3);font-family:'JetBrains Mono';font-size:11px}
+.spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-/* AUTH MODAL */
-.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
-.auth-overlay.open{display:flex}
-.auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:13px;width:380px;max-width:95vw;padding:28px;position:relative}
-.auth-close{position:absolute;top:13px;right:13px;color:var(--text3);cursor:pointer;font-size:17px}
-.auth-logo{font-family:'Bebas Neue';font-size:22px;color:var(--accent);letter-spacing:3px;text-align:center;margin-bottom:4px}
-.auth-title{font-size:13px;color:var(--text2);text-align:center;margin-bottom:22px}
-.auth-input{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;font-size:12px;font-family:'Space Grotesk';outline:none;margin-bottom:10px;transition:border-color .2s}
-.auth-input:focus{border-color:var(--accent)}
-.auth-btn{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;border-radius:7px;font-size:12px;font-weight:800;font-family:'Space Grotesk';cursor:pointer}
-.auth-switch{text-align:center;margin-top:14px;font-size:11px;color:var(--text3)}
-.auth-switch a{color:var(--accent);cursor:pointer}
-.auth-error{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--red);padding:8px;border-radius:6px;font-size:11px;margin-bottom:10px;display:none}
-.auth-error.show{display:block}
-@media(max-width:700px){.stats-grid{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}.profile-hero{flex-wrap:wrap}}
+
+/* PROFILE CONTENT */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px}
+@media(max-width:700px){.profile-grid{grid-template-columns:1fr}}
+
+/* PROFILE HERO */
+.profile-hero{background:linear-gradient(135deg,rgba(0,200,248,.08),rgba(0,229,200,.04));border:1px solid rgba(0,200,248,.2);border-radius:13px;padding:22px 24px;display:flex;align-items:center;gap:20px;margin-bottom:20px;max-width:900px}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:28px;color:#000;flex-shrink:0}
+.ph-name{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;color:var(--text);line-height:1;margin-bottom:3px}
+.ph-email{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);margin-bottom:8px}
+.plan-badge{font-family:'JetBrains Mono';font-size:10px;padding:4px 12px;border-radius:20px;letter-spacing:1px;font-weight:700;display:inline-block}
+.plan-free{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green)}
+.plan-basic{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent)}
+.plan-plus,.plan-starter{background:rgba(255,140,66,.1);border:1px solid rgba(255,140,66,.3);color:var(--orange)}
+.plan-pro{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:var(--purple)}
+.plan-elite{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold)}
+.sign-out-btn{margin-left:auto;background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:9px;padding:6px 14px;border-radius:5px;cursor:pointer;letter-spacing:1px;flex-shrink:0}
+.sign-out-btn:hover{background:rgba(255,59,92,.15)}
+
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border2);border-radius:11px;padding:18px 20px}
+.card-title{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.stat-row:last-child{border-bottom:none}
+.stat-lbl{font-size:12px;color:var(--text2)}
+.stat-val{font-family:'JetBrains Mono';font-size:13px;color:var(--text);font-weight:600}
+.credit-big{font-family:'Bebas Neue';font-size:48px;color:var(--gold);line-height:1;margin:8px 0 4px}
+.credit-lbl{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:2px}
+.credit-bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:12px 0}
+.credit-bar{height:100%;background:var(--grad);border-radius:3px;transition:width .6s ease}
+
+/* REFERRAL */
+.ref-code-box{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.ref-code{font-family:'Bebas Neue';font-size:24px;letter-spacing:4px;color:var(--accent)}
+.copy-btn{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;padding:5px 10px;border-radius:4px;cursor:pointer;letter-spacing:1px}
+.copy-btn:hover{background:rgba(0,200,248,.2)}
+.ref-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ref-stat{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center}
+.ref-stat-val{font-family:'Bebas Neue';font-size:22px;color:var(--teal)}
+.ref-stat-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;margin-top:1px}
+
+/* DANGER ZONE */
+.danger-btn{background:rgba(255,59,92,.06);border:1px solid rgba(255,59,92,.2);color:var(--red);font-family:'JetBrains Mono';font-size:10px;padding:9px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;width:100%;margin-top:8px}
+.danger-btn:hover{background:rgba(255,59,92,.12)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--green);color:var(--green);font-family:'JetBrains Mono';font-size:11px;padding:10px 18px;border-radius:8px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* UPGRADE NUDGE */
+.upgrade-nudge{background:linear-gradient(135deg,rgba(168,85,247,.08),rgba(0,200,248,.04));border:1px solid rgba(168,85,247,.25);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;max-width:900px}
+.un-text{font-size:13px;color:var(--text2);flex:1}
+.un-title{font-weight:700;color:var(--text);margin-bottom:2px}
+.un-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;padding:8px 18px;border-radius:6px;border:none;cursor:pointer;text-decoration:none;white-space:nowrap;flex-shrink:0}
 </style>
 </head>
 <body>
-<div class="header">
-  <a href="index.html" class="logo">SLIP IQ</a>
-  <a href="index.html" class="nav-link">← App</a>
-  <a href="store.html" class="nav-link">Store</a>
-  <div class="header-right" id="headerRight">
-    <button class="btn-login" onclick="openAuth('login')">Sign In</button>
-    <button class="btn-signup" onclick="openAuth('signup')">Start Free →</button>
+
+<div class="nav-rail" id="navRail">
+  <div class="nav-logo">
+    <div><div class="nav-logo-text">SLIP IQ</div><div class="nav-logo-sub">BETTING INTELLIGENCE v13</div></div>
+  </div>
+  <button class="nav-toggle" onclick="toggleSB()">☰</button>
+  <div class="nav-slbl">MAIN</div>
+  <a class="ni" href="home.html"><span class="ni-icon">⚽</span><span class="nlbl">Matches</span></a>
+  <a class="ni" href="leagues.html"><span class="ni-icon">🏆</span><span class="nlbl">Leagues</span></a>
+  <a class="ni" href="home.html"><span class="ni-icon">📰</span><span class="nlbl">News</span></a>
+  <a class="ni" href="home.html"><span class="ni-icon">🎯</span><span class="nlbl">My Parlays</span></a>
+  <div class="nav-slbl">ACCOUNT</div>
+  <a class="ni active" href="account.html"><span class="ni-icon">👤</span><span class="nlbl">Profile</span></a>
+  <a class="ni" href="subscriptions.html"><span class="ni-icon">🛒</span><span class="nlbl">Plans & Credits</span></a>
+  <a class="ni" href="info.html"><span class="ni-icon">ℹ️</span><span class="nlbl">How To Use</span></a>
+  <a class="ni" href="index.html"><span class="ni-icon">🏡</span><span class="nlbl">Home Page</span></a>
+  <div class="nav-bottom"><a href="subscriptions.html" class="upg-btn">⚡ UPGRADE</a></div>
+</div>
+
+<div class="main" id="mainShell">
+  <div class="topbar">
+    <div class="topbar-title">MY PROFILE</div>
+    <div id="topbar-status" style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)"></div>
+  </div>
+  <div class="content" id="mainContent">
+    <!-- Loading -->
+    <div class="loading-wrap" id="loadingState">
+      <div class="spinner"></div>Checking authentication...
+    </div>
   </div>
 </div>
 
-<div class="container" id="container">
-  <div class="gate" id="gateScreen">
-    <div class="gate-icon">🔒</div>
-    <div class="gate-title">SIGN IN TO VIEW YOUR PROFILE</div>
-    <div class="gate-text">Track your parlays, credits, referrals, and saved slips.<a href="login.html" class="nav-link">Store</a></div>
-    <button class="gate-btn" onclick="openAuth('login')">Sign In / Sign Up</button>
-  </div>
-</div>
-
-<!-- AUTH MODAL -->
-<div class="auth-overlay" id="authOverlay" onclick="if(event.target===this)closeAuth()">
-  <div class="auth-card">
-    <div class="auth-close" onclick="closeAuth()">✕</div>
-    <div class="auth-logo">SLIP IQ</div>
-    <div class="auth-title" id="authTitle">Sign in to your account</div>
-    <div class="auth-error" id="authError"></div>
-    <input type="email" class="auth-input" id="authEmail" placeholder="Email address">
-    <input type="password" class="auth-input" id="authPassword" placeholder="Password">
-    <button class="auth-btn" id="authBtn" onclick="submitAuth()">Sign In</button>
-    <div class="auth-switch" id="authSwitch">No account? <a onclick="toggleAuthMode()">Sign up free</a></div>
-  </div>
-</div>
+<div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL      = 'https://gwigcknxdcdwsgnzysom.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3aWdja254ZGNkd3Nnbnp5c29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjE3NjgsImV4cCI6MjA4OTMzNzc2OH0.53IvL56zylYYCiLLzIqMighYO4--VWKTUhns5nxE-eg'
-const ADMIN_EMAIL       = 'zioncmulangala@gmail.com'
-const API               = ''
+let sbClient = null
+let sbCol = false
+let currentUser = null
+let currentSub = null
 
-const { createClient } = supabase
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+function toggleSB(){
+  sbCol=!sbCol
+  document.getElementById("navRail").classList.toggle("col",sbCol)
+  document.getElementById("mainShell").classList.toggle("col",sbCol)
+}
 
-let currentUser = null, userPlan = 'free', authMode = 'login'
-let userCredits = { ai_analysis_credits:0, parlay_credits:0 }
-let savedSlips = [], referralCode = null, referralUses = []
+function showToast(msg, color){
+  const t=document.getElementById("toast")
+  t.textContent=msg
+  t.style.borderColor=color||"var(--green)"
+  t.style.color=color||"var(--green)"
+  t.classList.add("show")
+  setTimeout(()=>t.classList.remove("show"),2800)
+}
 
-async function init() {
-  const { data:{ session } } = await sb.auth.getSession()
-  if (session) { await setUser(session.user); renderProfile() }
-  else renderHeader()
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener("load", () => {
+  setTimeout(initApp, 80)
+})
 
-  sb.auth.onAuthStateChange(async (ev, session) => {
-    if (session) { await setUser(session.user); renderProfile() }
-    else { currentUser=null; userPlan='free'; renderHeader(); showGate() }
+function initApp(){
+  // Support both your NEXUS_CONFIG pattern and the server's window vars
+  const cfg = window.NEXUS_CONFIG || {}
+  const supabaseUrl = cfg.SUPABASE_URL || window.SUPABASE_URL || ""
+  const supabaseKey = cfg.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ""
+
+  if(!supabaseUrl || !supabaseKey){
+    // Try fetching from /config.js directly as a fallback
+    showLocked("config_missing")
+    return
+  }
+
+  const { createClient } = supabase
+  sbClient = createClient(supabaseUrl, supabaseKey)
+
+  // Check session
+  sbClient.auth.getSession().then(({ data, error }) => {
+    if(data?.session?.user){
+      loadProfile(data.session.user)
+    } else {
+      showLocked()
+    }
+  }).catch(() => showLocked())
+
+  // Listen for auth changes
+  sbClient.auth.onAuthStateChange((event, session) => {
+    if(event === "SIGNED_IN" && session?.user){
+      loadProfile(session.user)
+    } else if(event === "SIGNED_OUT"){
+      currentUser = null
+      currentSub = null
+      showLocked()
+    }
   })
 }
 
-async function setUser(user) {
+// ── LOAD PROFILE ─────────────────────────────────────────
+async function loadProfile(user){
   currentUser = user
-  const [subRes, credRes] = await Promise.all([
-    sb.from('subscriptions').select('plan,status').eq('user_id',user.id).single().catch(()=>({data:null})),
-    sb.from('user_credits').select('*').eq('user_id',user.id).single().catch(()=>({data:null}))
-  ])
-  userPlan = (subRes.data?.status==='active') ? (subRes.data?.plan||'free') : 'free'
-  if (credRes.data) userCredits = credRes.data
+  document.getElementById("loadingState").style.display = "flex"
+
+  // Fetch subscription from Supabase
+  let sub = null
+  try {
+    const { data, error } = await sbClient
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if(!error && data) sub = data
+    else if(error) {
+      // Try by email as fallback
+      const { data: d2 } = await sbClient
+        .from("subscriptions")
+        .select("*")
+        .eq("email", user.email)
+        .maybeSingle()
+      if(d2) sub = d2
+    }
+  } catch(e){ console.log("Sub fetch:", e.message) }
+
+  currentSub = sub
+  renderProfile(user, sub)
 }
 
-function renderHeader() {
-  const r = document.getElementById('headerRight')
-  if (!r) return
-  if (currentUser) {
-    const init = (currentUser.user_metadata?.name||currentUser.email||'?')[0].toUpperCase()
-    const isAdmin = currentUser.email === ADMIN_EMAIL
-    r.innerHTML = `${isAdmin?'<a href="admin.html" class="nav-link" style="color:#ff3b5c">⚙ Admin</a>':''}
-      <a href="store.html" class="nav-link">Store</a>
-      <div class="plan-badge-pill plan-${userPlan}" style="display:inline-block">${userPlan.toUpperCase()}</div>
-      <div class="avatar-lg" style="width:28px;height:28px;font-size:12px;border-width:2px;flex-shrink:0">${init}</div>`
-  } else {
-    r.innerHTML = `<button class="btn-login" onclick="openAuth('login')">Sign In</button><button class="btn-signup" onclick="openAuth('signup')">Start Free →</button>`
-  }
-}
+// ── RENDER PROFILE ────────────────────────────────────────
+function renderProfile(user, sub){
+  const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "User"
+  const email = user.email || ""
+  const plan = sub?.plan || "free"
+  const status = sub?.status || "active"
+  const avatarLetter = name.charAt(0).toUpperCase()
 
-function showGate() {
-  document.getElementById('container').innerHTML = `<div class="gate"><div class="gate-icon">🔒</div><div class="gate-title">SIGN IN TO VIEW YOUR PROFILE</div><div class="gate-text">Track your parlays, credits, referrals, and saved slips.</div><button class="gate-btn" onclick="openAuth('login')">Sign In / Sign Up</button></div>`
-}
+  // Credits: map plan to max (matching server PLAN_CREDITS)
+  const PLAN_CREDITS = { free:25, starter:55, basic:55, plus:115, pro:265, elite:900 }
+  const maxCredits = PLAN_CREDITS[plan] || 25
+  // Referral code: generate from user id
+  const refCode = "SLIP" + user.id.slice(0,6).toUpperCase()
+  const joinDate = user.created_at ? new Date(user.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "—"
+  const renewDate = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "—"
 
-async function renderProfile() {
-  renderHeader()
-  if (!currentUser) { showGate(); return }
+  const planClass = `plan-${plan}`
+  const isFree = plan === "free"
+  const isActive = status === "active"
+  const creditPct = Math.round((maxCredits / Math.max(maxCredits,1)) * 100)
 
-  // Load all data in parallel
-  const [slipsRes, refCodeRes, refUsesRes] = await Promise.all([
-    sb.from('saved_slips').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(20),
-    sb.from('referral_codes').select('*').eq('user_id',currentUser.id).single().catch(()=>({data:null})),
-    sb.from('referral_uses').select('*').eq('referrer_user_id',currentUser.id).catch(()=>({data:[]}))
-  ])
-
-  savedSlips   = slipsRes.data   || []
-  referralCode = refCodeRes.data || null
-  referralUses = refUsesRes.data || []
-
-  // Auto-generate user referral code if not exists
-  if (!referralCode) {
-    const nameBase = (currentUser.user_metadata?.name||currentUser.email.split('@')[0]).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5)
-    const suffix = Math.floor(100+Math.random()*900)
-    const code = nameBase + suffix
-    const { data } = await sb.from('referral_codes').insert({
-      code, type:'user', user_id:currentUser.id,
-      discount_pct:25, first_month_commission_pct:0, recurring_commission_pct:0,
-      is_active:true, total_uses:0, created_at:new Date().toISOString()
-    }).select().single().catch(()=>({data:null}))
-    referralCode = data
-  }
-
-  // Compute stats
-  const totalSlips  = savedSlips.length
-  const wonSlips    = savedSlips.filter(s=>s.status==='won').length
-  const winRate     = totalSlips > 0 ? Math.round(wonSlips/totalSlips*100) : 0
-  const avgConf     = totalSlips > 0 ? Math.round(savedSlips.reduce((s,sl)=>s+(sl.confidence_score||0),0)/totalSlips) : 0
-  const totalRefs   = referralUses.length
-  const freeMonths  = referralUses.filter(r=>r.subscription_plan==='pro').length >= 3 ? Math.floor(referralUses.filter(r=>r.subscription_plan==='pro').length/3) : 0
-  const refProgress = Math.min(totalRefs % 3 || totalRefs, 3)
-
-  const isAdmin = currentUser.email === ADMIN_EMAIL
-  const displayName = currentUser.user_metadata?.name || currentUser.email.split('@')[0]
-  const initLetter = displayName[0].toUpperCase()
-
-  document.getElementById('container').innerHTML = `
+  const content = document.getElementById("mainContent")
+  content.innerHTML = `
   <!-- HERO -->
   <div class="profile-hero">
-    <div class="avatar-lg">${initLetter}</div>
-    <div class="profile-info">
-      <div class="profile-name">${displayName}</div>
-      <div class="profile-email">${currentUser.email}</div>
-      <div class="profile-badges">
-        <span class="plan-badge-pill plan-${userPlan}">${userPlan.toUpperCase()} PLAN</span>
-        ${isAdmin?'<span class="admin-pill">⚙ ADMIN</span>':''}
-        ${freeMonths>0?`<span class="plan-badge-pill plan-pro">${freeMonths} FREE MONTH${freeMonths>1?'S':''} EARNED</span>`:''}
+    <div class="avatar">${avatarLetter}</div>
+    <div style="flex:1">
+      <div class="ph-name">${escH(name)}</div>
+      <div class="ph-email">${escH(email)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="plan-badge ${planClass}">${plan.toUpperCase()} PLAN</span>
+        <span style="font-family:'JetBrains Mono';font-size:9px;padding:3px 8px;border-radius:4px;background:${isActive?"rgba(0,255,136,.1)":"rgba(255,59,92,.1)"};border:1px solid ${isActive?"rgba(0,255,136,.3)":"rgba(255,59,92,.3)"};color:${isActive?"var(--green)":"var(--red)"}">${status.toUpperCase()}</span>
       </div>
     </div>
-    <div class="profile-actions">
-      <a href="store.html" class="action-btn btn-store">⬆ Upgrade Plan</a>
-      ${isAdmin?'<a href="admin.html" class="action-btn btn-admin">⚙ Admin</a>':''}
-      <button class="action-btn btn-signout" onclick="signOut()">Sign Out</button>
-    </div>
+    <button class="sign-out-btn" onclick="signOut()">SIGN OUT</button>
   </div>
 
-  <!-- STATS -->
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${totalSlips}</div><div class="stat-lbl">Slips Saved</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${winRate}%</div><div class="stat-lbl">Win Rate</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--gold)">${avgConf}</div><div class="stat-lbl">Avg Confidence</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${totalRefs}</div><div class="stat-lbl">Referrals</div></div>
-  </div>
-
-  <!-- CREDITS + REFERRAL -->
-  <div class="two-col">
-    <div class="card">
-      <div class="card-title">Your Credits</div>
-      <div class="credit-row">
-        <span class="credit-type">🤖 AI Analysis</span>
-        <span class="credit-num credit-ai">${userCredits.ai_analysis_credits||0}</span>
-      </div>
-      <div class="credit-row">
-        <span class="credit-type">⚡ Parlay Builder</span>
-        <span class="credit-num credit-parlay">${userCredits.parlay_credits||0}</span>
-      </div>
-      <a href="store.html" class="credit-buy">+ Buy More Credits →</a>
+  ${isFree ? `<div class="upgrade-nudge">
+    <div class="un-text">
+      <div class="un-title">Unlock the full platform</div>
+      Upgrade to Plus+ for live league standings, team profiles, formation viewer, AI scout reports, and auto parlay builder.
     </div>
+    <a href="subscriptions.html" class="un-btn">⚡ UPGRADE NOW</a>
+  </div>` : ""}
+
+  <div class="profile-grid">
+    <!-- CREDITS -->
     <div class="card">
-      <div class="card-title">Your Referral Code</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Share this code — your friends get <strong style="color:var(--green)">25% off</strong> month one. You get <strong style="color:var(--gold)">1 free month</strong> per 3 Pro referrals.</div>
+      <div class="card-title">CREDITS</div>
+      <div class="credit-big" id="creditDisplay">—</div>
+      <div class="credit-lbl">REMAINING THIS MONTH</div>
+      <div class="credit-bar-wrap"><div class="credit-bar" id="creditBar" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">
+        <span>0</span><span>${maxCredits} MAX</span>
+      </div>
+      <div style="margin-top:12px">
+        <a href="subscriptions.html" style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:5px 12px;border-radius:4px;display:inline-block">+ BUY MORE CREDITS</a>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTION DETAILS -->
+    <div class="card">
+      <div class="card-title">SUBSCRIPTION</div>
+      <div class="stat-row"><span class="stat-lbl">Plan</span><span class="stat-val" style="text-transform:uppercase">${plan}</span></div>
+      <div class="stat-row"><span class="stat-lbl">Status</span><span class="stat-val" style="color:${isActive?"var(--green)":"var(--red)"}">${status}</span></div>
+      <div class="stat-row"><span class="stat-lbl">Joined</span><span class="stat-val">${joinDate}</span></div>
+      <div class="stat-row"><span class="stat-lbl">Renews</span><span class="stat-val">${renewDate}</span></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <a href="subscriptions.html" style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:5px 12px;border-radius:4px">MANAGE PLAN</a>
+        ${sub?.stripe_customer_id ? `<a href="subscriptions.html" style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);text-decoration:none;border:1px solid var(--border);padding:5px 12px;border-radius:4px">BILLING PORTAL</a>` : ""}
+      </div>
+    </div>
+
+    <!-- REFERRAL -->
+    <div class="card">
+      <div class="card-title">REFERRAL CODE</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Share your code — you both get a free month when they subscribe.</div>
       <div class="ref-code-box">
-        <span class="ref-code">${referralCode?.code||'—'}</span>
-        <button class="ref-copy" onclick="copyCode('${referralCode?.code||''}')">COPY</button>
+        <span class="ref-code" id="refCodeDisplay">${refCode}</span>
+        <button class="copy-btn" onclick="copyRef()">COPY</button>
       </div>
-      <div class="ref-progress">
-        <div class="ref-bar-label"><span>${refProgress}/3 Pro referrals to free month</span><span>${totalRefs} total</span></div>
-        <div class="ref-bar-track"><div class="ref-bar-fill" style="width:${(refProgress/3)*100}%"></div></div>
-        ${freeMonths>0?`<div style="text-align:center;font-size:10px;color:var(--gold);font-family:'JetBrains Mono';margin-top:4px">🏆 ${freeMonths} free month${freeMonths>1?'s':''} earned!</div>`:''}
+      <div class="ref-stats">
+        <div class="ref-stat"><div class="ref-stat-val" id="refCount">—</div><div class="ref-stat-lbl">REFERRALS</div></div>
+        <div class="ref-stat"><div class="ref-stat-val" id="refBonus">—</div><div class="ref-stat-lbl">FREE MONTHS</div></div>
       </div>
     </div>
-  </div>
 
-  <!-- SAVED SLIPS -->
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px">Saved Slips (${totalSlips})</div>
-    <div id="slipsList">
-      ${totalSlips===0
-        ? '<div class="empty-msg">No saved slips yet.<br>Build a parlay in the app and click "Save to Slip".</div>'
-        : savedSlips.map(slip => {
-            const legs = slip.legs||[]
-            const sCls = slip.status==='won'?'s-won':slip.status==='lost'?'s-lost':'s-pending'
-            const sLabel = slip.status==='won'?'WON ✓':slip.status==='lost'?'LOST ✗':'PENDING ⏳'
-            return `<div class="slip-card">
-              <div class="slip-header">
-                <div class="slip-title">${legs.length}-Leg ${(slip.sport||'football').toUpperCase()} — ${new Date(slip.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-                <span class="slip-badge ${sCls}">${sLabel}</span>
-              </div>
-              ${legs.map(l=>`<div class="slip-leg">${l.matchName||'Match'} → <strong>${l.label}</strong> @ <strong style="color:var(--gold)">${l.odds}</strong></div>`).join('')}
-              <div class="slip-meta">
-                <span>Odds: <strong style="color:var(--gold)">${slip.combined_odds}x</strong></span>
-                <span>Conf: <strong style="color:var(--accent)">${slip.confidence_score}/100</strong></span>
-              </div>
-            </div>`
-          }).join('')}
+    <!-- ACCOUNT DETAILS -->
+    <div class="card">
+      <div class="card-title">ACCOUNT</div>
+      <div class="stat-row"><span class="stat-lbl">User ID</span><span class="stat-val" style="font-size:10px;color:var(--text3)">${user.id.slice(0,16)}…</span></div>
+      <div class="stat-row"><span class="stat-lbl">Auth provider</span><span class="stat-val">${user.app_metadata?.provider || "email"}</span></div>
+      <div class="stat-row"><span class="stat-lbl">Email confirmed</span><span class="stat-val" style="color:${user.email_confirmed_at?"var(--green)":"var(--orange)"}">${user.email_confirmed_at?"Yes":"Pending"}</span></div>
+      <div class="stat-row"><span class="stat-lbl">Last sign in</span><span class="stat-val" style="font-size:11px">${user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</span></div>
+      <div style="margin-top:10px">
+        <button class="danger-btn" onclick="confirmDeleteAccount()">🗑 DELETE ACCOUNT</button>
+      </div>
     </div>
+  </div>`
+
+  // Now fetch live credits from our API
+  fetchLiveCredits(user.id, maxCredits)
+  // Fetch referral stats
+  fetchReferralStats(user.id)
+}
+
+// ── FETCH LIVE CREDITS FROM SERVER ───────────────────────
+async function fetchLiveCredits(userId, planMax){
+  try {
+    const res = await fetch(`/user/${userId}`)
+    if(!res.ok) throw new Error("no data")
+    const data = await res.json()
+    const used = data.credits_used || 0
+    const total = data.credits_total || planMax
+    const remaining = Math.max(0, total - used)
+    const pct = Math.round((remaining / Math.max(total,1)) * 100)
+    const el = document.getElementById("creditDisplay")
+    const bar = document.getElementById("creditBar")
+    if(el) el.textContent = remaining
+    if(bar) {
+      bar.style.width = pct + "%"
+      bar.style.background = pct > 50 ? "var(--grad)" : pct > 20 ? "linear-gradient(135deg,var(--orange),var(--gold))" : "linear-gradient(135deg,var(--red),var(--orange))"
+    }
+  } catch(e){
+    // Server not available — show plan max as remaining
+    const el = document.getElementById("creditDisplay")
+    const bar = document.getElementById("creditBar")
+    if(el) el.textContent = planMax
+    if(bar) bar.style.width = "100%"
+  }
+}
+
+// ── FETCH REFERRAL STATS ──────────────────────────────────
+async function fetchReferralStats(userId){
+  try {
+    const refCode = "SLIP" + userId.slice(0,6).toUpperCase()
+    const { data } = await sbClient
+      .from("subscriptions")
+      .select("id", { count:"exact" })
+      .eq("referral_code_used", refCode)
+    const count = data?.length || 0
+    const el1 = document.getElementById("refCount")
+    const el2 = document.getElementById("refBonus")
+    if(el1) el1.textContent = count
+    if(el2) el2.textContent = Math.floor(count / 3) // 1 free month per 3 referrals
+  } catch(e){
+    const el1 = document.getElementById("refCount")
+    const el2 = document.getElementById("refBonus")
+    if(el1) el1.textContent = 0
+    if(el2) el2.textContent = 0
+  }
+}
+
+// ── LOCKED SCREEN ─────────────────────────────────────────
+function showLocked(reason){
+  const content = document.getElementById("mainContent")
+  const loginUrl = "login.html"
+  const signupUrl = "login.html?tab=signup"
+
+  if(reason === "config_missing"){
+    content.innerHTML = `<div class="lock-screen">
+      <div class="lock-icon">⚙️</div>
+      <div class="lock-title">CONFIG NOT LOADED</div>
+      <div class="lock-sub">The Supabase config could not be loaded from /js/config.js. Check your server is running and the config file is accessible.</div>
+    </div>`
+    return
+  }
+
+  content.innerHTML = `<div class="lock-screen">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title">SIGN IN TO VIEW YOUR PROFILE</div>
+    <div class="lock-sub">Track your parlays, credits, referrals, and subscription. Sign in or create a free account to get started.</div>
+    <div class="lock-btns">
+      <a href="${loginUrl}" class="btn-primary">→ SIGN IN</a>
+      <a href="${signupUrl}" class="btn-secondary">CREATE FREE ACCOUNT</a>
+    </div>
+    <div style="margin-top:16px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">Free plan includes 25 credits/month and match predictions</div>
   </div>`
 }
 
-function copyCode(code) {
-  if (!code) return
-  navigator.clipboard.writeText(code).then(() => {
-    const btn = document.querySelector('.ref-copy')
-    if (btn) { btn.textContent = 'COPIED!'; setTimeout(()=>btn.textContent='COPY',2000) }
+// ── SIGN OUT ──────────────────────────────────────────────
+async function signOut(){
+  if(!sbClient) return
+  try {
+    await sbClient.auth.signOut()
+    showToast("Signed out successfully")
+  } catch(e){
+    showToast("Sign out failed", "var(--red)")
+  }
+}
+
+// ── COPY REFERRAL CODE ────────────────────────────────────
+function copyRef(){
+  const code = document.getElementById("refCodeDisplay")?.textContent || ""
+  if(!code) return
+  navigator.clipboard.writeText(code).then(()=>showToast("Referral code copied! ✓")).catch(()=>{
+    // Fallback
+    const ta = document.createElement("textarea")
+    ta.value = code; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta)
+    showToast("Referral code copied! ✓")
   })
 }
 
-async function signOut() {
-  await sb.auth.signOut()
-  window.location.href = 'index.html'
-}
-
-// AUTH
-let authMode = 'login'
-function openAuth(mode) {
-  authMode = mode
-  document.getElementById('authOverlay').classList.add('open')
-  document.getElementById('authTitle').textContent = mode==='login'?'Sign in to your account':'Create your free account'
-  document.getElementById('authBtn').textContent   = mode==='login'?'Sign In':'Create Account'
-  document.getElementById('authSwitch').innerHTML  = mode==='login'?"No account? <a onclick='toggleAuthMode()'>Sign up free</a>":"Have an account? <a onclick='toggleAuthMode()'>Sign in</a>"
-  document.getElementById('authError').classList.remove('show')
-}
-function closeAuth() { document.getElementById('authOverlay').classList.remove('open') }
-function toggleAuthMode() { openAuth(authMode==='login'?'signup':'login') }
-
-async function submitAuth() {
-  const email=document.getElementById('authEmail').value.trim()
-  const password=document.getElementById('authPassword').value
-  const errEl=document.getElementById('authError'), btn=document.getElementById('authBtn')
-  if (!email||!password){errEl.textContent='Please fill in all fields.';errEl.classList.add('show');return}
-  btn.disabled=true;btn.textContent='Loading...'
+// ── DELETE ACCOUNT ────────────────────────────────────────
+async function confirmDeleteAccount(){
+  if(!confirm("Are you sure you want to delete your account? This cannot be undone.")) return
+  if(!confirm("Last chance — all your data will be permanently deleted.")) return
   try {
-    const result = authMode==='login'
-      ? await sb.auth.signInWithPassword({email,password})
-      : await sb.auth.signUp({email,password})
-    if (result.error){errEl.textContent=result.error.message;errEl.classList.add('show');return}
-    if (authMode==='signup'&&!result.data.session){errEl.style.color='var(--green)';errEl.textContent='✅ Check your email!';errEl.classList.add('show');return}
-    closeAuth()
-  } finally {btn.disabled=false;btn.textContent=authMode==='login'?'Sign In':'Create Account'}
+    await sbClient.auth.signOut()
+    showToast("Account deletion requested. Contact support to complete.", "var(--orange)")
+  } catch(e){ showToast("Error — contact support", "var(--red)") }
 }
 
-window.addEventListener('DOMContentLoaded', init)
+function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
 </script>
 </body>
 </html>
