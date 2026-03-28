@@ -17,8 +17,6 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
-
-/* NAV RAIL */
 .nav-rail{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border2);display:flex;flex-direction:column;z-index:100;transition:width .25s ease;overflow:hidden}
 .nav-rail.collapsed{width:52px}
 .nav-rail.collapsed .nav-label,.nav-rail.collapsed .nav-logo-sub,.nav-rail.collapsed .nav-section-lbl{display:none}
@@ -39,15 +37,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
 .nav-bottom{margin-top:auto;padding:10px 0;border-top:1px solid var(--border);flex-shrink:0}
 .upgrade-btn{margin:6px 10px;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px 12px;border-radius:7px;border:none;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap;display:block;width:calc(100% - 20px);text-decoration:none}
 .upgrade-btn:hover{opacity:.9;transform:translateY(-1px)}
-.nav-rail.collapsed .upgrade-btn{font-size:0;padding:9px 0;text-align:center}
+.nav-rail.collapsed .upgrade-btn{font-size:0;padding:9px 0}
 .nav-rail.collapsed .upgrade-btn::before{content:"⭐";font-size:16px}
-
-/* MAIN */
 .main{margin-left:var(--sidebar-w);display:flex;flex-direction:column;height:100vh;transition:margin-left .25s ease}
 .main.sidebar-collapsed{margin-left:52px}
-
-/* TOPBAR */
-.topbar{height:46px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;z-index:50}
+.topbar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;flex-direction:column;z-index:50}
+.topbar-inner{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px}
 .news-strip{flex:1;overflow:hidden;position:relative;height:46px;display:flex;align-items:center}
 .news-strip::before,.news-strip::after{content:'';position:absolute;top:0;width:28px;height:100%;z-index:2;pointer-events:none}
 .news-strip::before{left:0;background:linear-gradient(to right,var(--panel),transparent)}
@@ -61,12 +56,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
 .ts-lbl{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);letter-spacing:1px}
 .btn-sm{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:5px 9px;border-radius:5px;cursor:pointer;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
 .btn-sm:hover{background:rgba(0,200,248,.2)}
-
-/* PAGES */
+.sport-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border2);overflow-x:auto;flex-shrink:0}
+.sport-tab{display:flex;align-items:center;gap:6px;padding:8px 14px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.sport-tab:hover{color:var(--text2);background:rgba(0,200,248,.04)}
+.sport-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,200,248,.06)}
 .page{display:none;flex:1;overflow:hidden;flex-direction:row}
 .page.active{display:flex}
-
-/* FILTER SIDEBAR */
 .filter-sidebar{width:196px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .fs-hdr{padding:9px 11px 7px;border-bottom:1px solid var(--border);flex-shrink:0}
 .fs-title{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:5px}
@@ -95,8 +90,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .league-actions{display:flex;gap:4px;padding:5px 11px;border-top:1px solid var(--border);flex-shrink:0}
 .lg-btn{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:8px;padding:3px;border-radius:3px;cursor:pointer;letter-spacing:1px;transition:all .2s}
 .lg-btn:hover{border-color:var(--accent);color:var(--accent)}
-
-/* CENTER */
 .center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .view-tabs{display:flex;padding:0 12px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
 .view-tab{font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:9px 11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
@@ -117,8 +110,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .pg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .pg-btn:disabled{opacity:.3;cursor:not-allowed}
 .pg-info{font-family:'JetBrains Mono';font-size:10px;color:var(--text3)}
-
-/* MATCH CARD */
 .match-card{background:var(--panel);border:1px solid var(--border2);border-radius:9px;overflow:hidden;transition:all .18s;position:relative}
 .match-card:hover{border-color:rgba(0,200,248,.4);box-shadow:0 4px 18px rgba(0,200,248,.08);transform:translateY(-1px)}
 .match-card.in-parlay{border-color:var(--accent);box-shadow:0 0 14px rgba(0,200,248,.2)}
@@ -141,6 +132,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .conf-bar{height:2px;background:var(--border)}
 .conf-fill{height:100%;transition:width .4s ease}
 .mc-probs{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)}
+.mc-probs.two-col{grid-template-columns:1fr 1fr}
 .prob-cell{padding:6px 4px;text-align:center;cursor:pointer;transition:background .15s;position:relative;border-right:1px solid var(--border)}
 .prob-cell:last-child{border-right:none}
 .prob-cell:hover{background:rgba(0,200,248,.06)}
@@ -149,12 +141,9 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .prob-pct{font-family:'Bebas Neue';font-size:17px;line-height:1}
 .ph{color:var(--green)}.pm{color:var(--orange)}.pl{color:var(--red)}
 .prob-odds{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:1px}
-.prob-move{font-family:'JetBrains Mono';font-size:7px;margin-top:1px}
-.move-up{color:var(--red)}.move-dn{color:var(--green)}
 .upset-badge{position:absolute;top:-1px;right:2px;background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:var(--gold);font-family:'JetBrains Mono';font-size:6px;padding:1px 3px;border-radius:2px}
 .real-odds-tag{padding:2px 11px;font-family:'JetBrains Mono';font-size:7px;color:var(--teal);background:rgba(0,229,200,.04);border-top:1px solid rgba(0,229,200,.1);letter-spacing:1px}
-
-/* PARLAY PANEL */
+.sport-info-bar{padding:5px 11px;background:rgba(0,200,248,.04);border-top:1px solid var(--border);font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
 .parlay-panel{width:264px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .pp-hdr{padding:9px 11px;border-bottom:1px solid var(--border);flex-shrink:0}
 .pp-title{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -191,11 +180,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .btn-auto:hover{transform:translateY(-1px);box-shadow:0 0 22px rgba(0,200,248,.4)}
 .btn-auto:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .btn-save-parlay{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:6px;border-radius:5px;cursor:pointer;transition:all .2s}
-.btn-save-parlay:hover{background:rgba(0,255,136,.2)}
 .btn-analyze-p{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:6px;border-radius:5px;cursor:pointer;transition:all .2s}
-.btn-analyze-p:hover{background:rgba(255,215,0,.2)}
-
-/* NEWS PAGE */
 .news-page{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .news-filters{display:flex;align-items:center;gap:9px;padding:9px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .news-filter-input{flex:1;min-width:120px;max-width:200px;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:5px;font-family:'JetBrains Mono';font-size:10px;padding:5px 9px;outline:none}
@@ -214,9 +199,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .news-detail{flex:1;overflow-y:auto;padding:14px}
 .news-detail::-webkit-scrollbar{width:4px}
 .news-detail::-webkit-scrollbar-thumb{background:var(--border2)}
-.nd-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3)}
-
-/* PARLAYS PAGE */
 .parlays-page{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .parlays-header{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2)}
 .parlays-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -238,10 +220,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .status-won{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
 .status-lost{background:rgba(255,59,92,.15);color:var(--red);border:1px solid rgba(255,59,92,.3)}
 .parlay-detail{flex:1;overflow-y:auto;padding:14px}
-.parlay-detail::-webkit-scrollbar{width:4px}
-.parlay-detail::-webkit-scrollbar-thumb{background:var(--border2)}
-
-/* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:14px;overflow-y:auto}
 .modal-overlay.open{display:flex}
 .modal{background:var(--panel);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:780px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 50px rgba(0,200,248,.12)}
@@ -259,8 +237,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .modal-scroll::-webkit-scrollbar-thumb{background:var(--border2)}
 .modal-pane{display:none}
 .modal-pane.active{display:block}
-
-/* MODAL CONTENT */
 .asection{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px;margin-bottom:9px}
 .asection-title{font-family:'JetBrains Mono';font-size:8px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:9px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 .prob-chart{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
@@ -294,25 +270,15 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .pos-CB,.pos-LB,.pos-RB,.pos-LWB,.pos-RWB{background:rgba(0,100,255,.15);color:#6699ff;border:1px solid rgba(0,100,255,.3)}
 .pos-CDM,.pos-CM,.pos-LM,.pos-RM{background:rgba(0,200,248,.12);color:var(--accent);border:1px solid rgba(0,200,248,.25)}
 .pos-CAM,.pos-LW,.pos-RW,.pos-ST{background:rgba(255,59,92,.12);color:var(--red);border:1px solid rgba(255,59,92,.25)}
+.pos-Driver,.pos-Boxer,.pos-Fighter,.pos-Player,.pos-PG,.pos-SG,.pos-SF,.pos-PF,.pos-C,.pos-QB,.pos-RB,.pos-WR,.pos-TE,.pos-DEF{background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.25)}
 .player-name-row{flex:1;font-size:10px;color:var(--text2)}
 .key-star{color:var(--gold);font-size:9px}
 .player-elo-sm{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);flex-shrink:0}
 .h2h-row{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)}
 .h2h-row:last-child{border-bottom:none}
-
-/* MISMATCH SECTION */
-.mismatch-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.2);border-radius:7px;margin-bottom:6px}
-.mismatch-favor{font-family:'JetBrains Mono';font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px;flex-shrink:0}
-.mismatch-favor-home{background:rgba(0,255,136,.15);color:var(--green)}
-.mismatch-favor-away{background:rgba(255,59,92,.15);color:var(--red)}
-.mismatch-weight-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
-.mismatch-weight-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--accent));border-radius:2px}
-.descriptor-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-family:'JetBrains Mono';font-size:8px;margin:2px;border:1px solid rgba(255,255,255,.1)}
-
-/* PLAYER MODAL */
 .pm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.87);backdrop-filter:blur(8px);z-index:300;display:none;align-items:center;justify-content:center;padding:14px}
 .pm-overlay.open{display:flex}
-.pm-card{background:var(--panel);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;padding:16px;position:relative}
+.pm-card{background:var(--panel);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:16px;position:relative}
 .pm-card::-webkit-scrollbar{width:3px}
 .pm-card::-webkit-scrollbar-thumb{background:var(--border2)}
 .pm-close{position:absolute;top:11px;right:11px;color:var(--text3);cursor:pointer;font-size:15px}
@@ -328,12 +294,8 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .stat-bar-num{font-family:'JetBrains Mono';font-size:9px;color:var(--text2);width:20px;text-align:right;flex-shrink:0}
 .pm-scout-box{background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.2);border-radius:7px;padding:9px;margin-top:7px}
 .pm-section-title{font-family:'JetBrains Mono';font-size:8px;color:var(--teal);letter-spacing:2px;margin-bottom:7px}
-
-/* TOAST */
 .save-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel);border:1px solid var(--green);color:var(--green);font-family:'JetBrains Mono';font-size:11px;padding:9px 18px;border-radius:8px;z-index:500;transition:transform .3s ease;pointer-events:none;box-shadow:0 4px 18px rgba(0,255,136,.2)}
 .save-toast.show{transform:translateX(-50%) translateY(0)}
-
-/* LOADING */
 .loading-container{display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;gap:12px}
 .spinner{width:26px;height:26px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -341,8 +303,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .empty-state{display:flex;flex-direction:column;align-items:center;gap:9px;padding:36px 18px}
 .empty-icon{font-size:30px}
 .empty-text{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);text-align:center;line-height:1.8}
-
-/* AI CHAT */
 .ai-chat{position:fixed;bottom:12px;right:12px;width:308px;background:var(--panel);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 36px rgba(0,0,0,.6);z-index:150;display:flex;flex-direction:column;overflow:hidden;transform:translateY(calc(100% + 20px));transition:transform .3s ease;max-height:420px}
 .ai-chat.open{transform:translateY(0)}
 .chat-hdr{padding:9px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -369,74 +329,75 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .chat-send{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;padding:5px 9px;border-radius:5px;border:none;cursor:pointer}
 .chat-fab{position:fixed;bottom:12px;right:12px;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:9px;font-weight:700;letter-spacing:1px;padding:8px 13px;border-radius:17px;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(0,200,248,.4);z-index:149;transition:all .2s}
 .chat-fab:hover{transform:translateY(-2px)}
+.lock-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.lock-modal-overlay.open{display:flex}
+.lock-modal{background:#0a1628;border:1px solid #152d55;border-radius:16px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 0 60px rgba(168,85,247,.25)}
+.lock-modal-top{padding:24px 24px 16px;text-align:center;background:linear-gradient(160deg,rgba(168,85,247,.08),rgba(0,200,248,.04))}
+.plan-chip{font-family:'JetBrains Mono';font-size:9px;padding:4px 12px;border-radius:20px;font-weight:700;letter-spacing:1px}
+.pc-locked{background:rgba(58,90,122,.15);border:1px solid rgba(58,90,122,.3);color:#3a5a7a}
+.pc-plus{background:rgba(255,140,66,.1);border:1px solid rgba(255,140,66,.3);color:#ff8c42}
+.pc-pro{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:#a855f7}
+.pc-elite{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:#ffd700}
+.pc-platinum{background:linear-gradient(135deg,rgba(255,215,0,.15),rgba(168,85,247,.15));border:1px solid rgba(255,215,0,.4);color:#ffd700}
+.descriptor-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-family:'JetBrains Mono';font-size:8px;margin:2px;border:1px solid rgba(255,255,255,.1)}
+.mismatch-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.2);border-radius:7px;margin-bottom:6px}
 </style>
 </head>
 <body>
 
-<div class="save-toast" id="saveToast">✅ Parlay saved!</div>
+<div class="save-toast" id="saveToast">Saved!</div>
 
 <!-- NAV RAIL -->
 <div class="nav-rail" id="navRail">
   <div class="nav-logo">
     <div class="nav-logo-icon">⚡</div>
-    <div><div class="nav-logo-text">SLIP IQ</div><div class="nav-logo-sub">BETTING INTELLIGENCE v13</div></div>
+    <div><div class="nav-logo-text">SLIP IQ</div><div class="nav-logo-sub">BETTING INTELLIGENCE v14</div></div>
   </div>
   <button class="nav-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
-
   <div class="nav-section-lbl">MAIN</div>
-  <div class="nav-item active" onclick="showPage('home',this)" id="nav-home">
-    <span class="nav-icon">⚽</span><span class="nav-label">Matches</span>
-  </div>
-  <div class="nav-item" onclick="showPage('news',this)" id="nav-news">
-    <span class="nav-icon">📰</span><span class="nav-label">News</span>
-  </div>
-  <div class="nav-item" onclick="showPage('parlays',this)" id="nav-parlays">
-    <span class="nav-icon">🎯</span><span class="nav-label">My Parlays</span>
-  </div>
-  <a class="nav-item" href="leagues.html">
-    <span class="nav-icon">🏆</span><span class="nav-label">Leagues</span>
-  </a>
-
+  <div class="nav-item active" onclick="showPage('home',this)" id="nav-home"><span class="nav-icon">⚽</span><span class="nav-label">Matches</span></div>
+  <div class="nav-item" onclick="showPage('news',this)" id="nav-news"><span class="nav-icon">📰</span><span class="nav-label">News</span></div>
+  <div class="nav-item" onclick="showPage('parlays',this)" id="nav-parlays"><span class="nav-icon">🎯</span><span class="nav-label">My Parlays</span></div>
+  <a class="nav-item" href="leagues.html"><span class="nav-icon">🏆</span><span class="nav-label">Leagues</span></a>
   <div class="nav-section-lbl">ACCOUNT</div>
-  <a class="nav-item" href="account.html">
-    <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
-  </a>
-  <a class="nav-item" href="subscriptions.html">
-    <span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span>
-  </a>
-  <a class="nav-item" href="info.html">
-    <span class="nav-icon">ℹ️</span><span class="nav-label">How To Use</span>
-  </a>
-  <a class="nav-item" href="index.html">
-    <span class="nav-icon">🏡</span><span class="nav-label">Home Page</span>
-  </a>
-
+  <a class="nav-item" href="account.html"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></a>
+  <a class="nav-item" href="subscriptions.html"><span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span></a>
+  <a class="nav-item" href="info.html"><span class="nav-icon">ℹ️</span><span class="nav-label">How To Use</span></a>
+  <a class="nav-item" href="index.html"><span class="nav-icon">🏡</span><span class="nav-label">Home Page</span></a>
   <div class="nav-bottom">
     <a href="account.html" class="upgrade-btn" style="background:rgba(0,200,248,.12);color:var(--accent);border:1px solid rgba(0,200,248,.3);margin-bottom:4px" id="creditsBtn">💳 — CREDITS</a>
     <a href="subscriptions.html" class="upgrade-btn">⭐ UPGRADE PLAN</a>
   </div>
 </div>
 
-<!-- MAIN SHELL -->
+<!-- MAIN -->
 <div class="main" id="mainShell">
-
-  <!-- TOPBAR -->
   <div class="topbar">
-    <div class="news-strip"><div class="news-ticker" id="newsTicker">LOADING FOOTBALL INTELLIGENCE...</div></div>
-    <div class="topbar-right">
-      <div class="tstat"><div class="sp-v live" id="tLive">—</div><div class="ts-lbl">LIVE</div></div>
-      <div class="tstat"><div class="sp-v" id="tUp">—</div><div class="ts-lbl">UPCOMING</div></div>
-      <div class="tstat"><div class="sp-v gold" id="tConf">—</div><div class="ts-lbl">AVG CONF</div></div>
-      <div class="tstat"><div class="sp-v" id="tVal">—</div><div class="ts-lbl">VALUE</div></div>
-      <div class="tstat"><div class="sp-v" id="tReal">—</div><div class="ts-lbl">REAL ODDS</div></div>
-      <button class="btn-sm" onclick="reloadMatches()">⟳</button>
-      <a href="subscriptions.html" class="btn-sm" style="background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.3);color:var(--gold)">⚡ UPGRADE</a>
+    <div class="topbar-inner">
+      <div class="news-strip"><div class="news-ticker" id="newsTicker">LOADING INTELLIGENCE...</div></div>
+      <div class="topbar-right">
+        <div class="tstat"><div class="sp-v live" id="tLive">—</div><div class="ts-lbl">LIVE</div></div>
+        <div class="tstat"><div class="sp-v" id="tUp">—</div><div class="ts-lbl">UPCOMING</div></div>
+        <div class="tstat"><div class="sp-v gold" id="tConf">—</div><div class="ts-lbl">AVG CONF</div></div>
+        <div class="tstat"><div class="sp-v" id="tVal">—</div><div class="ts-lbl">VALUE</div></div>
+        <button class="btn-sm" onclick="reloadMatches()">⟳ REFRESH</button>
+        <a href="subscriptions.html" class="btn-sm" style="background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.3);color:var(--gold)">⚡ UPGRADE</a>
+      </div>
+    </div>
+    <!-- SPORT TABS -->
+    <div class="sport-bar" id="sportBar">
+      <div class="sport-tab active" id="st-football"          onclick="switchSport('football')">⚽ FOOTBALL</div>
+      <div class="sport-tab"        id="st-basketball"        onclick="switchSport('basketball')">🏀 NBA</div>
+      <div class="sport-tab"        id="st-american_football" onclick="switchSport('american_football')">🏈 NFL</div>
+      <div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>
+      <div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>
+      <div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>
+      <div class="sport-tab"        id="st-mma"               onclick="switchSport('mma')">🥋 MMA</div>
     </div>
   </div>
 
   <!-- HOME PAGE -->
   <div class="page active" id="page-home">
-    <!-- Filter sidebar -->
     <div class="filter-sidebar">
       <div class="fs-hdr">
         <div class="fs-title">FILTERS</div>
@@ -445,7 +406,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <div class="fl-lbl">SEARCH</div>
             <input type="text" id="searchInput" placeholder="team or league..." oninput="applyFilters()">
           </div>
-          <div class="fl-row">
+          <div class="fl-row" id="timeDaysRow">
             <div class="fl-lbl">TIME WINDOW</div>
             <select id="timeFilter" onchange="loadMatches()">
               <option value="1">Today</option>
@@ -461,7 +422,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
         </div>
       </div>
       <div class="league-section">
-        <div class="league-hdr">LEAGUES <span id="lgCountLbl" style="font-size:8px;color:var(--text3)"></span></div>
+        <div class="league-hdr">LEAGUES <span id="lgCountLbl"></span></div>
         <div id="leagueList"></div>
       </div>
       <div class="league-actions">
@@ -471,7 +432,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       </div>
     </div>
 
-    <!-- Matches center -->
     <div class="center">
       <div class="view-tabs">
         <div class="view-tab active" onclick="switchView(this,'all')">ALL</div>
@@ -499,7 +459,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       </div>
     </div>
 
-    <!-- Parlay panel -->
     <div class="parlay-panel">
       <div class="pp-hdr">
         <div class="pp-title">PARLAY BUILDER</div>
@@ -542,6 +501,26 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <label class="mkt-cb"><input type="checkbox" id="mkt-ou45"> Over 4.5</label>
           </div>
         </div>
+        <div class="cfg-row">
+          <div class="cfg-lbl">SPORTS IN PARLAY</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px">
+            <label class="mkt-cb"><input type="checkbox" id="ps-football" checked> ⚽ Football</label>
+            <label class="mkt-cb"><input type="checkbox" id="ps-basketball"> 🏀 NBA</label>
+            <label class="mkt-cb"><input type="checkbox" id="ps-tennis"> 🎾 Tennis</label>
+            <label class="mkt-cb"><input type="checkbox" id="ps-f1"> 🏎️ F1</label>
+            <label class="mkt-cb"><input type="checkbox" id="ps-boxing"> 🥊 Boxing</label>
+            <label class="mkt-cb"><input type="checkbox" id="ps-mma"> 🥋 MMA</label>
+          </div>
+        </div>
+        <div class="cfg-row">
+          <div class="cfg-lbl">TIME FRAME</div>
+          <select id="parlayTimeframe" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
+            <option value="1">Today only</option>
+            <option value="3">Next 3 days</option>
+            <option value="7" selected>Next 7 days</option>
+            <option value="14">Next 14 days</option>
+          </select>
+        </div>
       </div>
       <div class="pp-legs" id="parlayLegs">
         <div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Auto-Build or click any outcome.</div></div>
@@ -560,20 +539,13 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       <div class="news-filters">
         <input type="text" class="news-filter-input" id="newsTeam" placeholder="Team...">
         <input type="text" class="news-filter-input" id="newsLeague" placeholder="League...">
-        <select class="news-filter-select" id="newsSort">
-          <option value="date">Latest First</option>
-          <option value="league">By League</option>
-        </select>
+        <select class="news-filter-select" id="newsSort"><option value="date">Latest First</option><option value="league">By League</option></select>
         <button class="btn-news-search" onclick="loadNews()">🔍 SEARCH</button>
         <button class="btn-news-search" style="background:rgba(0,200,248,.15);color:var(--accent);border:1px solid rgba(0,200,248,.3)" onclick="loadNews(true)">⟳ REFRESH</button>
       </div>
       <div class="news-body">
-        <div class="news-list" id="newsList">
-          <div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING NEWS...</div></div>
-        </div>
-        <div class="news-detail" id="newsDetail">
-          <div class="nd-empty"><div style="font-size:34px">📰</div><div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text3);text-align:center">Select an article<br>for full content + AI analysis</div></div>
-        </div>
+        <div class="news-list" id="newsList"><div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING NEWS...</div></div></div>
+        <div class="news-detail" id="newsDetail"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3)"><div style="font-size:34px">📰</div><div style="font-family:'JetBrains Mono';font-size:11px;text-align:center">Select an article for AI analysis</div></div></div>
       </div>
     </div>
   </div>
@@ -586,22 +558,14 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
         <div class="parlays-subtitle" id="parlaysSubtitle">Loading...</div>
       </div>
       <div class="parlays-body">
-        <div class="parlays-list" id="parlaysList">
-          <div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>
-        </div>
-        <div class="parlay-detail" id="parlayDetail">
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3)">
-            <div style="font-size:34px">🎯</div>
-            <div style="font-family:'JetBrains Mono';font-size:11px;text-align:center">Select a saved parlay<br>to see full details and AI analysis</div>
-          </div>
-        </div>
+        <div class="parlays-list" id="parlaysList"><div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div></div>
+        <div class="parlay-detail" id="parlayDetail"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3)"><div style="font-size:34px">🎯</div><div style="font-family:'JetBrains Mono';font-size:11px;text-align:center">Select a saved parlay</div></div></div>
       </div>
     </div>
   </div>
-
 </div><!-- end main -->
 
-<!-- MATCH MODAL — 5 tabs: Overview / Team Data / Lineups / Markets / H2H -->
+<!-- MATCH MODAL -->
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-head">
@@ -626,20 +590,15 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 
 <!-- AI CHAT -->
 <div class="ai-chat" id="aiChat">
-  <div class="chat-hdr">
-    <div class="chat-title">⚡ SLIP IQ AI</div>
-    <div class="chat-close" onclick="toggleChat()">✕</div>
-  </div>
+  <div class="chat-hdr"><div class="chat-title">⚡ SLIP IQ AI</div><div class="chat-close" onclick="toggleChat()">✕</div></div>
   <div class="chat-chips">
-    <div class="chip" onclick="chip('Best bets today')">Best bets</div>
-    <div class="chip" onclick="chip('Value bets now')">Value</div>
-    <div class="chip" onclick="chip('Build safe parlay')">Safe parlay</div>
-    <div class="chip" onclick="chip('Top upset pick')">Upset</div>
-    <div class="chip" onclick="chip('Live matches')">Live</div>
+    <div class="chip" onclick="chipMsg('Best bets today')">Best bets</div>
+    <div class="chip" onclick="chipMsg('Value bets now')">Value</div>
+    <div class="chip" onclick="chipMsg('Build safe parlay')">Safe parlay</div>
+    <div class="chip" onclick="chipMsg('Top upset pick')">Upset</div>
+    <div class="chip" onclick="chipMsg('Live matches')">Live</div>
   </div>
-  <div class="chat-msgs" id="chatMsgs">
-    <div class="msg ai">⚡ Ask me for picks, value bets, upsets, or parlay help.</div>
-  </div>
+  <div class="chat-msgs" id="chatMsgs"><div class="msg ai">⚡ Ask me for picks, value bets, upsets, or parlay help.</div></div>
   <div class="chat-input-row">
     <input type="text" id="chatIn" placeholder="Ask about bets..." onkeydown="if(event.key==='Enter')sendMsg()">
     <button class="chat-send" onclick="sendMsg()">→</button>
@@ -647,842 +606,1394 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 </div>
 <button class="chat-fab" onclick="toggleChat()">⚡ AI</button>
 
+<!-- LOCK MODAL -->
+<div class="lock-modal-overlay" id="lockModal" onclick="if(event.target===this)closeLockModal()">
+  <div class="lock-modal">
+    <div class="lock-modal-top">
+      <div id="lmIcon" style="font-size:40px;margin-bottom:8px">🔒</div>
+      <div id="lmTitle" style="font-family:'Bebas Neue';font-size:24px;letter-spacing:2px;color:#e8f4ff;margin-bottom:4px">FEATURE LOCKED</div>
+      <div id="lmDesc" style="font-size:13px;color:#7a9bbf;line-height:1.6">This feature requires a higher plan.</div>
+      <div id="lmCost" style="margin-top:8px;font-family:'JetBrains Mono';font-size:10px;color:#3a5a7a"></div>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid #0e2040;border-bottom:1px solid #0e2040">
+      <div style="font-family:'JetBrains Mono';font-size:8px;color:#3a5a7a;letter-spacing:2px;margin-bottom:8px">AVAILABLE ON</div>
+      <div id="lmPlans" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div style="padding:16px 24px;display:flex;flex-direction:column;gap:8px">
+      <div id="lmCurrent" style="font-family:'JetBrains Mono';font-size:9px;color:#3a5a7a;text-align:center"></div>
+      <a href="subscriptions.html" onclick="closeLockModal()" style="background:linear-gradient(135deg,#00c8f8,#00e5c8);color:#000;font-family:'JetBrains Mono';font-size:12px;font-weight:700;letter-spacing:1px;padding:13px;border-radius:9px;border:none;cursor:pointer;text-align:center;text-decoration:none;display:block">⚡ UPGRADE PLAN</a>
+      <button onclick="closeLockModal()" style="background:none;border:1px solid #0e2040;color:#3a5a7a;font-family:'JetBrains Mono';font-size:10px;padding:9px;border-radius:7px;cursor:pointer">Maybe later</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const API = ""
-const USER_ID = "user_" + (localStorage.getItem("slipiq_uid") || (() => { const id = Math.random().toString(36).slice(2); localStorage.setItem("slipiq_uid", id); return id })())
-
-let allMatches = [], parlaySelections = [], currentView = "all"
-let riskLevel = 4, targetOdds = 4.0, chatOpen = false, sidebarCollapsed = false
-let leagueSet = new Set(), selectedLeagues = new Set()
-let filteredMatches = [], currentPage = 1
-let allNewsArticles = [], savedParlays = []
-const PAGE_SIZE = 15
-
-const LEAGUE_IMPORTANCE = {
-  "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
-  "Ligue 1":6,"Europa League":7,"Conference League":8,"FA Cup":9,"Carabao Cup":9,"Championship":10,
-  "Eredivisie":11,"Primeira Liga":12,"Süper Lig":13,"Scottish Premiership":14,
-  "Belgian Pro League":15,"Brasileirão":16,"MLS":17,"Argentine Primera":18,
-  "Danish Superliga":19,"Greek Super League":20,"Czech Liga":21,"Saudi Pro League":22,
-  "Zambian Super League":23,"South African PSL":24,"Estonian Meistriliiga":25,
-  "Bundesliga 2":26,"La Liga 2":27
+// ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'x-user-id': USER_ID };
 }
 
-// ─── SIDEBAR ──────────────────────────────────────────────
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+var API = "";
+var USER_ID = "user_" + (localStorage.getItem("slipiq_uid") || (function() {
+  var id = Math.random().toString(36).slice(2);
+  localStorage.setItem("slipiq_uid", id);
+  return id;
+})());
+
+var PLAN_HIERARCHY = ['free','starter','basic','plus','pro','elite','platinum'];
+var PLAN_RANK = {};
+for (var _pi = 0; _pi < PLAN_HIERARCHY.length; _pi++) PLAN_RANK[PLAN_HIERARCHY[_pi]] = _pi;
+
+var FEATURE_MIN_PLAN = {
+  match_analysis:'free', news_analysis:'free', risk_analysis:'free',
+  auto_parlay:'plus', parlay_advice:'plus', team_stats:'plus',
+  leagues_tab:'plus', sport_analysis:'plus', ai_agent:'platinum'
+};
+var ACTION_COSTS = {
+  match_analysis:15, news_analysis:5, risk_analysis:15,
+  auto_parlay:10, parlay_advice:20, team_stats:15,
+  leagues_tab:15, sport_analysis:15, ai_agent:10
+};
+
+var LEAGUE_IMPORTANCE = {
+  "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
+  "Ligue 1":6,"Europa League":7,"Conference League":8,"FA Cup":9,"Carabao Cup":9,
+  "Championship":10,"Eredivisie":11,"Primeira Liga":12,"Süper Lig":13,
+  "Scottish Premiership":14,"Belgian Pro League":15,"Brasileirão":16,
+  "MLS":17,"Argentine Primera":18,"Danish Superliga":19,"Greek Super League":20,
+  "Czech Liga":21,"Saudi Pro League":22,"NBA":5,"NFL":5,
+  "Formula 1 2025":5,"UFC":6,"ATP Tour":6,"WTA Tour":6
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+var allMatches = [], parlaySelections = [], currentView = "all";
+var riskLevel = 4, targetOdds = 4.0, chatOpen = false, sidebarCollapsed = false;
+var leagueSet = new Set(), selectedLeagues = new Set();
+var filteredMatches = [], currentPage = 1;
+var allNewsArticles = [], savedParlays = [];
+var currentSport = 'football';
+var currentSub = null;
+var PAGE_SIZE = 15;
+
+// ─── SPORT CONFIG ─────────────────────────────────────────────────────────────
+var SPORT_CONFIG = {
+  football:         { endpoint: '/predictions', hasTime: true,  hasDraw: true,  label: 'Football',         icon: '⚽' },
+  basketball:       { endpoint: '/predictions/nba', hasTime: false, hasDraw: false, label: 'NBA Basketball', icon: '🏀' },
+  american_football:{ endpoint: '/predictions/nfl', hasTime: false, hasDraw: false, label: 'NFL Football',  icon: '🏈' },
+  tennis:           { endpoint: '/predictions/tennis', hasTime: false, hasDraw: false, label: 'Tennis',      icon: '🎾' },
+  f1:               { endpoint: '/predictions/f1', hasTime: false, hasDraw: false,  label: 'Formula 1',     icon: '🏎️' },
+  boxing:           { endpoint: '/predictions/boxing', hasTime: false, hasDraw: true, label: 'Boxing',       icon: '🥊' },
+  mma:              { endpoint: '/predictions/mma', hasTime: false, hasDraw: false,  label: 'MMA / UFC',     icon: '🥋' }
+};
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 function toggleSidebar() {
-  sidebarCollapsed = !sidebarCollapsed
-  document.getElementById("navRail").classList.toggle("collapsed", sidebarCollapsed)
-  document.getElementById("mainShell").classList.toggle("sidebar-collapsed", sidebarCollapsed)
+  sidebarCollapsed = !sidebarCollapsed;
+  document.getElementById("navRail").classList.toggle("collapsed", sidebarCollapsed);
+  document.getElementById("mainShell").classList.toggle("sidebar-collapsed", sidebarCollapsed);
 }
 
 function showPage(name, el) {
-  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"))
-  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"))
-  document.getElementById("page-" + name).classList.add("active")
-  if (el) el.classList.add("active")
-  if (name === "news" && !allNewsArticles.length) loadNews()
-  if (name === "parlays") loadSavedParlays()
+  document.querySelectorAll(".page").forEach(function(p){ p.classList.remove("active"); });
+  document.querySelectorAll(".nav-item").forEach(function(n){ n.classList.remove("active"); });
+  document.getElementById("page-" + name).classList.add("active");
+  if (el) el.classList.add("active");
+  if (name === "news" && !allNewsArticles.length) loadNews();
+  if (name === "parlays") loadSavedParlays();
 }
 
-// ─── INIT ─────────────────────────────────────────────────
-async function init() {
-  await loadMatches()
-  loadNewsTicker()
-  loadUserCredits()
+// ─── SPORT SWITCHING ─────────────────────────────────────────────────────────
+function switchSport(sport) {
+  currentSport = sport;
+  currentPage = 1;
+  allMatches = [];
+  document.querySelectorAll('.sport-tab').forEach(function(t){ t.classList.remove('active'); });
+  var tab = document.getElementById('st-' + sport);
+  if (tab) tab.classList.add('active');
+  var timeRow = document.getElementById('timeDaysRow');
+  if (timeRow) timeRow.style.display = 'flex';
+  loadCurrentSport();
 }
 
-async function loadUserCredits() {
+async function loadCurrentSport() {
+  var grid = document.getElementById('matchesGrid');
+  var cfg = SPORT_CONFIG[currentSport] || SPORT_CONFIG.football;
+  grid.innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING ' + cfg.label.toUpperCase() + '...</div></div>';
   try {
-    const res = await fetch(`${API}/user/${USER_ID}`)
-    if (!res.ok) return
-    const u = await res.json()
-    const btn = document.getElementById("creditsBtn")
-    if (btn && u.credits_available !== undefined) {
-      const inf = u.plan === "platinum"
-      btn.textContent = `💳 ${inf ? "∞" : u.credits_available} CREDITS`
+    var url = API + cfg.endpoint;
+    if (currentSport === 'football') {
+      var days = parseInt(document.getElementById('timeFilter').value) || 14;
+      url += '?days=' + days;
     }
-  } catch(e) {}
-}
-
-// ─── MATCHES ─────────────────────────────────────────────
-async function loadMatches() {
-  document.getElementById("matchesGrid").innerHTML = `<div class="loading-container"><div class="spinner"></div><div class="loading-text">FETCHING FIXTURES · MONTE CARLO · LOADING ODDS...</div></div>`
-  try {
-    const days = parseInt(document.getElementById("timeFilter").value) || 14
-    const res = await fetch(`${API}/predictions?days=${days}`)
-    if (!res.ok) throw new Error("Server " + res.status)
-    allMatches = await res.json()
-    leagueSet = new Set(allMatches.map(m => m.league).filter(Boolean))
-    selectedLeagues = new Set(leagueSet)
-    renderLeagues()
-    applyFilters()
-  } catch(err) {
-    document.getElementById("matchesGrid").innerHTML = `<div class="loading-container"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Cannot connect to server.<br><code style="color:var(--accent)">node server.js</code><br><br>Make sure server.js v13 is running.</div></div></div>`
+    // FIX: pass userId as query param, correctly appending to existing query string
+    url += (url.includes('?') ? '&' : '?') + 'userId=' + encodeURIComponent(USER_ID);
+    var res = await fetch(url);
+    if (!res.ok) {
+      // FIX: handle 402 plan-lock responses from server
+      if (res.status === 402) {
+        var errData = await res.json().catch(function(){ return {}; });
+        showLockModal(errData.action || 'sport_analysis');
+        grid.innerHTML = '<div class="loading-container"><div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-text">Upgrade your plan to access this sport.</div></div></div>';
+        return;
+      }
+      throw new Error('Server error ' + res.status);
+    }
+    var raw = await res.json();
+    var data = raw.predictions || raw;
+    if (!Array.isArray(data)) data = [];
+    allMatches = data;
+    leagueSet = new Set(allMatches.map(function(m){ return m.league; }).filter(Boolean));
+    selectedLeagues = new Set(leagueSet);
+    renderLeagues();
+    applyFilters();
+  } catch(e) {
+    grid.innerHTML = '<div class="loading-container"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Cannot connect to server.<br><code style="color:var(--accent)">node server.js</code><br><br>' + e.message + '</div></div></div>';
   }
 }
-async function reloadMatches() { await loadMatches() }
 
+async function loadMatches() { await loadCurrentSport(); }
+async function reloadMatches() { await loadCurrentSport(); }
+
+// ─── GUARDED ACTION (credit/plan check before sensitive actions) ──────────────
+async function guardedAction(action, fn) {
+  try {
+    var res = await fetch('/credits/check', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ userId: USER_ID, action: action })
+    });
+    var data = await res.json();
+    if (!data.ok) {
+      showLockModal(action);
+      return false;
+    }
+  } catch(e) {
+    // If no Supabase / endpoint missing, allow through in dev mode
+  }
+  return await fn();
+}
+
+// ─── LEAGUES SIDEBAR ─────────────────────────────────────────────────────────
 function renderLeagues() {
-  const sorted = [...leagueSet].sort((a, b) => {
-    const ra = LEAGUE_IMPORTANCE[a] || 99, rb = LEAGUE_IMPORTANCE[b] || 99
-    return ra !== rb ? ra - rb : a.localeCompare(b)
-  })
-  document.getElementById("leagueList").innerHTML = sorted.map(name => {
-    const cnt = allMatches.filter(m => m.league === name).length
-    const isTop = (LEAGUE_IMPORTANCE[name] || 99) <= 8
-    return `<div class="league-item active" onclick="toggleLeague('${esc(name)}',this)">
-      <span class="league-flag">${flagFor(name)}</span>
-      <span class="league-name" style="${isTop ? 'color:var(--text);font-weight:600' : ''}">${name}</span>
-      <span class="league-count">${cnt}</span>
-    </div>`
-  }).join("")
-  document.getElementById("lgCountLbl").textContent = `(${sorted.length})`
+  var sorted = Array.from(leagueSet).sort(function(a, b) {
+    var ra = LEAGUE_IMPORTANCE[a] || 99, rb = LEAGUE_IMPORTANCE[b] || 99;
+    return ra !== rb ? ra - rb : a.localeCompare(b);
+  });
+  var html = '';
+  for (var i = 0; i < sorted.length; i++) {
+    var name = sorted[i];
+    var cnt = allMatches.filter(function(m){ return m.league === name; }).length;
+    var isTop = (LEAGUE_IMPORTANCE[name] || 99) <= 8;
+    var nameStyle = isTop ? 'color:var(--text);font-weight:600' : '';
+    html += '<div class="league-item active" data-league="' + esc(name) + '" onclick="toggleLeague(\'' + esc(name) + '\',this)">';
+    html += '<span class="league-flag">' + flagFor(name) + '</span>';
+    html += '<span class="league-name" style="' + nameStyle + '">' + name + '</span>';
+    html += '<span class="league-count">' + cnt + '</span></div>';
+  }
+  document.getElementById("leagueList").innerHTML = html;
+  document.getElementById("lgCountLbl").textContent = '(' + sorted.length + ')';
 }
 
 function toggleLeague(name, el) {
-  if (selectedLeagues.has(name)) { selectedLeagues.delete(name); el.classList.remove("active") }
-  else { selectedLeagues.add(name); el.classList.add("active") }
-  currentPage = 1; applyFilters()
+  if (selectedLeagues.has(name)) { selectedLeagues.delete(name); el.classList.remove("active"); }
+  else { selectedLeagues.add(name); el.classList.add("active"); }
+  currentPage = 1; applyFilters();
 }
-function selectAllLeagues() { selectedLeagues = new Set(leagueSet); document.querySelectorAll(".league-item").forEach(el => el.classList.add("active")); currentPage = 1; applyFilters() }
-function deselectAllLeagues() { selectedLeagues.clear(); document.querySelectorAll(".league-item").forEach(el => el.classList.remove("active")); currentPage = 1; applyFilters() }
+function selectAllLeagues() {
+  selectedLeagues = new Set(leagueSet);
+  document.querySelectorAll(".league-item").forEach(function(el){ el.classList.add("active"); });
+  currentPage = 1; applyFilters();
+}
+function deselectAllLeagues() {
+  selectedLeagues.clear();
+  document.querySelectorAll(".league-item").forEach(function(el){ el.classList.remove("active"); });
+  currentPage = 1; applyFilters();
+}
 function selectTopLeagues() {
-  selectedLeagues.clear()
-  document.querySelectorAll(".league-item").forEach(el => {
-    const name = el.querySelector(".league-name").textContent
-    if ((LEAGUE_IMPORTANCE[name] || 99) <= 8) { selectedLeagues.add(name); el.classList.add("active") }
-    else el.classList.remove("active")
-  })
-  currentPage = 1; applyFilters()
+  selectedLeagues.clear();
+  document.querySelectorAll(".league-item").forEach(function(el) {
+    var name = el.getAttribute('data-league') || el.querySelector(".league-name").textContent;
+    if ((LEAGUE_IMPORTANCE[name] || 99) <= 8) { selectedLeagues.add(name); el.classList.add("active"); }
+    else el.classList.remove("active");
+  });
+  currentPage = 1; applyFilters();
 }
 
+// ─── FILTERS + RENDER ────────────────────────────────────────────────────────
 function getFiltered() {
-  const confMin = parseInt(document.getElementById("confFilter").value) || 0
-  const maxDays = parseInt(document.getElementById("timeFilter").value) || 14
-  const search = (document.getElementById("searchInput")?.value || "").toLowerCase().trim()
-  const now = new Date(), maxDate = new Date(now.getTime() + maxDays * 86400000)
-  return allMatches.filter(m => {
-    if (!selectedLeagues.has(m.league)) return false
-    if (m.confidence < confMin) return false
-    if (m.date && !m.isLive && new Date(m.date) > maxDate) return false
-    if (search && !`${m.home} ${m.away} ${m.league}`.toLowerCase().includes(search)) return false
-    if (currentView === "recommended") return m.confidence >= 65
-    if (currentView === "value") return m.valueBet
-    if (currentView === "upsets") return m.isUpsetWatch
-    if (currentView === "live") return m.isLive
-    return true
-  })
+  var confMin = parseInt(document.getElementById("confFilter").value) || 0;
+  var maxDays = parseInt(document.getElementById("timeFilter").value) || 14;
+  var search = (document.getElementById("searchInput").value || "").toLowerCase().trim();
+  var now = new Date(), maxDate = new Date(now.getTime() + maxDays * 86400000);
+  return allMatches.filter(function(m) {
+    if (selectedLeagues.size > 0 && !selectedLeagues.has(m.league)) return false;
+    if ((m.confidence || 0) < confMin) return false;
+    if (currentSport === 'football' && m.date && !m.isLive && new Date(m.date) > maxDate) return false;
+    if (search && !(m.home + ' ' + m.away + ' ' + (m.league||'')).toLowerCase().includes(search)) return false;
+    if (currentView === "recommended") return (m.confidence||0) >= 65;
+    if (currentView === "value") return m.valueBet;
+    if (currentView === "upsets") return m.isUpsetWatch;
+    if (currentView === "live") return m.isLive;
+    return true;
+  });
 }
 
 function applyFilters() {
-  filteredMatches = getFiltered()
-  const f = filteredMatches
-  const live = f.filter(m => m.isLive).length, up = f.filter(m => !m.isLive).length
-  const avgConf = f.length ? Math.round(f.reduce((s, m) => s + m.confidence, 0) / f.length) + "%" : "—"
-  const val = f.filter(m => m.valueBet).length, real = f.filter(m => m.hasRealOdds).length
-  ;["tLive","sLive"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = live })
-  ;["tUp","sUp"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = up })
-  ;["tConf","sConf"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = avgConf })
-  ;["tVal","sVal"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = val })
-  ;["tReal","sReal2"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = real })
-  const totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE))
-  if (currentPage > totalPages) currentPage = 1
-  renderPage()
+  filteredMatches = getFiltered();
+  var f = filteredMatches;
+  var live = f.filter(function(m){ return m.isLive; }).length;
+  var up = f.filter(function(m){ return !m.isLive; }).length;
+  var avgConf = f.length ? Math.round(f.reduce(function(s,m){ return s + (m.confidence||0); }, 0) / f.length) + "%" : "—";
+  var val = f.filter(function(m){ return m.valueBet; }).length;
+  var real = f.filter(function(m){ return m.hasRealOdds; }).length;
+  ['tLive','sLive'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=live; });
+  ['tUp','sUp'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=up; });
+  ['tConf','sConf'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=avgConf; });
+  ['tVal','sVal'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=val; });
+  ['tReal','sReal2'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=real; });
+  var totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = 1;
+  renderPage();
 }
 
 function renderPage() {
-  const totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE))
-  const start = (currentPage - 1) * PAGE_SIZE, end = start + PAGE_SIZE
-  const page = filteredMatches.slice(start, end)
-  const grid = document.getElementById("matchesGrid")
-  if (!page.length) { grid.innerHTML = `<div class="loading-container"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No matches for current filters.</div></div></div>`; return }
-  grid.innerHTML = page.map(m => card(m)).join("")
-  document.getElementById("pgInfo").textContent = `Page ${currentPage} of ${totalPages} · ${filteredMatches.length} matches`
-  document.getElementById("pgPrev").disabled = currentPage <= 1
-  document.getElementById("pgNext").disabled = currentPage >= totalPages
+  var totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE));
+  var start = (currentPage - 1) * PAGE_SIZE, end = start + PAGE_SIZE;
+  var page = filteredMatches.slice(start, end);
+  var grid = document.getElementById("matchesGrid");
+  if (!page.length) {
+    grid.innerHTML = '<div class="loading-container"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No matches for current filters.</div></div></div>';
+    return;
+  }
+  var cfg = SPORT_CONFIG[currentSport] || SPORT_CONFIG.football;
+  grid.innerHTML = page.map(function(m){ return card(m, cfg); }).join("");
+  document.getElementById("pgInfo").textContent = "Page " + currentPage + " of " + totalPages + " · " + filteredMatches.length + " matches";
+  document.getElementById("pgPrev").disabled = currentPage <= 1;
+  document.getElementById("pgNext").disabled = currentPage >= totalPages;
 }
 
-function changePage(dir) { currentPage += dir; renderPage() }
+function changePage(dir) { currentPage += dir; renderPage(); }
 
-function card(m) {
-  const maxP = Math.max(m.homeProb, m.drawProb, m.awayProb)
-  const inP = parlaySelections.some(s => s.matchId === m.id)
-  const hSel = parlaySelections.some(s => s.matchId === m.id && s.pick === "home")
-  const dSel = parlaySelections.some(s => s.matchId === m.id && s.pick === "draw")
-  const aSel = parlaySelections.some(s => s.matchId === m.id && s.pick === "away")
-  const cc = m.confidence >= 70 ? "var(--green)" : m.confidence >= 60 ? "var(--orange)" : "var(--red)"
-  const dateStr = m.isLive ? `<span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono';font-size:8px">⬤ LIVE${m.minute?" "+m.minute+"'":""}</span>` : fmtDate(m.date)
-  const hc = m.homeProb === maxP ? "ph" : m.homeProb > 27 ? "pm" : "pl"
-  const dc = m.drawProb === maxP ? "ph" : "pm"
-  const ac = m.awayProb === maxP ? "ph" : m.awayProb > 27 ? "pm" : "pl"
-  const flag = m.flag || flagFor(m.league || "")
-  const mv = v => !v || v === 0 ? "" : v > 0 ? `<div class="prob-move move-up">▲${v.toFixed(2)}</div>` : `<div class="prob-move move-dn">▼${Math.abs(v).toFixed(2)}</div>`
-  const isTop = (LEAGUE_IMPORTANCE[m.league] || 99) <= 7
-  const hasMismatches = m.mismatches && m.mismatches.length > 0
-  return `<div class="match-card${inP ? " in-parlay" : ""}" id="mc-${m.id}">
-    <div class="mc-header" onclick="openAnalysis('${m.id}')">
-      <span class="mc-league" style="${isTop ? 'color:var(--accent)' : ''}">${flag} ${m.league}</span>
-      <span class="mc-date">${dateStr}</span>
-      ${m.valueBet ? `<span class="value-badge">VALUE</span>` : ""}
-      ${hasMismatches ? `<span class="mismatch-badge">⚡MISMATCH</span>` : ""}
-    </div>
-    <div class="mc-body" onclick="openAnalysis('${m.id}')">
-      <div class="mc-team">
-        <div class="mc-team-name">${m.home}</div>
-        <div class="mc-elo">ELO ${m.homeElo || "—"}</div>
-        <div class="mc-form">${(m.homeForm || []).map(r => `<div class="form-dot form-${r}"></div>`).join("")}</div>
-      </div>
-      <div class="mc-vs">
-        ${m.isLive && m.score ? `<div style="font-family:'Bebas Neue';font-size:19px;color:var(--text)">${m.score}</div>` : `<div class="vs-text">VS</div>`}
-        <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:1px">${fmtTime(m.date)}</div>
-      </div>
-      <div class="mc-team away">
-        <div class="mc-team-name">${m.away}</div>
-        <div class="mc-elo">ELO ${m.awayElo || "—"}</div>
-        <div class="mc-form">${(m.awayForm || []).map(r => `<div class="form-dot form-${r}"></div>`).join("")}</div>
-      </div>
-    </div>
-    <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%;background:${cc}"></div></div>
-    <div class="mc-probs">
-      <div class="prob-cell${hSel ? " sel" : ""}" onclick="toggleParlay(${JSON.stringify(m.id)},'home','${esc(m.home)} Win',${m.homeOdds},${m.homeProb})">
-        <div class="prob-outcome">${sn(m.home)}</div>
-        <div class="prob-pct ${hc}">${m.homeProb}%</div>
-        <div class="prob-odds">${m.homeOdds}</div>${mv(m.homeMovement || 0)}
-      </div>
-      <div class="prob-cell${dSel ? " sel" : ""}" onclick="toggleParlay(${JSON.stringify(m.id)},'draw','Draw',${m.drawOdds},${m.drawProb})">
-        <div class="prob-outcome">Draw</div>
-        <div class="prob-pct ${dc}">${m.drawProb}%</div>
-        <div class="prob-odds">${m.drawOdds}</div>${mv(m.drawMovement || 0)}
-      </div>
-      <div class="prob-cell${aSel ? " sel" : ""}" onclick="toggleParlay(${JSON.stringify(m.id)},'away','${esc(m.away)} Win',${m.awayOdds},${m.awayProb})">
-        ${m.isUpsetWatch ? `<div class="upset-badge">⚡UPSET</div>` : ""}
-        <div class="prob-outcome">${sn(m.away)}</div>
-        <div class="prob-pct ${ac}">${m.awayProb}%</div>
-        <div class="prob-odds">${m.awayOdds}</div>${mv(m.awayMovement || 0)}
-      </div>
-    </div>
-    ${m.hasRealOdds ? `<div class="real-odds-tag">● REAL ODDS · ${m.bookmaker || "Bookmaker"}</div>` : ""}
-  </div>`
+// ─── CARD RENDERER ───────────────────────────────────────────────────────────
+function card(m, cfg) {
+  if (!cfg) cfg = SPORT_CONFIG[currentSport] || SPORT_CONFIG.football;
+  var maxP = Math.max(m.homeProb || 0, m.drawProb || 0, m.awayProb || 0);
+  var inP = parlaySelections.some(function(s){ return s.matchId === m.id; });
+  var hSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "home"; });
+  var dSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "draw"; });
+  var aSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "away"; });
+  var confidence = m.confidence || maxP || 50;
+  var cc = confidence >= 70 ? "var(--green)" : confidence >= 60 ? "var(--orange)" : "var(--red)";
+  var flag = m.flag || flagFor(m.league || "");
+  var isTop = (LEAGUE_IMPORTANCE[m.league] || 99) <= 7;
+
+  var dateStr;
+  if (m.isLive) {
+    dateStr = '<span style="color:var(--green);font-weight:700;font-family:\'JetBrains Mono\';font-size:8px">⬤ LIVE' + (m.minute ? ' ' + m.minute + "'" : '') + '</span>';
+  } else {
+    dateStr = fmtDate(m.date);
+  }
+
+  var hc = m.homeProb === maxP ? "ph" : (m.homeProb || 0) > 27 ? "pm" : "pl";
+  var dc = m.drawProb === maxP ? "ph" : "pm";
+  var ac = m.awayProb === maxP ? "ph" : (m.awayProb || 0) > 27 ? "pm" : "pl";
+
+  var html = '<div class="match-card' + (inP ? ' in-parlay' : '') + '" id="mc-' + m.id + '">';
+
+  html += '<div class="mc-header" onclick="openAnalysis(\'' + m.id + '\')">';
+  html += '<span class="mc-league" style="' + (isTop ? 'color:var(--accent)' : '') + '">' + flag + ' ' + (m.league || '') + '</span>';
+  if (m.surface) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--teal);padding:1px 5px;background:rgba(0,229,200,.1);border-radius:3px">' + m.surface + '</span>';
+  if (m.weightClass) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--gold);padding:1px 5px;background:rgba(255,215,0,.1);border-radius:3px">' + m.weightClass + '</span>';
+  if (m.division) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--purple);padding:1px 5px;background:rgba(168,85,247,.1);border-radius:3px">' + m.division + '</span>';
+  if (m.raceName) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent);padding:1px 5px">' + m.raceName + '</span>';
+  html += '<span class="mc-date">' + dateStr + '</span>';
+  if (m.valueBet) html += '<span class="value-badge">VALUE</span>';
+  if (m.mismatches && m.mismatches.length > 0) html += '<span class="mismatch-badge">⚡MISMATCH</span>';
+  html += '</div>';
+
+  html += '<div class="mc-body" onclick="openAnalysis(\'' + m.id + '\')">';
+  html += '<div class="mc-team">';
+  html += '<div class="mc-team-name">' + (m.home || '?') + '</div>';
+  if (m.homeElo) html += '<div class="mc-elo">ELO ' + m.homeElo + '</div>';
+  if (m.homeRecord) html += '<div class="mc-elo">' + m.homeRecord + '</div>';
+  if (m.homeRank) html += '<div class="mc-elo">RANK #' + m.homeRank + '</div>';
+  html += '<div class="mc-form">' + (m.homeForm || []).map(function(r){ return '<div class="form-dot form-' + r + '"></div>'; }).join("") + '</div>';
+  html += '</div>';
+
+  html += '<div class="mc-vs">';
+  if (m.isLive && m.score) {
+    html += '<div style="font-family:\'Bebas Neue\';font-size:19px;color:var(--text)">' + m.score + '</div>';
+  } else {
+    html += '<div class="vs-text">VS</div>';
+  }
+  html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:1px">' + fmtTime(m.date) + '</div>';
+  html += '</div>';
+
+  html += '<div class="mc-team away">';
+  html += '<div class="mc-team-name">' + (m.away || '?') + '</div>';
+  if (m.awayElo) html += '<div class="mc-elo">ELO ' + m.awayElo + '</div>';
+  if (m.awayRecord) html += '<div class="mc-elo">' + m.awayRecord + '</div>';
+  if (m.awayRank) html += '<div class="mc-elo">RANK #' + m.awayRank + '</div>';
+  html += '<div class="mc-form">' + (m.awayForm || []).map(function(r){ return '<div class="form-dot form-' + r + '"></div>'; }).join("") + '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="conf-bar"><div class="conf-fill" style="width:' + confidence + '%;background:' + cc + '"></div></div>';
+
+  var hasDraw = cfg.hasDraw && m.drawProb && m.drawOdds;
+  html += '<div class="mc-probs' + (hasDraw ? '' : ' two-col') + '">';
+
+  var mid = JSON.stringify(m.id);
+  html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'home\',\'' + esc((m.home || '') + ' Win') + '\',' + (m.homeOdds || 2) + ',' + (m.homeProb || 50) + ')">';
+  html += '<div class="prob-outcome">' + sn(m.home) + '</div>';
+  html += '<div class="prob-pct ' + hc + '">' + (m.homeProb || '—') + '%</div>';
+  html += '<div class="prob-odds">' + (m.homeOdds || '—') + '</div></div>';
+
+  if (hasDraw) {
+    html += '<div class="prob-cell' + (dSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'draw\',\'Draw\',' + m.drawOdds + ',' + m.drawProb + ')">';
+    html += '<div class="prob-outcome">Draw</div>';
+    html += '<div class="prob-pct ' + dc + '">' + m.drawProb + '%</div>';
+    html += '<div class="prob-odds">' + m.drawOdds + '</div></div>';
+  }
+
+  html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'away\',\'' + esc((m.away || '') + ' Win') + '\',' + (m.awayOdds || 2) + ',' + (m.awayProb || 50) + ')">';
+  if (m.isUpsetWatch) html += '<div class="upset-badge">⚡UPSET</div>';
+  html += '<div class="prob-outcome">' + sn(m.away) + '</div>';
+  html += '<div class="prob-pct ' + ac + '">' + (m.awayProb || '—') + '%</div>';
+  html += '<div class="prob-odds">' + (m.awayOdds || '—') + '</div></div>';
+
+  html += '</div>';
+
+  if (m.hasRealOdds) html += '<div class="real-odds-tag">● REAL ODDS · ' + (m.bookmaker || 'Bookmaker') + '</div>';
+
+  var extras = [];
+  if (m.koProb) extras.push('KO: ' + m.koProb + '%');
+  if (m.finishProb) extras.push('FINISH: ' + m.finishProb + '%');
+  if (m.surface) extras.push(m.surface.toUpperCase());
+  if (m.circuit) extras.push(m.circuit);
+  if (m.venue) extras.push(m.venue);
+  if (extras.length) html += '<div class="sport-info-bar">' + extras.join(' · ') + '</div>';
+
+  html += '</div>';
+  return html;
 }
 
-// ─── MATCH MODAL ──────────────────────────────────────────
+// ─── MATCH MODAL ─────────────────────────────────────────────────────────────
 async function openAnalysis(matchId) {
-  const m = allMatches.find(x => String(x.id) === String(matchId))
-  if (!m) return
-  document.getElementById("modalTitle").textContent = `${m.home} vs ${m.away}`
-  document.getElementById("modalSub").textContent = `${m.flag || flagFor(m.league)} ${m.league} · ${fmtDate(m.date)} ${fmtTime(m.date)} · ELO ${m.homeElo} vs ${m.awayElo}${m.homeManager ? ` · ${m.homeManager} vs ${m.awayManager}` : ""}`
-  document.getElementById("modal").classList.add("open")
-  document.getElementById("modalScroll").scrollTop = 0
-  const tabs = ["Overview", "Team Data", "Lineups & Mismatches", "Markets", "H2H"]
-  document.getElementById("modalTabs").innerHTML = tabs.map((t, i) => `<div class="modal-tab${i === 0 ? " active" : ""}" onclick="switchMTab(${i})">${t}</div>`).join("")
-  document.getElementById("modalBody").innerHTML = tabs.map((_, i) => `<div class="modal-pane${i === 0 ? " active" : ""}" id="mp${i}"></div>`).join("")
-  renderOverviewPane(m)
-  renderTeamDataPane(m)
-  renderLineupsPane(m)
-  renderMarketsPane(m)
-  renderH2HPane(m)
-  loadMatchAI(m)
+  var m = allMatches.find(function(x){ return String(x.id) === String(matchId); });
+  if (!m) return;
+  document.getElementById("modalTitle").textContent = (m.home || '?') + ' vs ' + (m.away || '?');
+  document.getElementById("modalSub").textContent = (m.flag || '') + ' ' + (m.league || '') + ' · ' + fmtDate(m.date) + ' ' + fmtTime(m.date) + ' · ELO ' + (m.homeElo || '—') + ' vs ' + (m.awayElo || '—');
+  document.getElementById("modal").classList.add("open");
+  document.getElementById("modalScroll").scrollTop = 0;
+
+  var tabs = ["Overview", "Lineups & Players", "Markets", "H2H"];
+  document.getElementById("modalTabs").innerHTML = tabs.map(function(t, i){
+    return '<div class="modal-tab' + (i===0?' active':'') + '" onclick="switchMTab(' + i + ')">' + t + '</div>';
+  }).join("");
+  document.getElementById("modalBody").innerHTML = tabs.map(function(_, i){
+    return '<div class="modal-pane' + (i===0?' active':'') + '" id="mp' + i + '"></div>';
+  }).join("");
+
+  renderOverviewPane(m);
+  renderLineupsPane(m);
+  renderMarketsPane(m);
+  renderH2HPane(m);
+
+  // FIX: wrap AI call with guardedAction so lock modal fires if credits/plan fail
+  guardedAction('match_analysis', function() { return loadMatchAI(m); });
 }
 
 function switchMTab(i) {
-  document.querySelectorAll(".modal-tab").forEach((t, j) => t.classList.toggle("active", j === i))
-  document.querySelectorAll(".modal-pane").forEach((p, j) => p.classList.toggle("active", j === i))
+  document.querySelectorAll(".modal-tab").forEach(function(t,j){ t.classList.toggle("active", j===i); });
+  document.querySelectorAll(".modal-pane").forEach(function(p,j){ p.classList.toggle("active", j===i); });
 }
 
 function renderOverviewPane(m) {
-  const circ = 2 * Math.PI * 25, maxP = Math.max(m.homeProb, m.drawProb, m.awayProb)
-  const xgSrc = m.hasRealXG ? `<span style="color:var(--green);font-size:8px;font-family:'JetBrains Mono'">● REAL SM xG</span>` : `<span style="color:var(--text3);font-size:8px;font-family:'JetBrains Mono'">◎ MODEL xG</span>`
-  document.getElementById("mp0").innerHTML = `
-  <div class="asection"><div class="asection-title">OUTCOME PROBABILITIES</div>
-    <div class="prob-chart">${[{l:m.home,p:m.homeProb,o:m.homeOdds,mv:m.homeMovement||0},{l:"Draw",p:m.drawProb,o:m.drawOdds,mv:m.drawMovement||0},{l:m.away,p:m.awayProb,o:m.awayOdds,mv:m.awayMovement||0}].map(x => {
-      const col = x.p === maxP ? "var(--green)" : x.p > 25 ? "var(--orange)" : "var(--text2)"
-      const dash = (x.p / 100) * circ
-      const mvH = x.mv > 0 ? `<div style="font-size:8px;color:var(--red);font-family:'JetBrains Mono'">▲${x.mv.toFixed(2)}</div>` : x.mv < 0 ? `<div style="font-size:8px;color:var(--green);font-family:'JetBrains Mono'">▼${Math.abs(x.mv).toFixed(2)}</div>` : ""
-      return `<div class="prob-bar-item">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:3px">${x.l.split(" ").slice(-1)[0]}</div>
-        <div class="prob-circle"><svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="25"/><circle class="fill" cx="30" cy="30" r="25" stroke="${col}" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${(circ-dash).toFixed(1)}"/></svg><div class="prob-circle-num" style="color:${col}">${x.p}%</div></div>
-        <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)">@ ${x.o}</div>${mvH}
-      </div>`}).join("")}
-    </div>
-  </div>
-  <div class="asection"><div class="asection-title">GPT-4o AI ANALYSIS</div>
-    <div id="aiBlock"><div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-size:10px;font-family:'JetBrains Mono'">GPT-4o analyzing real player data...</span></div></div>
-  </div>
-  <div class="asection"><div class="asection-title">KEY FACTORS FROM AI</div>
-    <div id="kfBlock"><div style="color:var(--text3);font-size:10px;font-family:'JetBrains Mono'">Loading...</div></div>
-  </div>
-  <div class="asection"><div class="asection-title">10-VARIABLE FACTOR MODEL</div>
-    <div class="factor-grid">${(m.factors || []).map(f => `<div class="factor-item">
-      <div class="factor-name">${f.name}</div>
-      <div style="display:flex;align-items:center;gap:3px;margin-bottom:3px">
-        <span style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">${sn(m.home)}</span>
-        <div class="factor-bar" style="flex:1"><div class="factor-fill" style="width:${f.homeScore}%;background:${f.color}"></div></div>
-        <span style="font-size:9px;font-family:'JetBrains Mono';color:${f.color};width:20px;text-align:right">${f.homeScore}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:3px">
-        <span style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">${sn(m.away)}</span>
-        <div class="factor-bar" style="flex:1"><div class="factor-fill" style="width:${f.awayScore}%;background:var(--border2)"></div></div>
-        <span style="font-size:9px;font-family:'JetBrains Mono';color:var(--text2);width:20px;text-align:right">${f.awayScore}</span>
-      </div>
-    </div>`).join("")}</div>
-  </div>
-  <div class="asection"><div class="asection-title">KEY MARKETS OVERVIEW</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
-      <div class="factor-item"><div class="factor-name">BTTS</div><div style="font-family:'Bebas Neue';font-size:24px;color:${(m.bttsProb||0)>60?"var(--green)":"var(--orange)"}">${m.bttsProb||0}%</div></div>
-      <div class="factor-item"><div class="factor-name">OVER 2.5</div><div style="font-family:'Bebas Neue';font-size:24px;color:${(m.over25Prob||0)>60?"var(--green)":"var(--orange)"}">${m.over25Prob||0}%</div></div>
-      <div class="factor-item"><div class="factor-name">${m.home} xG ${xgSrc}</div><div style="font-family:'Bebas Neue';font-size:19px;color:var(--accent)">${m.homeXg||"—"}</div><div style="font-size:9px;color:var(--text3)">${m.homeTactics||"—"}</div></div>
-      <div class="factor-item"><div class="factor-name">${m.away} xG ${xgSrc}</div><div style="font-family:'Bebas Neue';font-size:19px;color:var(--accent)">${m.awayXg||"—"}</div><div style="font-size:9px;color:var(--text3)">${m.awayTactics||"—"}</div></div>
-    </div>
-  </div>`
-}
+  var circ = 2 * Math.PI * 25;
+  var maxP = Math.max(m.homeProb||0, m.drawProb||0, m.awayProb||0);
+  var probItems = [
+    {l: m.home, p: m.homeProb||0, o: m.homeOdds||'—'},
+    {l: 'Draw', p: m.drawProb||0, o: m.drawOdds||'—'},
+    {l: m.away, p: m.awayProb||0, o: m.awayOdds||'—'}
+  ];
+  if (!m.drawProb) probItems = [probItems[0], probItems[2]];
 
-function renderTeamDataPane(m) {
-  const ga = m.gameApproach || {}
-  const hGa = ga.home || {}, aGa = ga.away || {}
-  const hDesc = hGa.descriptors || [], aDesc = aGa.descriptors || []
-  const mismatches = m.mismatches || []
+  var probHtml = probItems.map(function(x){
+    var col = x.p === maxP ? "var(--green)" : x.p > 25 ? "var(--orange)" : "var(--text2)";
+    var dash = (x.p / 100) * circ;
+    return '<div class="prob-bar-item">' +
+      '<div style="font-size:10px;color:var(--text3);margin-bottom:3px">' + (x.l||'').split(' ').slice(-1)[0] + '</div>' +
+      '<div class="prob-circle"><svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="25"/><circle class="fill" cx="30" cy="30" r="25" stroke="' + col + '" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + (circ-dash).toFixed(1) + '"/></svg><div class="prob-circle-num" style="color:' + col + '">' + x.p + '%</div></div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">@ ' + x.o + '</div></div>';
+  }).join("");
 
-  const descPills = (descs) => descs.map(d => `<span class="descriptor-pill" style="background:${d.color}22;border-color:${d.color}55;color:${d.color}">${d.icon || ""} ${d.label}</span>`).join("")
-  const descDetail = (descs) => descs.map(d => `<div style="font-size:11px;color:var(--text2);margin-bottom:4px;padding:5px 8px;background:${d.color}11;border-left:2px solid ${d.color};border-radius:4px"><strong style="color:${d.color}">${d.icon || ""} ${d.label}:</strong> ${d.desc}</div>`).join("")
+  var extraStats = '';
+  if (m.homeXg && currentSport === 'football') {
+    extraStats = '<div class="factor-grid" style="margin-top:8px">' +
+      '<div class="factor-item"><div class="factor-name">HOME xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.homeXg + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">AWAY xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.awayXg + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">BTTS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + (m.bttsProb||0) + '%</div></div>' +
+      '<div class="factor-item"><div class="factor-name">OVER 2.5</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + (m.over25Prob||0) + '%</div></div>' +
+      '</div>';
+  }
+  if (currentSport === 'basketball' && m.homeXg) {
+    extraStats = '<div class="factor-grid" style="margin-top:8px">' +
+      '<div class="factor-item"><div class="factor-name">HOME PTS PROJ</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.homeXg + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">AWAY PTS PROJ</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.awayXg + '</div></div>' +
+      '</div>';
+  }
+  if (currentSport === 'tennis' && m.surface) {
+    extraStats = '<div class="asection" style="margin-top:8px"><div class="asection-title">MATCH INFO</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">' +
+      '<div class="factor-item"><div class="factor-name">SURFACE</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--gold)">' + m.surface + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">' + (m.home||'P1') + ' RANK</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--accent)">#' + (m.homeRank||'—') + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">' + (m.away||'P2') + ' RANK</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--accent)">#' + (m.awayRank||'—') + '</div></div>' +
+      '</div></div>';
+  }
+  if (currentSport === 'f1') {
+    extraStats = '<div class="asection" style="margin-top:8px"><div class="asection-title">RACE INFO</div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text2)">' + (m.circuit||'') + '</div>' +
+      (m.isStreetCircuit ? '<div style="margin-top:5px;font-family:\'JetBrains Mono\';font-size:9px;color:var(--gold)">⚡ STREET CIRCUIT</div>' : '') +
+      '</div>';
+  }
+  if (currentSport === 'boxing' && m.homeRecord) {
+    extraStats = '<div class="factor-grid" style="margin-top:8px">' +
+      '<div class="factor-item"><div class="factor-name">' + (m.home||'F1') + ' RECORD</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--green)">' + (m.homeRecord||'—') + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">' + (m.away||'F2') + ' RECORD</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--red)">' + (m.awayRecord||'—') + '</div></div>' +
+      (m.koProb ? '<div class="factor-item"><div class="factor-name">KO PROB</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--orange)">' + m.koProb + '%</div></div>' : '') +
+      '</div>';
+  }
+  if (currentSport === 'mma' && m.homeRecord) {
+    extraStats = '<div class="factor-grid" style="margin-top:8px">' +
+      '<div class="factor-item"><div class="factor-name">' + (m.home||'F1') + '</div><div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--green)">' + (m.homeRecord||'—') + '</div><div style="font-size:9px;color:var(--text3)">' + (m.homeStyle||'') + '</div></div>' +
+      '<div class="factor-item"><div class="factor-name">' + (m.away||'F2') + '</div><div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--red)">' + (m.awayRecord||'—') + '</div><div style="font-size:9px;color:var(--text3)">' + (m.awayStyle||'') + '</div></div>' +
+      (m.finishProb ? '<div class="factor-item"><div class="factor-name">FINISH PROB</div><div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--orange)">' + m.finishProb + '%</div></div>' : '') +
+      '</div>';
+  }
 
-  document.getElementById("mp1").innerHTML = `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px">
-    <div class="asection"><div class="asection-title">${m.home.toUpperCase()} — TEAM PROFILE</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-        <div class="factor-item" style="text-align:center"><div class="factor-name">ELO</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--gold)">${m.homeElo||"—"}</div></div>
-        <div class="factor-item" style="text-align:center"><div class="factor-name">xG/GAME</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--accent)">${m.homeXg||"—"}</div></div>
-      </div>
-      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-bottom:4px">STYLE: ${hGa.style||"Balanced"}</div>
-      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-bottom:6px">FORM SCORE: ${hGa.formScore||"—"}/100</div>
-      <div style="margin-bottom:6px;font-family:'JetBrains Mono';font-size:8px;color:var(--text3)">DESCRIPTORS:</div>
-      <div style="margin-bottom:8px">${descPills(hDesc) || '<span style="font-size:10px;color:var(--text3)">Balanced</span>'}</div>
-      <div>${descDetail(hDesc)}</div>
-      ${m.homeManagerElo ? `<div style="margin-top:8px;padding:6px 8px;background:rgba(0,200,248,.06);border-radius:5px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">🧑‍💼 ${m.homeManager||"Manager"} · ELO ${m.homeManagerElo}</div>` : ""}
-    </div>
-    <div class="asection"><div class="asection-title">${m.away.toUpperCase()} — TEAM PROFILE</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-        <div class="factor-item" style="text-align:center"><div class="factor-name">ELO</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--gold)">${m.awayElo||"—"}</div></div>
-        <div class="factor-item" style="text-align:center"><div class="factor-name">xG/GAME</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--accent)">${m.awayXg||"—"}</div></div>
-      </div>
-      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-bottom:4px">STYLE: ${aGa.style||"Balanced"}</div>
-      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-bottom:6px">FORM SCORE: ${aGa.formScore||"—"}/100</div>
-      <div style="margin-bottom:6px;font-family:'JetBrains Mono';font-size:8px;color:var(--text3)">DESCRIPTORS:</div>
-      <div style="margin-bottom:8px">${descPills(aDesc) || '<span style="font-size:10px;color:var(--text3)">Balanced</span>'}</div>
-      <div>${descDetail(aDesc)}</div>
-      ${m.awayManagerElo ? `<div style="margin-top:8px;padding:6px 8px;background:rgba(0,200,248,.06);border-radius:5px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">🧑‍💼 ${m.awayManager||"Manager"} · ELO ${m.awayManagerElo}</div>` : ""}
-    </div>
-  </div>
+  var factorsHtml = '';
+  if (m.factors && m.factors.length) {
+    factorsHtml = '<div class="asection"><div class="asection-title">FACTOR MODEL</div><div class="factor-grid">' +
+      m.factors.map(function(f){
+        return '<div class="factor-item"><div class="factor-name">' + f.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px">' +
+          '<span style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">' + sn(m.home||'') + '</span>' +
+          '<div class="factor-bar" style="flex:1"><div class="factor-fill" style="width:' + (f.homeScore||0) + '%;background:' + f.color + '"></div></div>' +
+          '<span style="font-size:9px;font-family:\'JetBrains Mono\';color:' + f.color + ';width:20px;text-align:right">' + (f.homeScore||0) + '</span></div>' +
+          '<div style="display:flex;align-items:center;gap:3px">' +
+          '<span style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">' + sn(m.away||'') + '</span>' +
+          '<div class="factor-bar" style="flex:1"><div class="factor-fill" style="width:' + (f.awayScore||0) + '%;background:var(--border2)"></div></div>' +
+          '<span style="font-size:9px;font-family:\'JetBrains Mono\';color:var(--text2);width:20px;text-align:right">' + (f.awayScore||0) + '</span></div></div>';
+      }).join("") + '</div></div>';
+  }
 
-  <div class="asection"><div class="asection-title">⚡ PLAYER MISMATCHES (${mismatches.length} detected)</div>
-    ${mismatches.length === 0 ? `<div style="color:var(--text3);font-size:11px;font-family:'JetBrains Mono'">No significant mismatches detected — fairly balanced XI</div>` :
-    mismatches.map(mm => `<div class="mismatch-row">
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:600;margin-bottom:3px">
-          <span style="color:${mm.favor===m.home?"var(--green)":"var(--red)"}">${mm.attacker.name}</span>
-          <span style="color:var(--text3);font-size:10px"> (${mm.attacker.pos}, atk:${mm.attacker.attack||60}) vs </span>
-          <span style="color:var(--text2)">${mm.defender.name}</span>
-          <span style="color:var(--text3);font-size:10px"> (${mm.defender.pos}, def:${mm.defender.defense||50})</span>
-        </div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">${mm.description}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="mismatch-favor mismatch-favor-${mm.favor===m.home?"home":"away"}">${mm.favor} FAVOURED</span>
-          <div style="flex:1">
-            <div class="mismatch-weight-bar"><div class="mismatch-weight-fill" style="width:${Math.round(mm.weight*100)}%"></div></div>
-          </div>
-          <span style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">${Math.round(mm.weight*100)}% edge</span>
-        </div>
-      </div>
-    </div>`).join("")}
-  </div>
-
-  <div class="asection"><div class="asection-title">UPSET WATCH — ${m.upsetProb||0}%</div>
-    <div style="background:rgba(255,59,92,.05);border:1px solid rgba(255,59,92,.2);border-radius:7px;padding:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono';font-size:8px;color:var(--red);margin-bottom:7px">⚡ WHY ${(m.away||"").toUpperCase()} COULD WIN <span style="font-family:'Bebas Neue';font-size:17px">${m.upsetProb||0}%</span></div>
-      <div id="upsetBlock"><div style="color:var(--text3);font-size:10px;font-family:'JetBrains Mono'">Loading AI upset analysis...</div></div>
-    </div>
-  </div>`
+  document.getElementById("mp0").innerHTML =
+    '<div class="asection"><div class="asection-title">OUTCOME PROBABILITIES</div>' +
+    '<div class="prob-chart">' + probHtml + '</div>' + extraStats + '</div>' +
+    '<div class="asection"><div class="asection-title">GPT-4o AI ANALYSIS</div>' +
+    '<div id="aiBlock"><div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-size:10px;font-family:\'JetBrains Mono\'">GPT-4o analyzing...</span></div></div></div>' +
+    '<div class="asection"><div class="asection-title">KEY FACTORS FROM AI</div><div id="kfBlock"><div style="color:var(--text3);font-size:10px;font-family:\'JetBrains Mono\'">Loading...</div></div></div>' +
+    factorsHtml;
 }
 
 function renderLineupsPane(m) {
-  const home = m.homeLineup || [], away = m.awayLineup || [], has = home.length > 0 || away.length > 0
-  const pRow = (p, tName) => `<div class="player-row" onclick='openPlayerModal(${JSON.stringify(JSON.stringify(p))},"${esc(tName)}","${esc(String(m.id))}")'>
-    <span class="player-num">${p.number||"—"}</span>
-    <span class="pos-badge pos-${p.position||"CM"}">${p.position||"CM"}</span>
-    <span class="player-name-row">${p.name||"?"}${p.isKey?'<span class="key-star"> ★</span>':""}</span>
-    ${p.goals_this_season ? `<span style="font-size:8px;color:var(--green);font-family:'JetBrains Mono'">${p.goals_this_season}G</span>` : ""}
-    ${p.real_rating ? `<span style="font-size:8px;color:var(--gold);font-family:'JetBrains Mono'">${p.real_rating}</span>` : ""}
-    <span class="player-elo-sm">${p.elo||"—"}</span>
-  </div>`
-  document.getElementById("mp2").innerHTML = has ? `
-  <div class="asection"><div class="asection-title">REAL LINEUPS (SPORTMONKS) — CLICK FOR SCOUT REPORT</div>
-    <div class="lineup-grid">
-      <div><div class="lineup-team-hdr">${m.home} <span class="formation-tag">${m.homeFormation||"4-3-3"}</span></div>${home.map(p => pRow(p, m.home)).join("")}</div>
-      <div><div class="lineup-team-hdr">${m.away} <span class="formation-tag">${m.awayFormation||"4-3-3"}</span></div>${away.map(p => pRow(p, m.away)).join("")}</div>
-    </div>
-  </div>` : `<div class="empty-state" style="padding:50px 20px"><div class="empty-icon">👥</div><div class="empty-text">Lineups not yet released.<br>Check back closer to kick-off.</div></div>`
+  var home = m.homeLineup || [], away = m.awayLineup || [];
+
+  if (currentSport === 'f1' && m.allDrivers) {
+    var driverHtml = '<div class="asection"><div class="asection-title">2025 DRIVER GRID — ELO + PLAYSTYLE</div>';
+    driverHtml += '<div class="lineup-grid">';
+    var leftDrivers = m.allDrivers.filter(function(_,i){ return i%2===0; });
+    var rightDrivers = m.allDrivers.filter(function(_,i){ return i%2===1; });
+    [leftDrivers, rightDrivers].forEach(function(drivers) {
+      driverHtml += '<div>';
+      drivers.forEach(function(d) {
+        driverHtml += '<div class="player-row">' +
+          '<span class="player-num">' + (d.number||'—') + '</span>' +
+          '<span class="pos-badge pos-Driver">' + (d.team||'').slice(0,6) + '</span>' +
+          '<span class="player-name-row">' + (d.name||'?') + (d.championships ? ' <span style="color:var(--gold)">×' + d.championships + '🏆</span>' : '') + '</span>' +
+          '<span class="player-elo-sm">' + (d.driverElo||d.elo||'—') + '</span></div>';
+      });
+      driverHtml += '</div>';
+    });
+    driverHtml += '</div></div>';
+    document.getElementById("mp1").innerHTML = driverHtml;
+    return;
+  }
+
+  var has = home.length > 0 || away.length > 0;
+  if (!has) {
+    document.getElementById("mp1").innerHTML = '<div class="empty-state" style="padding:50px 20px"><div class="empty-icon">👥</div><div class="empty-text">Lineups / rosters not yet available.</div></div>';
+    return;
+  }
+
+  var label = currentSport === 'basketball' ? 'ROSTERS' :
+              currentSport === 'american_football' ? 'KEY PLAYERS' :
+              currentSport === 'boxing' || currentSport === 'mma' ? 'FIGHTER PROFILES' :
+              currentSport === 'tennis' ? 'PLAYER PROFILES' :
+              'LINEUPS (SPORTMONKS)';
+
+  var pRow = function(p, tName) {
+    var pos = p.position || 'CM';
+    var posClass = 'pos-' + pos;
+    var ps = p.playstyle;
+    var playstyleHtml = '';
+    if (ps) playstyleHtml = '<div style="font-size:9px;color:var(--text3);margin-left:auto">' + (ps.icon||'') + ' ' + (ps.name||'') + '</div>';
+    return '<div class="player-row" onclick=\'openPlayerModal(' + JSON.stringify(JSON.stringify(p)) + ',"' + esc(tName) + '")\'>' +
+      '<span class="player-num">' + (p.number||'—') + '</span>' +
+      '<span class="pos-badge ' + posClass + '">' + pos + '</span>' +
+      '<span class="player-name-row">' + (p.name||'?') + (p.isKey ? '<span class="key-star"> ★</span>' : '') + '</span>' +
+      (p.goals_this_season ? '<span style="font-size:8px;color:var(--green);font-family:\'JetBrains Mono\'">' + p.goals_this_season + 'G</span>' : '') +
+      (p.stats ? '<span style="font-size:7px;color:var(--text3);font-family:\'JetBrains Mono\';max-width:80px;overflow:hidden;white-space:nowrap">' + p.stats + '</span>' : '') +
+      '<span class="player-elo-sm">' + (p.elo||'—') + '</span>' +
+      playstyleHtml +
+      '</div>';
+  };
+
+  document.getElementById("mp1").innerHTML =
+    '<div class="asection"><div class="asection-title">' + label + ' — CLICK FOR SCOUT REPORT</div>' +
+    '<div class="lineup-grid">' +
+    '<div><div class="lineup-team-hdr">' + (m.home||'Home') + ' <span class="formation-tag">' + (m.homeFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
+    home.map(function(p){ return pRow(p, m.home||'Home'); }).join("") + '</div>' +
+    '<div><div class="lineup-team-hdr">' + (m.away||'Away') + ' <span class="formation-tag">' + (m.awayFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
+    away.map(function(p){ return pRow(p, m.away||'Away'); }).join("") + '</div>' +
+    '</div></div>';
 }
 
+// ─── MARKETS PANE (with FIX: over/under parlay cards) ────────────────────────
 function renderMarketsPane(m) {
-  const cs = m.correctScores || []
-  document.getElementById("mp3").innerHTML = `
-  <div class="asection"><div class="asection-title">RESULT — ${m.hasRealOdds ? "● REAL ODDS · " + (m.bookmaker || "") : "◎ MODEL ODDS"}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:4px">
-      ${[{l:m.home+" Win",p:m.homeProb,o:m.homeOdds,pick:"home",mv:m.homeMovement||0},{l:"Draw",p:m.drawProb,o:m.drawOdds,pick:"draw",mv:m.drawMovement||0},{l:m.away+" Win",p:m.awayProb,o:m.awayOdds,pick:"away",mv:m.awayMovement||0}].map(x => {
-        const mvH = x.mv > 0 ? `<div style="font-size:8px;color:var(--red);font-family:'JetBrains Mono'">▲ SHORT</div>` : x.mv < 0 ? `<div style="font-size:8px;color:var(--green);font-family:'JetBrains Mono'">▼ DRIFT</div>` : ""
-        return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;cursor:pointer" onclick="toggleParlay(${JSON.stringify(m.id)},'${x.pick}','${esc(x.l)}',${x.o},${x.p})" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-          <div style="font-size:9px;color:var(--text3);margin-bottom:3px">${x.l.split(" ").slice(-1)[0]}</div>
-          <div style="font-family:'Bebas Neue';font-size:24px;color:var(--gold)">${x.o}</div>
-          <div style="font-size:9px;color:var(--text3)">${x.p}%</div>${mvH}
-        </div>`}).join("")}
-    </div>
-  </div>
-  <div class="asection"><div class="asection-title">GOAL MARKETS</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
-      <div class="factor-item"><div class="factor-name">BOTH TEAMS TO SCORE</div>
-        <div style="font-family:'Bebas Neue';font-size:26px;color:${(m.bttsProb||0)>60?"var(--green)":"var(--orange)"}">${m.bttsProb||0}%</div>
-        <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
-          <span style="background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:2px 6px;font-size:9px;font-family:'JetBrains Mono'">YES@${m.bttsOdds?.yes?.toFixed(2)||"—"}</span>
-          <span style="background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:2px 6px;font-size:9px;font-family:'JetBrains Mono'">NO@${m.bttsOdds?.no?.toFixed(2)||"—"}</span>
-        </div>
-      </div>
-      <div class="factor-item"><div class="factor-name">OVER / UNDER</div>
-        ${[2.5,1.5,3.5,0.5,4.5,5.5].map(pts => { const p = m.ouProbs?.[pts], o = m.ouOdds?.[pts]; if (!p) return ""; return `<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:9px;color:var(--text3);font-family:'JetBrains Mono'">O${pts}</span><span style="font-family:'JetBrains Mono';font-size:9px;color:${p.overPct>60?"var(--green)":"var(--orange)"}">${p.overPct}%</span><span style="font-size:9px;color:var(--text3)">@${o?.over?.toFixed(2)||"—"}</span></div>` }).join("")}
-      </div>
-    </div>
-  </div>
-  ${cs.length ? `<div class="asection"><div class="asection-title">CORRECT SCORES</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
-      ${cs.slice(0, 9).map(x => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px;text-align:center"><div style="font-family:'Bebas Neue';font-size:17px;color:var(--text)">${x.score}</div><div style="font-family:'JetBrains Mono';font-size:9px;color:var(--teal)">${x.prob}%</div></div>`).join("")}
-    </div></div>` : ""}
-  <div class="asection"><div class="asection-title">EXPECTED GOALS</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
-      <div class="factor-item"><div class="factor-name">${m.home}</div><div style="font-family:'Bebas Neue';font-size:21px;color:var(--accent)">${m.homeXg||"—"} xG</div><div style="font-size:9px;color:var(--text3);margin-top:2px">${m.homeTactics||"—"} · ELO ${m.homeElo}</div></div>
-      <div class="factor-item"><div class="factor-name">${m.away}</div><div style="font-family:'Bebas Neue';font-size:21px;color:var(--accent)">${m.awayXg||"—"} xG</div><div style="font-size:9px;color:var(--text3);margin-top:2px">${m.awayTactics||"—"} · ELO ${m.awayElo}</div></div>
-    </div>
-  </div>`
+  var cs = m.correctScores || [];
+  var mid = JSON.stringify(m.id);
+
+  var resultHtml = '<div class="asection"><div class="asection-title">RESULT — ' + (m.hasRealOdds ? '● REAL ODDS · ' + (m.bookmaker||'') : '◎ MODEL ODDS') + '</div>' +
+    '<div style="display:grid;grid-template-columns:' + (m.drawOdds ? '1fr 1fr 1fr' : '1fr 1fr') + ';gap:7px;margin-bottom:4px">';
+
+  var picks = [{l:(m.home||'')+" Win",p:m.homeProb,o:m.homeOdds,pick:"home"},{l:(m.away||'')+" Win",p:m.awayProb,o:m.awayOdds,pick:"away"}];
+  if (m.drawOdds) picks.splice(1,0,{l:"Draw",p:m.drawProb,o:m.drawOdds,pick:"draw"});
+
+  picks.forEach(function(x){
+    resultHtml += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;cursor:pointer" onclick="toggleParlay(' + mid + ',\'' + x.pick + '\',\'' + esc(x.l) + '\',' + (x.o||2) + ',' + (x.p||50) + ')" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+      '<div style="font-size:9px;color:var(--text3);margin-bottom:3px">' + x.l.split(' ').slice(-1)[0] + '</div>' +
+      '<div style="font-family:\'Bebas Neue\';font-size:24px;color:var(--gold)">' + (x.o||'—') + '</div>' +
+      '<div style="font-size:9px;color:var(--text3)">' + (x.p||'—') + '%</div></div>';
+  });
+  resultHtml += '</div></div>';
+
+  var goalsHtml = '';
+  if (m.bttsProb !== undefined && m.bttsProb !== null && currentSport === 'football') {
+    goalsHtml = '<div class="asection"><div class="asection-title">GOAL MARKETS</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">' +
+      '<div class="factor-item"><div class="factor-name">BOTH TEAMS TO SCORE</div><div style="font-family:\'Bebas Neue\';font-size:26px;color:' + ((m.bttsProb||0)>60?"var(--green)":"var(--orange)") + '">' + (m.bttsProb||0) + '%</div></div>' +
+      '<div class="factor-item"><div class="factor-name">OVER 2.5</div><div style="font-family:\'Bebas Neue\';font-size:26px;color:' + ((m.over25Prob||0)>60?"var(--green)":"var(--orange)") + '">' + (m.over25Prob||0) + '%</div></div>' +
+      '</div></div>';
+  }
+
+  // FIX: Over/Under parlay cards — clickable, added to parlay builder
+  var ouSel = '';
+  if (m.ouOdds && Object.keys(m.ouOdds).length) {
+    var lines = Object.keys(m.ouOdds).map(Number).sort(function(a,b){ return a-b; });
+    ouSel = '<div class="asection"><div class="asection-title">GOALS MARKETS — ADD TO PARLAY</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    for (var li = 0; li < lines.length; li++) {
+      var pts = lines[li];
+      var ou = m.ouOdds[pts];
+      if (!ou) continue;
+      var overPct = (m.ouProbs && m.ouProbs[pts]) ? (m.ouProbs[pts].overPct || 50) : 50;
+      var underPct = (m.ouProbs && m.ouProbs[pts]) ? (m.ouProbs[pts].underPct || 50) : 50;
+      if (ou.over) {
+        ouSel += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;cursor:pointer;text-align:center;transition:border-color .15s;min-width:72px" ' +
+          'onclick="toggleParlay(' + mid + ',\'over_' + pts + '\',\'Over ' + pts + '\',' + ou.over + ',' + overPct + ')" ' +
+          'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+          '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">OVER ' + pts + '</div>' +
+          '<div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--green)">' + ou.over + '</div>' +
+          '<div style="font-size:9px;color:var(--text3)">' + overPct + '%</div></div>';
+      }
+      if (ou.under) {
+        ouSel += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;cursor:pointer;text-align:center;transition:border-color .15s;min-width:72px" ' +
+          'onclick="toggleParlay(' + mid + ',\'under_' + pts + '\',\'Under ' + pts + '\',' + ou.under + ',' + underPct + ')" ' +
+          'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+          '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">UNDER ' + pts + '</div>' +
+          '<div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--red)">' + ou.under + '</div>' +
+          '<div style="font-size:9px;color:var(--text3)">' + underPct + '%</div></div>';
+      }
+    }
+    ouSel += '</div></div>';
+  }
+
+  var csHtml = '';
+  if (cs.length) {
+    csHtml = '<div class="asection"><div class="asection-title">CORRECT SCORES</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">' +
+      cs.slice(0,9).map(function(x){
+        return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px;text-align:center">' +
+          '<div style="font-family:\'Bebas Neue\';font-size:17px;color:var(--text)">' + x.score + '</div>' +
+          '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--teal)">' + x.prob + '%</div></div>';
+      }).join("") + '</div></div>';
+  }
+
+  document.getElementById("mp2").innerHTML = resultHtml + goalsHtml + ouSel + csHtml;
 }
 
 function renderH2HPane(m) {
-  const h2h = m.h2h || [], hw = h2h.filter(h => h.winner === m.home).length, aw = h2h.filter(h => h.winner === m.away).length, dw = h2h.filter(h => h.winner === "Draw").length
-  document.getElementById("mp4").innerHTML = `
-  <div class="asection"><div class="asection-title">HEAD TO HEAD — ${h2h.length} MEETINGS</div>
-    ${h2h.length ? `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:11px">
-      <div style="background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:'Bebas Neue';font-size:28px;color:var(--green)">${hw}</div><div style="font-size:8px;color:var(--text3);font-family:'JetBrains Mono'">${sn(m.home)}</div></div>
-      <div style="background:rgba(255,140,66,.07);border:1px solid rgba(255,140,66,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:'Bebas Neue';font-size:28px;color:var(--orange)">${dw}</div><div style="font-size:8px;color:var(--text3);font-family:'JetBrains Mono'">DRAWS</div></div>
-      <div style="background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:'Bebas Neue';font-size:28px;color:var(--red)">${aw}</div><div style="font-size:8px;color:var(--text3);font-family:'JetBrains Mono'">${sn(m.away)}</div></div>
-    </div>
-    ${h2h.map(h => `<div class="h2h-row"><span style="color:var(--text3);font-family:'JetBrains Mono';font-size:9px;width:72px;flex-shrink:0">${(h.date||"").slice(0,10)}</span><span style="flex:1;font-size:11px">${h.home} vs ${h.away}</span><span style="font-weight:700;font-family:'JetBrains Mono'">${h.homeGoals??"-"}-${h.awayGoals??"-"}</span><span style="font-size:9px;font-family:'JetBrains Mono';margin-left:7px;width:13px;text-align:center;font-weight:700;color:${h.winner===m.home?"var(--green)":h.winner===m.away?"var(--red)":"var(--orange)"}">${h.winner==="Draw"?"D":h.winner===m.home?"H":"A"}</span></div>`).join("")}` :
-    `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No H2H data available.</div></div>`}
-  </div>
-  <div class="asection"><div class="asection-title">CURRENT FORM</div>
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px">
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:7px">
-        <span style="font-size:10px;color:var(--text3);width:76px;font-family:'JetBrains Mono'">${sn(m.home)}</span>
-        ${(m.homeForm || []).map(r => `<div style="width:19px;height:19px;border-radius:3px;background:${r==="W"?"var(--green)":r==="D"?"var(--orange)":"var(--red)"};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000">${r}</div>`).join("")}
-        ${!(m.homeForm || []).length ? `<span style="font-size:10px;color:var(--text3)">No data</span>` : ""}
-      </div>
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:10px;color:var(--text3);width:76px;font-family:'JetBrains Mono'">${sn(m.away)}</span>
-        ${(m.awayForm || []).map(r => `<div style="width:19px;height:19px;border-radius:3px;background:${r==="W"?"var(--green)":r==="D"?"var(--orange)":"var(--red)"};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000">${r}</div>`).join("")}
-        ${!(m.awayForm || []).length ? `<span style="font-size:10px;color:var(--text3)">No data</span>` : ""}
-      </div>
-    </div>
-  </div>`
+  var h2h = m.h2h || [];
+  var hw = h2h.filter(function(h){ return h.winner === m.home; }).length;
+  var aw = h2h.filter(function(h){ return h.winner === m.away; }).length;
+  var dw = h2h.filter(function(h){ return h.winner === "Draw"; }).length;
+
+  var html = '<div class="asection"><div class="asection-title">HEAD TO HEAD — ' + h2h.length + ' MEETINGS</div>';
+  if (h2h.length) {
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:11px">' +
+      '<div style="background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:\'Bebas Neue\';font-size:28px;color:var(--green)">' + hw + '</div><div style="font-size:8px;color:var(--text3);font-family:\'JetBrains Mono\'">' + sn(m.home||'') + '</div></div>' +
+      '<div style="background:rgba(255,140,66,.07);border:1px solid rgba(255,140,66,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:\'Bebas Neue\';font-size:28px;color:var(--orange)">' + dw + '</div><div style="font-size:8px;color:var(--text3);font-family:\'JetBrains Mono\'">DRAWS</div></div>' +
+      '<div style="background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.2);border-radius:7px;padding:10px;text-align:center"><div style="font-family:\'Bebas Neue\';font-size:28px;color:var(--red)">' + aw + '</div><div style="font-size:8px;color:var(--text3);font-family:\'JetBrains Mono\'">' + sn(m.away||'') + '</div></div>' +
+      '</div>';
+    html += h2h.map(function(h){
+      return '<div class="h2h-row">' +
+        '<span style="color:var(--text3);font-family:\'JetBrains Mono\';font-size:9px;width:72px;flex-shrink:0">' + (h.date||'').slice(0,10) + '</span>' +
+        '<span style="flex:1;font-size:11px">' + (h.home||'?') + ' vs ' + (h.away||'?') + '</span>' +
+        '<span style="font-weight:700;font-family:\'JetBrains Mono\'">' + (h.homeGoals||0) + '-' + (h.awayGoals||0) + '</span>' +
+        '<span style="font-size:9px;font-family:\'JetBrains Mono\';margin-left:7px;width:13px;text-align:center;font-weight:700;color:' + (h.winner===m.home?"var(--green)":h.winner===m.away?"var(--red)":"var(--orange)") + '">' + (h.winner==="Draw"?"D":h.winner===m.home?"H":"A") + '</span>' +
+        '</div>';
+    }).join("");
+  } else {
+    html += '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No H2H data available.</div></div>';
+  }
+  html += '</div>';
+
+  html += '<div class="asection"><div class="asection-title">CURRENT FORM</div><div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px">';
+  html += '<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:7px">' +
+    '<span style="font-size:10px;color:var(--text3);width:76px;font-family:\'JetBrains Mono\'">' + sn(m.home||'') + '</span>' +
+    (m.homeForm||[]).map(function(r){ return '<div style="width:19px;height:19px;border-radius:3px;background:' + (r==="W"?"var(--green)":r==="D"?"var(--orange)":"var(--red)") + ';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000">' + r + '</div>'; }).join("") +
+    '</div>';
+  html += '<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">' +
+    '<span style="font-size:10px;color:var(--text3);width:76px;font-family:\'JetBrains Mono\'">' + sn(m.away||'') + '</span>' +
+    (m.awayForm||[]).map(function(r){ return '<div style="width:19px;height:19px;border-radius:3px;background:' + (r==="W"?"var(--green)":r==="D"?"var(--orange)":"var(--red)") + ';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000">' + r + '</div>'; }).join("") +
+    '</div>';
+  html += '</div></div>';
+
+  document.getElementById("mp3").innerHTML = html;
 }
 
 async function loadMatchAI(m) {
   try {
-    const [r1, r2] = await Promise.all([
-      fetch(`${API}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: m, type: "match" }) }),
-      fetch(`${API}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: m, type: "upset" }) })
-    ])
-    const [ai, up] = await Promise.all([r1.json(), r2.json()])
-    const aiEl = document.getElementById("aiBlock")
+    var r1 = await fetch(API + "/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ match: m, type: "match" })
+    });
+    if (r1.status === 402) {
+      var locked = await r1.json().catch(function(){ return {}; });
+      showLockModal(locked.action || 'match_analysis');
+      var aiEl = document.getElementById("aiBlock");
+      if (aiEl) aiEl.innerHTML = '<div class="ai-text" style="color:var(--text3)">Upgrade your plan to access AI analysis.</div>';
+      return;
+    }
+    var ai = await r1.json();
+    var aiEl = document.getElementById("aiBlock");
     if (aiEl && ai.mainAnalysis) {
-      const rc = (ai.recommendation || "").toUpperCase()
-      const rcCls = rc.startsWith("HOME") ? "H" : rc.startsWith("AWAY") ? "A" : rc.startsWith("DRAW") ? "D" : "V"
-      aiEl.innerHTML = `<div class="ai-text">${ai.mainAnalysis.replace(/\n/g, "<br>")}</div>
-        ${ai.recommendation ? `<div class="rec-badge rec-${rcCls}">RECOMMENDATION: ${ai.recommendation}</div>` : ""}
-        ${ai.oneLineSummary ? `<div style="margin-top:7px;font-style:italic;color:var(--text3);font-size:11px">"${ai.oneLineSummary}"</div>` : ""}
-        ${ai.mismatchImpact ? `<div style="margin-top:9px;padding:7px 9px;background:rgba(168,85,247,.07);border-left:2px solid var(--purple);font-size:11px;color:var(--text2)"><strong style="color:var(--purple)">⚡ MISMATCHES:</strong> ${ai.mismatchImpact}</div>` : ""}
-        ${ai.matchFacts?.length ? `<div style="margin-top:9px">${ai.matchFacts.map(f => `<div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;gap:5px"><span style="color:var(--accent);flex-shrink:0">◆</span>${f}</div>`).join("")}</div>` : ""}`
-    } else if (aiEl) aiEl.innerHTML = `<div class="ai-text" style="color:var(--text3)">AI unavailable — check GITHUB_TOKEN in .env</div>`
-    const kfEl = document.getElementById("kfBlock")
-    if (kfEl && ai.keyFactors?.length) kfEl.innerHTML = ai.keyFactors.map(f => `<div class="key-factor">${f}</div>`).join("")
-    else if (kfEl) kfEl.innerHTML = `<div style="color:var(--text3);font-size:10px;font-family:'JetBrains Mono'">AI factors unavailable</div>`
-    const upEl = document.getElementById("upsetBlock")
-    if (upEl && up.upsetReasons) upEl.innerHTML = `<div class="ai-text">${up.upsetReasons.map(r => `<div style="margin-bottom:5px">◆ ${r}</div>`).join("")}${up.upsetTrigger ? `<div style="margin-top:9px;padding:6px 9px;background:rgba(255,59,92,.07);border-left:2px solid var(--red);font-size:11px"><strong style="color:var(--red)">TRIGGER:</strong> ${up.upsetTrigger}</div>` : ""}</div>`
-    else if (upEl) upEl.innerHTML = `<div style="color:var(--text3);font-size:10px">Upset analysis unavailable</div>`
+      var rc = (ai.recommendation || "").toUpperCase();
+      var rcCls = rc.startsWith("HOME") ? "H" : rc.startsWith("AWAY") ? "A" : rc.startsWith("DRAW") ? "D" : "V";
+      aiEl.innerHTML = '<div class="ai-text">' + ai.mainAnalysis.replace(/\n/g,"<br>") + '</div>' +
+        (ai.recommendation ? '<div class="rec-badge rec-' + rcCls + '">RECOMMENDATION: ' + ai.recommendation + '</div>' : '') +
+        (ai.oneLineSummary ? '<div style="margin-top:7px;font-style:italic;color:var(--text3);font-size:11px">"' + ai.oneLineSummary + '"</div>' : '') +
+        (ai.matchFacts && ai.matchFacts.length ? '<div style="margin-top:9px">' + ai.matchFacts.map(function(f){ return '<div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;gap:5px"><span style="color:var(--accent);flex-shrink:0">◆</span>' + f + '</div>'; }).join("") + '</div>' : '');
+    } else if (aiEl) {
+      aiEl.innerHTML = '<div class="ai-text" style="color:var(--text3)">AI unavailable — check GITHUB_TOKEN in .env</div>';
+    }
+    var kfEl = document.getElementById("kfBlock");
+    if (kfEl && ai.keyFactors && ai.keyFactors.length) {
+      kfEl.innerHTML = ai.keyFactors.map(function(f){ return '<div class="key-factor">' + f + '</div>'; }).join("");
+    } else if (kfEl) {
+      kfEl.innerHTML = '<div style="color:var(--text3);font-size:10px;font-family:\'JetBrains Mono\'">AI factors unavailable</div>';
+    }
   } catch(err) {
-    const el = document.getElementById("aiBlock"); if (el) el.innerHTML = `<div class="ai-text" style="color:var(--text3)">AI unavailable</div>`
+    var el = document.getElementById("aiBlock");
+    if (el) el.innerHTML = '<div class="ai-text" style="color:var(--text3)">AI unavailable</div>';
   }
 }
 
-function closeModal() { document.getElementById("modal").classList.remove("open") }
+function closeModal() { document.getElementById("modal").classList.remove("open"); }
 
 function openPlayerModal(pjson, teamName) {
-  let p; try { p = JSON.parse(pjson) } catch(e) { return }
-  document.getElementById("pmName").textContent = p.name || "Player"
-  document.getElementById("pmMeta").textContent = `${p.position||"?"} · ${teamName} · #${p.number||"—"}${p.goals_this_season ? ` · ${p.goals_this_season}G ${p.assists_this_season||0}A` : ""}${p.real_rating ? ` · ${p.real_rating} avg rating` : ""}`
-  const grade = e => e >= 1800 ? "ELITE" : e >= 1700 ? "WORLD CLASS" : e >= 1600 ? "QUALITY" : e >= 1500 ? "SOLID" : "DEVELOPING"
-  const sc = v => v >= 75 ? "var(--green)" : v >= 55 ? "var(--orange)" : "var(--red)"
-  document.getElementById("pmBody").innerHTML = `
-    <div class="pm-elo-hero"><div class="pm-elo-num">${p.elo||"—"}</div><div class="pm-elo-lbl">PLAYER ELO</div><div class="pm-elo-grade">${grade(p.elo||0)} · ${p.isKey?"⭐ KEY PLAYER":"Squad Player"}</div></div>
-    ${p.playstyle ? `<div style="background:rgba(0,212,255,.05);border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:9px"><div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:2px">${p.playstyle.icon||""} ${p.playstyle.name||""}</div><div style="font-size:11px;color:var(--text2)">${p.playstyle.desc||""}</div></div>` : ""}
-    <div class="asection"><div class="asection-title">ATTRIBUTES</div>
-      ${[{l:"SPEED",v:p.speed||0},{l:"ATTACK",v:p.attack||0},{l:"DEFENSE",v:p.defense||0},{l:"BIG MATCH",v:p.bigMatch||0}].map(a => `<div class="stat-bar-row"><span class="stat-bar-lbl">${a.l}</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width:${a.v}%;background:${sc(a.v)}"></div></div><span class="stat-bar-num">${a.v}</span></div>`).join("")}
-    </div>
-    ${p.goals_this_season !== null && p.goals_this_season !== undefined ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:9px">
-      <div class="factor-item" style="text-align:center"><div class="factor-name">GOALS</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--green)">${p.goals_this_season||0}</div></div>
-      <div class="factor-item" style="text-align:center"><div class="factor-name">ASSISTS</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--accent)">${p.assists_this_season||0}</div></div>
-      <div class="factor-item" style="text-align:center"><div class="factor-name">APPS</div><div style="font-family:'Bebas Neue';font-size:22px;color:var(--text)">${p.appearances||0}</div></div>
-    </div>` : ""}
-    <div class="pm-scout-box"><div class="pm-section-title">GPT-4o SCOUT REPORT</div>
-      <div id="pmScout"><div style="display:flex;align-items:center;gap:7px;color:var(--text3)"><div class="spinner" style="width:12px;height:12px;border-width:2px"></div><span style="font-size:10px;font-family:'JetBrains Mono'">Loading real SM data...</span></div></div>
-    </div>`
-  document.getElementById("pmOverlay").classList.add("open")
-  fetch(`${API}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: { player: p, team: teamName }, type: "player" }) })
-    .then(r => r.json()).then(d => {
-      const el = document.getElementById("pmScout"); if (!el) return
-      el.innerHTML = `<div class="ai-text" style="font-size:11px">${d.profile||"Unavailable"}</div>
-        ${d.strengths?.length ? `<div style="margin-top:7px">${d.strengths.map(s => `<div style="font-size:11px;color:var(--text2);margin-bottom:2px">✓ ${s}</div>`).join("")}</div>` : ""}
-        ${d.weaknesses?.length ? `<div style="margin-top:4px">${d.weaknesses.map(s => `<div style="font-size:11px;color:var(--text2);margin-bottom:2px">✗ ${s}</div>`).join("")}</div>` : ""}
-        ${d.similarTo ? `<div style="margin-top:5px;font-size:9px;color:var(--text3);font-family:'JetBrains Mono'">SIMILAR TO: ${d.similarTo}</div>` : ""}`
-    }).catch(() => { const el = document.getElementById("pmScout"); if (el) el.innerHTML = `<div style="color:var(--text3);font-size:10px">AI unavailable</div>` })
-}
-function closePM() { document.getElementById("pmOverlay").classList.remove("open") }
+  var p;
+  try { p = JSON.parse(pjson); } catch(e) { return; }
+  document.getElementById("pmName").textContent = p.name || "Player";
+  document.getElementById("pmMeta").textContent = (p.position||"?") + " · " + teamName + " · #" + (p.number||"—") +
+    (p.goals_this_season ? " · " + p.goals_this_season + "G " + (p.assists_this_season||0) + "A" : "") +
+    (p.real_rating ? " · " + p.real_rating + " rating" : "") +
+    (p.record ? " · " + p.record : "") +
+    (p.country ? " · " + p.country : "");
 
-// ─── PARLAY ───────────────────────────────────────────────
-function toggleParlay(matchId, pick, label, odds, prob) {
-  const idx = parlaySelections.findIndex(s => s.matchId === matchId)
-  const m = allMatches.find(x => x.id === matchId); if (!m) return
-  const entry = { matchId, pick, label, odds, prob, matchName: `${m.home} vs ${m.away}`, league: m.league, confidence: m.confidence, hasRealOdds: m.hasRealOdds }
-  if (idx > -1) { if (parlaySelections[idx].pick === pick) parlaySelections.splice(idx, 1); else parlaySelections[idx] = entry }
-  else parlaySelections.push(entry)
-  renderParlay(); renderPage()
+  var grade = function(e){ return e>=1800?"ELITE":e>=1700?"WORLD CLASS":e>=1600?"QUALITY":e>=1500?"SOLID":"DEVELOPING"; };
+  var sc = function(v){ return v>=75?"var(--green)":v>=55?"var(--orange)":"var(--red)"; };
+
+  var ps = p.playstyle;
+  var psHtml = ps ? '<div style="background:rgba(0,212,255,.05);border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:9px"><div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:2px">' + (ps.icon||"") + " " + (ps.name||"") + '</div><div style="font-size:11px;color:var(--text2)">' + (ps.desc||"") + '</div></div>' : "";
+
+  var statsHtml = '';
+  if (p.goals_this_season !== null && p.goals_this_season !== undefined) {
+    statsHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:9px">' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">GOALS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--green)">' + (p.goals_this_season||0) + '</div></div>' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">ASSISTS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + (p.assists_this_season||0) + '</div></div>' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">APPS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--text)">' + (p.appearances||0) + '</div></div>' +
+      '</div>';
+  }
+  if (p.points) {
+    statsHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:9px">' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">PPG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--green)">' + (p.points||0) + '</div></div>' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">APG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + (p.assists||0) + '</div></div>' +
+      '<div class="factor-item" style="text-align:center"><div class="factor-name">RPG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--text)">' + (p.rebounds||0) + '</div></div>' +
+      '</div>';
+  }
+  if (p.record) {
+    statsHtml = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:9px">' +
+      '<div style="font-family:\'Bebas Neue\';font-size:24px;color:var(--green)">' + p.record + '</div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3)">' + (p.titles&&p.titles.length?p.titles.join(', '):'No current titles') + '</div></div>';
+  }
+
+  document.getElementById("pmBody").innerHTML =
+    '<div class="pm-elo-hero"><div class="pm-elo-num">' + (p.elo||"—") + '</div><div class="pm-elo-lbl">ELO RATING</div><div class="pm-elo-grade">' + grade(p.elo||0) + ' · ' + (p.isKey?"⭐ KEY PLAYER":"Squad Player") + '</div></div>' +
+    psHtml + statsHtml +
+    '<div class="asection"><div class="asection-title">ATTRIBUTES</div>' +
+    [{l:"SPEED",v:p.speed||0},{l:"ATTACK",v:p.attack||0},{l:"DEFENSE",v:p.defense||0},{l:"BIG MATCH",v:p.bigMatch||0}].map(function(a){
+      return '<div class="stat-bar-row"><span class="stat-bar-lbl">' + a.l + '</span><div class="stat-bar-track"><div class="stat-bar-fill" style="width:' + a.v + '%;background:' + sc(a.v) + '"></div></div><span class="stat-bar-num">' + a.v + '</span></div>';
+    }).join("") + '</div>' +
+    '<div class="pm-scout-box"><div class="pm-section-title">GPT-4o SCOUT REPORT</div>' +
+    '<div id="pmScout"><div style="display:flex;align-items:center;gap:7px;color:var(--text3)"><div class="spinner" style="width:12px;height:12px;border-width:2px"></div><span style="font-size:10px;font-family:\'JetBrains Mono\'">Loading scout report...</span></div></div></div>';
+
+  document.getElementById("pmOverlay").classList.add("open");
+
+  fetch(API + "/analyze", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ match: { player: p, team: teamName }, type: "player" })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById("pmScout");
+      if (!el) return;
+      el.innerHTML = '<div class="ai-text" style="font-size:11px">' + (d.profile||"Unavailable") + '</div>' +
+        (d.strengths && d.strengths.length ? '<div style="margin-top:7px">' + d.strengths.map(function(s){ return '<div style="font-size:11px;color:var(--text2);margin-bottom:2px">✓ ' + s + '</div>'; }).join("") + '</div>' : '') +
+        (d.weaknesses && d.weaknesses.length ? '<div style="margin-top:4px">' + d.weaknesses.map(function(s){ return '<div style="font-size:11px;color:var(--text2);margin-bottom:2px">✗ ' + s + '</div>'; }).join("") + '</div>' : '') +
+        (d.similarTo ? '<div style="margin-top:5px;font-size:9px;color:var(--text3);font-family:\'JetBrains Mono\'">SIMILAR TO: ' + d.similarTo + '</div>' : '');
+    })
+    .catch(function(){ var el = document.getElementById("pmScout"); if (el) el.innerHTML = '<div style="color:var(--text3);font-size:10px">AI unavailable</div>'; });
 }
-function removeParlay(mid) { parlaySelections = parlaySelections.filter(s => s.matchId !== mid); renderParlay(); renderPage() }
+
+function closePM() { document.getElementById("pmOverlay").classList.remove("open"); }
+
+// ─── PARLAY ───────────────────────────────────────────────────────────────────
+function toggleParlay(matchId, pick, label, odds, prob) {
+  var idx = parlaySelections.findIndex(function(s){ return s.matchId === matchId; });
+  var m = allMatches.find(function(x){ return x.id === matchId; });
+  if (!m) return;
+  var entry = { matchId: matchId, pick: pick, label: label, odds: odds, prob: prob, matchName: (m.home||'?') + " vs " + (m.away||'?'), league: m.league, confidence: m.confidence||prob, hasRealOdds: m.hasRealOdds };
+  if (idx > -1) { if (parlaySelections[idx].pick === pick) parlaySelections.splice(idx, 1); else parlaySelections[idx] = entry; }
+  else parlaySelections.push(entry);
+  renderParlay(); renderPage();
+}
+
+function removeParlay(mid) {
+  parlaySelections = parlaySelections.filter(function(s){ return s.matchId !== mid; });
+  renderParlay(); renderPage();
+}
 
 function getEnabledMarkets() {
-  const mkts = []
-  if (document.getElementById("mkt-h2h")?.checked) mkts.push("h2h")
-  if (document.getElementById("mkt-btts")?.checked) mkts.push("btts")
-  if (document.getElementById("mkt-ou25")?.checked) mkts.push("ou_2.5")
-  if (document.getElementById("mkt-ou15")?.checked) mkts.push("ou_1.5")
-  if (document.getElementById("mkt-ou35")?.checked) mkts.push("ou_3.5")
-  if (document.getElementById("mkt-ou45")?.checked) mkts.push("ou_4.5")
-  return mkts.length ? mkts : ["h2h"]
+  var mkts = [];
+  if (document.getElementById("mkt-h2h") && document.getElementById("mkt-h2h").checked) mkts.push("h2h");
+  if (document.getElementById("mkt-btts") && document.getElementById("mkt-btts").checked) mkts.push("btts");
+  if (document.getElementById("mkt-ou25") && document.getElementById("mkt-ou25").checked) mkts.push("ou_2.5");
+  if (document.getElementById("mkt-ou15") && document.getElementById("mkt-ou15").checked) mkts.push("ou_1.5");
+  if (document.getElementById("mkt-ou35") && document.getElementById("mkt-ou35").checked) mkts.push("ou_3.5");
+  if (document.getElementById("mkt-ou45") && document.getElementById("mkt-ou45").checked) mkts.push("ou_4.5");
+  return mkts.length ? mkts : ["h2h"];
 }
 
 function renderParlay() {
-  const legs = document.getElementById("parlayLegs")
-  document.getElementById("pLegs").textContent = parlaySelections.length
+  var legs = document.getElementById("parlayLegs");
+  document.getElementById("pLegs").textContent = parlaySelections.length;
   if (!parlaySelections.length) {
-    legs.innerHTML = `<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Auto-Build or click any outcome.</div></div>`
-    document.getElementById("parlayScore").textContent = "—"; document.getElementById("scoreGrade").textContent = "ADD SELECTIONS"
-    document.getElementById("pOdds").textContent = "—"; document.getElementById("pRisk").textContent = "—"; document.getElementById("pImplied").textContent = "—"
-    document.getElementById("scoreRing").style.strokeDashoffset = "188.5"; return
+    legs.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Auto-Build or click any outcome.</div></div>';
+    document.getElementById("parlayScore").textContent = "—";
+    document.getElementById("scoreGrade").textContent = "ADD SELECTIONS";
+    document.getElementById("pOdds").textContent = "—";
+    document.getElementById("pRisk").textContent = "—";
+    document.getElementById("pImplied").textContent = "—";
+    document.getElementById("scoreRing").style.strokeDashoffset = "188.5";
+    return;
   }
-  const co = parlaySelections.reduce((p, s) => p * s.odds, 1)
-  const cp = parlaySelections.reduce((p, s) => p * (s.prob / 100), 1) * 100
-  const sc = calcScore(), risk = riskLabel(parlaySelections.length, co)
-  document.getElementById("pOdds").textContent = co.toFixed(2) + "x"
-  document.getElementById("pRisk").textContent = risk.label; document.getElementById("pRisk").style.color = risk.color
-  document.getElementById("pImplied").textContent = cp.toFixed(1) + "%"
-  document.getElementById("parlayScore").textContent = sc; document.getElementById("scoreGrade").textContent = scoreGrade(sc)
-  const offset = 188.5 - (sc / 100 * 188.5), ring = document.getElementById("scoreRing")
-  ring.style.strokeDashoffset = offset; ring.style.stroke = sc >= 70 ? "var(--green)" : sc >= 50 ? "var(--orange)" : "var(--red)"
-  legs.innerHTML = parlaySelections.map(s => `<div class="parlay-leg ${s.prob>=65?"hc":s.prob>=50?"mc":"lc"}">
-    <div class="leg-match">${s.matchName}</div>
-    <div class="leg-pick">⚡ ${s.label} @ ${s.odds}${s.hasRealOdds?" ●":""}</div>
-    <div class="leg-conf">${s.league} · ${s.prob}% conf</div>
-    <div class="leg-remove" onclick="removeParlay(${JSON.stringify(s.matchId)})">✕</div>
-  </div>`).join("")
+  var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1);
+  var cp = parlaySelections.reduce(function(p,s){ return p*(s.prob/100); }, 1) * 100;
+  var sc = calcScore();
+  var risk = riskLabel(parlaySelections.length, co);
+  document.getElementById("pOdds").textContent = co.toFixed(2) + "x";
+  document.getElementById("pRisk").textContent = risk.label;
+  document.getElementById("pRisk").style.color = risk.color;
+  document.getElementById("pImplied").textContent = cp.toFixed(1) + "%";
+  document.getElementById("parlayScore").textContent = sc;
+  document.getElementById("scoreGrade").textContent = scoreGrade(sc);
+  var offset = 188.5 - (sc/100*188.5);
+  var ring = document.getElementById("scoreRing");
+  ring.style.strokeDashoffset = offset;
+  ring.style.stroke = sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)";
+  legs.innerHTML = parlaySelections.map(function(s){
+    return '<div class="parlay-leg ' + (s.prob>=65?"hc":s.prob>=50?"mc":"lc") + '">' +
+      '<div class="leg-match">' + (s.matchName||'') + '</div>' +
+      '<div class="leg-pick">⚡ ' + (s.label||s.pick) + ' @ ' + s.odds + (s.hasRealOdds?" ●":"") + '</div>' +
+      '<div class="leg-conf">' + (s.league||'') + ' · ' + s.prob + '% conf</div>' +
+      '<div class="leg-remove" onclick="removeParlay(' + JSON.stringify(s.matchId) + ')">✕</div></div>';
+  }).join("");
 }
 
-function calcScore() { if (!parlaySelections.length) return 0; const avg = parlaySelections.reduce((s, x) => s + x.prob, 0) / parlaySelections.length; const pen = Math.max(0, (parlaySelections.length - 3) * 5); const bon = (10 - riskLevel) * 2; return Math.max(10, Math.min(99, Math.round(avg - pen + bon))) }
-function scoreGrade(s) { if (s >= 80) return "ELITE — STRONG PLAY"; if (s >= 70) return "STRONG — RECOMMENDED"; if (s >= 60) return "SOLID — VIABLE BET"; if (s >= 50) return "MODERATE RISK"; if (s >= 35) return "HIGH RISK"; return "VERY RISKY" }
-function riskLabel(legs, odds) { if (odds < 3 && legs <= 2) return { label: "LOW", color: "var(--green)" }; if (odds < 8 && legs <= 4) return { label: "MEDIUM", color: "var(--orange)" }; if (odds < 20) return { label: "HIGH", color: "var(--red)" }; return { label: "EXTREME", color: "var(--red)" } }
+function calcScore() {
+  if (!parlaySelections.length) return 0;
+  var avg = parlaySelections.reduce(function(s,x){ return s+x.prob; }, 0) / parlaySelections.length;
+  var pen = Math.max(0, (parlaySelections.length-3)*5);
+  var bon = (10-riskLevel)*2;
+  return Math.max(10, Math.min(99, Math.round(avg-pen+bon)));
+}
+function scoreGrade(s) {
+  if (s>=80) return "ELITE — STRONG PLAY";
+  if (s>=70) return "STRONG — RECOMMENDED";
+  if (s>=60) return "SOLID — VIABLE BET";
+  if (s>=50) return "MODERATE RISK";
+  if (s>=35) return "HIGH RISK";
+  return "VERY RISKY";
+}
+function riskLabel(legs, odds) {
+  if (odds<3&&legs<=2) return {label:"LOW",color:"var(--green)"};
+  if (odds<8&&legs<=4) return {label:"MEDIUM",color:"var(--orange)"};
+  if (odds<20)         return {label:"HIGH",color:"var(--red)"};
+  return {label:"EXTREME",color:"var(--red)"};
+}
 
+// FIX: autoParlay — correct JSON.stringify body, no broken spread syntax
 async function autoParlay() {
-  const visible = filteredMatches.filter(m => !m.isLive); if (!visible.length) { alert("No upcoming matches."); return }
-  const btn = document.getElementById("autoBtn"); btn.textContent = "⏳ OPTIMIZING..."; btn.disabled = true
+  var btn = document.getElementById("autoBtn");
+  btn.textContent = "⏳ FETCHING MULTI-SPORT DATA...";
+  btn.disabled = true;
   try {
-    const res = await fetch(`${API}/parlay/auto`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ predictions: visible, targetOdds, riskLevel, minLegs: parseInt(document.getElementById("legMin")?.value) || 2, maxLegs: parseInt(document.getElementById("legMax")?.value) || 6, timeframeDays: 7, preferredMarkets: getEnabledMarkets() }) })
-    const data = await res.json()
-    parlaySelections = data.parlay || []
-    renderParlay(); renderPage()
-    document.querySelector(".parlay-panel").style.boxShadow = "0 0 28px rgba(0,212,255,.4)"
-    setTimeout(() => document.querySelector(".parlay-panel").style.boxShadow = "", 600)
-  } catch(err) { alert("Auto-build failed.") }
-  finally { btn.textContent = "⚡ AUTO-BUILD OPTIMAL PARLAY"; btn.disabled = false }
+    var enabledSports = getEnabledSports();
+    var timeframe = parseInt((document.getElementById('parlayTimeframe') || {}).value || '7');
+    var allCandidates = [];
+
+    if (enabledSports.indexOf('football') !== -1) {
+      var footballMatches = filteredMatches.filter(function(m){ return !m.isLive && m.sport === 'football'; });
+      allCandidates = allCandidates.concat(footballMatches);
+    }
+
+    var otherSports = enabledSports.filter(function(s){ return s !== 'football'; });
+    for (var i = 0; i < otherSports.length; i++) {
+      var sport = otherSports[i];
+      var cfg = SPORT_CONFIG[sport];
+      if (!cfg) continue;
+      try {
+        var r = await fetch(API + cfg.endpoint);
+        if (r.ok) {
+          var sportData = await r.json();
+          var matches = sportData.predictions || sportData;
+          if (Array.isArray(matches)) {
+            var upcoming = matches.filter(function(m){ return !m.isLive && !m.isFinished; });
+            allCandidates = allCandidates.concat(upcoming);
+          }
+        }
+      } catch(e2) {}
+    }
+
+    var now = Date.now();
+    var maxMs = timeframe * 86400000;
+    allCandidates = allCandidates.filter(function(m){
+      return !m.date || (new Date(m.date).getTime() - now <= maxMs && new Date(m.date).getTime() >= now - 3600000);
+    });
+
+    if (!allCandidates.length) { alert("No matches found for selected sports/timeframe."); return; }
+
+    // FIX: correct JSON body — no broken spread/IIFE syntax
+    var res = await fetch(API + "/parlay/auto", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        userId: USER_ID,
+        predictions: allCandidates,
+        targetOdds: targetOdds,
+        riskLevel: riskLevel,
+        minLegs: parseInt(document.getElementById("legMin").value) || 2,
+        maxLegs: parseInt(document.getElementById("legMax").value) || 6,
+        timeframeDays: timeframe,
+        preferredMarkets: getEnabledMarkets()
+      })
+    });
+
+    // FIX: handle 402 plan lock from server
+    if (res.status === 402) {
+      var errData = await res.json().catch(function(){ return {}; });
+      showLockModal(errData.action || 'auto_parlay');
+      return;
+    }
+
+    var data = await res.json();
+    parlaySelections = data.parlay || [];
+    renderParlay(); renderPage();
+  } catch(err) { alert("Auto-build failed: " + err.message); }
+  finally { btn.textContent = "⚡ AUTO-BUILD OPTIMAL PARLAY"; btn.disabled = false; }
 }
 
 async function saveParlay() {
-  if (!parlaySelections.length) { alert("Add selections first."); return }
-  const co = parlaySelections.reduce((p, s) => p * s.odds, 1)
-  const sc = calcScore()
-  const parlayData = { user_id: USER_ID, name: `${parlaySelections.length}-Leg · ${co.toFixed(2)}x · ${new Date().toLocaleDateString("en-GB")}`, legs: parlaySelections, combined_odds: parseFloat(co.toFixed(2)), confidence_score: sc, status: "pending", created_at: new Date().toISOString() }
+  if (!parlaySelections.length) { alert("Add selections first."); return; }
+  var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1);
+  var sc = calcScore();
+  var pd = { user_id: USER_ID, name: parlaySelections.length + "-Leg · " + co.toFixed(2) + "x · " + new Date().toLocaleDateString("en-GB"), legs: parlaySelections, combined_odds: parseFloat(co.toFixed(2)), confidence_score: sc, status: "pending", created_at: new Date().toISOString() };
   try {
-    const res = await fetch(`${API}/parlays/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parlayData) })
-    const data = await res.json()
-    const local = JSON.parse(localStorage.getItem("slipiq_parlays") || "[]")
-    local.unshift({ ...parlayData, id: data.data?.id || Date.now() })
-    localStorage.setItem("slipiq_parlays", JSON.stringify(local.slice(0, 50)))
-    showToast("✅ Parlay saved!")
+    var res = await fetch(API + "/parlays/save", { method:"POST", headers: authHeaders(), body: JSON.stringify(pd) });
+    var data = await res.json();
+    var local = JSON.parse(localStorage.getItem("slipiq_parlays")||"[]");
+    local.unshift(Object.assign({}, pd, { id: data.data && data.data.id ? data.data.id : Date.now() }));
+    localStorage.setItem("slipiq_parlays", JSON.stringify(local.slice(0,50)));
+    showToast("✅ Parlay saved!");
   } catch(err) {
-    const local = JSON.parse(localStorage.getItem("slipiq_parlays") || "[]")
-    local.unshift({ ...parlayData, id: Date.now() })
-    localStorage.setItem("slipiq_parlays", JSON.stringify(local.slice(0, 50)))
-    showToast("✅ Saved locally!")
+    var local = JSON.parse(localStorage.getItem("slipiq_parlays")||"[]");
+    local.unshift(Object.assign({}, pd, { id: Date.now() }));
+    localStorage.setItem("slipiq_parlays", JSON.stringify(local.slice(0,50)));
+    showToast("✅ Saved locally!");
   }
 }
 
 async function analyzeParlay() {
-  if (!parlaySelections.length) { alert("Add selections first."); return }
-  const sc = calcScore(), co = parlaySelections.reduce((p, s) => p * s.odds, 1).toFixed(2)
-  document.getElementById("modalTitle").textContent = "PARLAY ANALYSIS — GPT-4o"
-  document.getElementById("modalSub").textContent = `${parlaySelections.length} legs · ${co}x · Score: ${sc}/100`
-  document.getElementById("modalTabs").innerHTML = ""
-  document.getElementById("modalBody").innerHTML = `<div class="modal-pane active" id="mp0"><div class="loading-container"><div class="spinner"></div><div class="loading-text">GPT-4o ANALYZING...</div></div></div>`
-  document.getElementById("modal").classList.add("open")
+  if (!parlaySelections.length) { alert("Add selections first."); return; }
+  var sc = calcScore();
+  var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1).toFixed(2);
+  document.getElementById("modalTitle").textContent = "PARLAY ANALYSIS — GPT-4o";
+  document.getElementById("modalSub").textContent = parlaySelections.length + " legs · " + co + "x · Score: " + sc + "/100";
+  document.getElementById("modalTabs").innerHTML = "";
+  document.getElementById("modalBody").innerHTML = '<div class="modal-pane active" id="mp0"><div class="loading-container"><div class="spinner"></div><div class="loading-text">GPT-4o ANALYZING...</div></div></div>';
+  document.getElementById("modal").classList.add("open");
   try {
-    const res = await fetch(`${API}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: parlaySelections, type: "parlay" }) })
-    const data = await res.json()
-    const ip = (parlaySelections.reduce((p, s) => p * (s.prob / 100), 1) * 100).toFixed(1)
-    const rl = riskLabel(parlaySelections.length, parseFloat(co))
-    document.getElementById("mp0").innerHTML = `<div style="padding:2px 0">
-      <div class="asection"><div class="asection-title">PARLAY OVERVIEW</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:11px">
-          ${[{l:"Odds",v:co+"x",c:"var(--gold)"},{l:"Prob",v:ip+"%",c:"var(--accent)"},{l:"Score",v:sc+"/100",c:sc>=70?"var(--green)":"var(--orange)"},{l:"Risk",v:rl.label,c:rl.color}].map(x => `<div class="factor-item" style="text-align:center"><div class="factor-name">${x.l}</div><div style="font-family:'Bebas Neue';font-size:18px;color:${x.c}">${x.v}</div></div>`).join("")}
-        </div>
-        <div class="ai-text">${(data.assessment || "AI unavailable").replace(/\n/g, "<br>")}</div>
-        ${data.valueExplanation ? `<div style="margin-top:7px;padding:6px 9px;background:rgba(${data.hasValue?"0,255,136":"255,59,92"},.1);border-left:2px solid var(--${data.hasValue?"green":"red"});font-size:11px">${data.valueExplanation}</div>` : ""}
-      </div>
-      <div class="asection"><div class="asection-title">SELECTIONS</div>
-        ${parlaySelections.map((s, i) => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid ${s.prob>=65?"var(--green)":s.prob>=50?"var(--orange)":"var(--red)"}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div><div style="font-size:12px;font-weight:600">${i+1}. ${s.matchName}</div><div style="font-size:10px;color:var(--accent);font-family:'JetBrains Mono';margin-top:2px">⚡ ${s.label}${s.hasRealOdds?" ●":""}</div><div style="font-size:9px;color:var(--text3)">${s.league}</div></div>
-            <div style="text-align:right"><div style="font-family:'JetBrains Mono';font-size:16px;color:var(--gold)">${s.odds}</div><div style="font-size:10px;color:${s.prob>=65?"var(--green)":s.prob>=50?"var(--orange)":"var(--red)"}">${s.prob}%</div></div>
-          </div>
-        </div>`).join("")}
-      </div>
-      ${data.weakestLeg ? `<div class="asection"><div class="asection-title">WEAKEST LEG</div><div style="background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.25);border-radius:7px;padding:9px;font-size:12px;color:var(--text2)">${data.weakestLeg}</div></div>` : ""}
-      ${data.keyRisks?.length ? `<div class="asection"><div class="asection-title">KEY RISKS</div>${data.keyRisks.map(r => `<div class="key-factor" style="border-left-color:var(--red)">${r}</div>`).join("")}</div>` : ""}
-    </div>`
-  } catch(err) { document.getElementById("mp0").innerHTML = `<div style="padding:16px"><div class="ai-text" style="color:var(--text3)">AI unavailable</div></div>` }
+    var res = await fetch(API + "/analyze", {
+      method:"POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ userId: USER_ID, match: parlaySelections, type:"parlay" })
+    });
+    if (res.status === 402) {
+      var errData = await res.json().catch(function(){ return {}; });
+      showLockModal(errData.action || 'parlay_advice');
+      closeModal();
+      return;
+    }
+    var data = await res.json();
+    var ip = (parlaySelections.reduce(function(p,s){ return p*(s.prob/100); },1)*100).toFixed(1);
+    var rl = riskLabel(parlaySelections.length, parseFloat(co));
+    document.getElementById("mp0").innerHTML =
+      '<div class="asection"><div class="asection-title">PARLAY OVERVIEW</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:11px">' +
+      [{l:"Odds",v:co+"x",c:"var(--gold)"},{l:"Prob",v:ip+"%",c:"var(--accent)"},{l:"Score",v:sc+"/100",c:sc>=70?"var(--green)":"var(--orange)"},{l:"Risk",v:rl.label,c:rl.color}].map(function(x){
+        return '<div class="factor-item" style="text-align:center"><div class="factor-name">' + x.l + '</div><div style="font-family:\'Bebas Neue\';font-size:18px;color:' + x.c + '">' + x.v + '</div></div>';
+      }).join("") + '</div>' +
+      '<div class="ai-text">' + ((data.assessment||"AI unavailable").replace(/\n/g,"<br>")) + '</div></div>' +
+      '<div class="asection"><div class="asection-title">SELECTIONS</div>' +
+      parlaySelections.map(function(s,i){
+        return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid ' + (s.prob>=65?"var(--green)":s.prob>=50?"var(--orange)":"var(--red)") + '">' +
+          '<div style="display:flex;justify-content:space-between">' +
+          '<div><div style="font-size:12px;font-weight:600">' + (i+1) + '. ' + (s.matchName||'') + '</div>' +
+          '<div style="font-size:10px;color:var(--accent);font-family:\'JetBrains Mono\';margin-top:2px">⚡ ' + (s.label||s.pick) + (s.hasRealOdds?" ●":"") + '</div></div>' +
+          '<div style="text-align:right"><div style="font-family:\'JetBrains Mono\';font-size:16px;color:var(--gold)">' + s.odds + '</div><div style="font-size:10px;color:' + (s.prob>=65?"var(--green)":s.prob>=50?"var(--orange)":"var(--red)") + '">' + s.prob + '%</div></div></div></div>';
+      }).join("") + '</div>' +
+      (data.weakestLeg ? '<div class="asection"><div class="asection-title">WEAKEST LEG</div><div style="background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.25);border-radius:7px;padding:9px;font-size:12px;color:var(--text2)">' + data.weakestLeg + '</div></div>' : '') +
+      (data.keyRisks && data.keyRisks.length ? '<div class="asection"><div class="asection-title">KEY RISKS</div>' + data.keyRisks.map(function(r){ return '<div class="key-factor" style="border-left-color:var(--red)">' + r + '</div>'; }).join("") + '</div>' : '');
+  } catch(err) {
+    document.getElementById("mp0").innerHTML = '<div style="padding:16px"><div class="ai-text" style="color:var(--text3)">AI unavailable</div></div>';
+  }
 }
 
-function updateRisk(v) { riskLevel = parseInt(v); const labels = ["","Ultra Safe","Very Safe","Conservative","Conservative","Moderate","Moderate","Aggressive","Aggressive","High Risk","Extreme"]; document.getElementById("riskLabel").textContent = `${labels[v]} (${v}/10)`; if (parlaySelections.length) renderParlay() }
-function updateTargetOdds(v) { targetOdds = v / 100; document.getElementById("oddsDisplay").textContent = targetOdds.toFixed(2) }
-function switchView(el, view) { currentView = view; document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active")); el.classList.add("active"); currentPage = 1; applyFilters() }
+function getEnabledSports() {
+  var sports = [];
+  var ids = ['football','basketball','tennis','f1','boxing','mma'];
+  ids.forEach(function(s){
+    var el = document.getElementById('ps-' + s);
+    if (el && el.checked) sports.push(s);
+  });
+  return sports.length ? sports : ['football'];
+}
+function updateRisk(v) {
+  riskLevel = parseInt(v);
+  var labels = ["","Ultra Safe","Very Safe","Conservative","Conservative","Moderate","Moderate","Aggressive","Aggressive","High Risk","Extreme"];
+  document.getElementById("riskLabel").textContent = labels[v] + " (" + v + "/10)";
+  if (parlaySelections.length) renderParlay();
+}
+function updateTargetOdds(v) { targetOdds = v/100; document.getElementById("oddsDisplay").textContent = targetOdds.toFixed(2); }
+function switchView(el, view) {
+  currentView = view;
+  document.querySelectorAll(".view-tab").forEach(function(t){ t.classList.remove("active"); });
+  el.classList.add("active");
+  currentPage = 1; applyFilters();
+}
 
-// ─── PARLAYS PAGE ─────────────────────────────────────────
+// ─── PARLAYS PAGE ─────────────────────────────────────────────────────────────
 async function loadSavedParlays() {
-  document.getElementById("parlaysList").innerHTML = `<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>`
-  let parlays = []
-  try { const res = await fetch(`${API}/parlays/${USER_ID}`); parlays = await res.json() } catch(e) {}
-  const local = JSON.parse(localStorage.getItem("slipiq_parlays") || "[]")
-  const serverIds = new Set(parlays.map(p => String(p.id)))
-  for (const lp of local) if (!serverIds.has(String(lp.id))) parlays.push(lp)
-  parlays.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  savedParlays = parlays
-  document.getElementById("parlaysSubtitle").textContent = `${parlays.length} saved parlays`
-  if (!parlays.length) { document.getElementById("parlaysList").innerHTML = `<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No saved parlays yet.</div></div>`; return }
-  document.getElementById("parlaysList").innerHTML = parlays.map((p, i) => {
-    const legs = typeof p.legs === "string" ? JSON.parse(p.legs) : p.legs || []
-    const co = p.combined_odds || legs.reduce((x, l) => x * (l.odds || 1), 1).toFixed(2)
-    const sc = p.confidence_score || 0
-    const statusCls = "status-" + (p.status || "pending")
-    return `<div class="parlay-row" onclick="openSavedParlay(${i})" id="prow-${i}">
-      <div class="status-badge ${statusCls}">${(p.status || "PENDING").toUpperCase()}</div>
-      <div style="margin-bottom:7px"><div style="font-size:13px;font-weight:700;color:var(--text);padding-right:70px">${p.name || `${legs.length}-Leg Parlay`}</div><div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:1px">${new Date(p.created_at).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div></div>
-      <div class="pr-stats">
-        <div class="pr-stat"><div class="pr-stat-val" style="color:var(--gold)">${parseFloat(co).toFixed(2)}x</div><div class="pr-stat-lbl">ODDS</div></div>
-        <div class="pr-stat"><div class="pr-stat-val" style="color:var(--accent)">${legs.length}</div><div class="pr-stat-lbl">LEGS</div></div>
-        <div class="pr-stat"><div class="pr-stat-val" style="color:${sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)"}">${sc||"—"}</div><div class="pr-stat-lbl">SCORE</div></div>
-        <div class="pr-stat"><div class="pr-stat-val" style="color:var(--text2);font-size:10px">${p.hits_count !== undefined ? `${p.hits_count}/${legs.length}` : "—"}</div><div class="pr-stat-lbl">HITS</div></div>
-      </div>
-      <div class="pr-legs-preview">${legs.slice(0, 3).map(l => `<div class="pr-leg-tag">${(l.label || "").slice(0, 14)}</div>`).join("")}${legs.length > 3 ? `<div class="pr-leg-tag">+${legs.length-3}</div>` : ""}</div>
-    </div>`
-  }).join("")
+  document.getElementById("parlaysList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>';
+  var parlays = [];
+  try { var res = await fetch(API + "/parlays/" + USER_ID); parlays = await res.json(); } catch(e) {}
+  var local = JSON.parse(localStorage.getItem("slipiq_parlays")||"[]");
+  var serverIds = new Set(parlays.map(function(p){ return String(p.id); }));
+  local.forEach(function(lp){ if (!serverIds.has(String(lp.id))) parlays.push(lp); });
+  parlays.sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  savedParlays = parlays;
+  document.getElementById("parlaysSubtitle").textContent = parlays.length + " saved parlays";
+  if (!parlays.length) { document.getElementById("parlaysList").innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No saved parlays yet.</div></div>'; return; }
+  document.getElementById("parlaysList").innerHTML = parlays.map(function(p,i){
+    var legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];
+    var co = p.combined_odds || legs.reduce(function(x,l){ return x*(l.odds||1); },1).toFixed(2);
+    var sc = p.confidence_score||0;
+    var statusCls = "status-"+(p.status||"pending");
+    return '<div class="parlay-row" onclick="openSavedParlay(' + i + ')" id="prow-' + i + '">' +
+      '<div class="status-badge ' + statusCls + '">' + (p.status||"PENDING").toUpperCase() + '</div>' +
+      '<div style="margin-bottom:7px"><div style="font-size:13px;font-weight:700;color:var(--text);padding-right:70px">' + (p.name||legs.length+"-Leg Parlay") + '</div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:1px">' + new Date(p.created_at).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) + '</div></div>' +
+      '<div class="pr-stats">' +
+      '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--gold)">' + parseFloat(co).toFixed(2) + 'x</div><div class="pr-stat-lbl">ODDS</div></div>' +
+      '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--accent)">' + legs.length + '</div><div class="pr-stat-lbl">LEGS</div></div>' +
+      '<div class="pr-stat"><div class="pr-stat-val" style="color:' + (sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)") + '">' + (sc||"—") + '</div><div class="pr-stat-lbl">SCORE</div></div>' +
+      '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--text2);font-size:10px">—</div><div class="pr-stat-lbl">HITS</div></div>' +
+      '</div>' +
+      '<div class="pr-legs-preview">' + legs.slice(0,3).map(function(l){ return '<div class="pr-leg-tag">' + (l.label||"").slice(0,14) + '</div>'; }).join("") + (legs.length>3?'<div class="pr-leg-tag">+' + (legs.length-3) + '</div>':"") + '</div>' +
+      '</div>';
+  }).join("");
 }
 
 async function openSavedParlay(idx) {
-  const p = savedParlays[idx]; if (!p) return
-  document.querySelectorAll(".parlay-row").forEach((el, i) => el.classList.toggle("active", i === idx))
-  const legs = typeof p.legs === "string" ? JSON.parse(p.legs) : p.legs || []
-  const co = p.combined_odds || legs.reduce((x, l) => x * (l.odds || 1), 1)
-  const sc = p.confidence_score || 0
-  const ip = (legs.reduce((x, l) => x * ((l.prob || 50) / 100), 1) * 100).toFixed(1)
-  const rl = riskLabel(legs.length, parseFloat(co))
-  document.getElementById("parlayDetail").innerHTML = `<div style="max-width:680px">
-    <div class="asection">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px">
-        <div><div style="font-family:'Bebas Neue';font-size:19px;color:var(--text)">${p.name||`${legs.length}-Leg Parlay`}</div><div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:1px">${new Date(p.created_at).toLocaleString("en-GB")}</div></div>
-        <div class="status-badge status-${p.status||"pending"}" style="position:static">${(p.status||"PENDING").toUpperCase()}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px">
-        ${[{l:"Odds",v:parseFloat(co).toFixed(2)+"x",c:"var(--gold)"},{l:"Prob",v:ip+"%",c:"var(--accent)"},{l:"Score",v:sc+"/100",c:sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)"},{l:"Risk",v:rl.label,c:rl.color}].map(x => `<div class="factor-item" style="text-align:center"><div class="factor-name">${x.l}</div><div style="font-family:'Bebas Neue';font-size:17px;color:${x.c}">${x.v}</div></div>`).join("")}
-      </div>
-    </div>
-    <div class="asection"><div class="asection-title">LEGS</div>
-      ${legs.map((l, i) => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid ${(l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)"}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div style="font-size:12px;font-weight:600">${i+1}. ${l.matchName||"Match"}</div><div style="font-size:10px;color:var(--accent);font-family:'JetBrains Mono';margin-top:1px">⚡ ${l.label||l.pick}${l.hasRealOdds?" ●":""}</div><div style="font-size:9px;color:var(--text3)">${l.league||""}</div></div>
-          <div style="text-align:right"><div style="font-family:'JetBrains Mono';font-size:16px;color:var(--gold)">${l.odds}</div><div style="font-size:10px;color:${(l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)"}">${l.prob||50}%</div></div>
-        </div>
-      </div>`).join("")}
-    </div>
-    <div class="asection"><div class="asection-title">GPT-4o AI ANALYSIS</div>
-      <div id="savedParlayAI"><div style="display:flex;align-items:center;gap:7px;color:var(--text3)"><div class="spinner" style="width:13px;height:13px;border-width:2px"></div><span style="font-size:10px;font-family:'JetBrains Mono'">Analyzing...</span></div></div>
-    </div>
-    <div style="padding:7px 0;text-align:right">
-      <button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder(${idx})">↺ REBUILD</button>
-    </div>
-  </div>`
-  fetch(`${API}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: legs, type: "parlay" }) })
-    .then(r => r.json()).then(data => {
-      const el = document.getElementById("savedParlayAI"); if (!el) return
-      el.innerHTML = `<div class="ai-text">${(data.assessment||"Analysis unavailable").replace(/\n/g,"<br>")}</div>
-        ${data.weakestLeg ? `<div style="margin-top:7px;padding:6px 9px;background:rgba(255,59,92,.07);border-left:2px solid var(--red);font-size:11px"><strong style="color:var(--red)">WEAKEST:</strong> ${data.weakestLeg}</div>` : ""}
-        ${data.keyRisks?.length ? `<div style="margin-top:7px">${data.keyRisks.map(r => `<div class="key-factor" style="border-left-color:var(--red)">${r}</div>`).join("")}</div>` : ""}`
-    }).catch(() => { const el = document.getElementById("savedParlayAI"); if (el) el.innerHTML = `<div class="ai-text" style="color:var(--text3)">AI unavailable</div>` })
+  var p = savedParlays[idx]; if (!p) return;
+  document.querySelectorAll(".parlay-row").forEach(function(el,i){ el.classList.toggle("active", i===idx); });
+  var legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];
+  var co = p.combined_odds || legs.reduce(function(x,l){ return x*(l.odds||1); },1);
+  var sc = p.confidence_score||0;
+  var ip = (legs.reduce(function(x,l){ return x*((l.prob||50)/100); },1)*100).toFixed(1);
+  var rl = riskLabel(legs.length, parseFloat(co));
+  document.getElementById("parlayDetail").innerHTML =
+    '<div style="max-width:680px"><div class="asection">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px">' +
+    '<div><div style="font-family:\'Bebas Neue\';font-size:19px;color:var(--text)">' + (p.name||legs.length+"-Leg Parlay") + '</div><div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);margin-top:1px">' + new Date(p.created_at).toLocaleString("en-GB") + '</div></div>' +
+    '<div class="status-badge status-' + (p.status||"pending") + '" style="position:static">' + (p.status||"PENDING").toUpperCase() + '</div></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px">' +
+    [{l:"Odds",v:parseFloat(co).toFixed(2)+"x",c:"var(--gold)"},{l:"Prob",v:ip+"%",c:"var(--accent)"},{l:"Score",v:sc+"/100",c:sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)"},{l:"Risk",v:rl.label,c:rl.color}].map(function(x){
+      return '<div class="factor-item" style="text-align:center"><div class="factor-name">' + x.l + '</div><div style="font-family:\'Bebas Neue\';font-size:17px;color:' + x.c + '">' + x.v + '</div></div>';
+    }).join("") + '</div></div>' +
+    '<div class="asection"><div class="asection-title">LEGS</div>' +
+    legs.map(function(l,i){
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid ' + ((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)") + '">' +
+        '<div style="display:flex;justify-content:space-between">' +
+        '<div><div style="font-size:12px;font-weight:600">' + (i+1) + '. ' + (l.matchName||"Match") + '</div>' +
+        '<div style="font-size:10px;color:var(--accent);font-family:\'JetBrains Mono\';margin-top:1px">⚡ ' + (l.label||l.pick) + (l.hasRealOdds?" ●":"") + '</div></div>' +
+        '<div style="text-align:right"><div style="font-family:\'JetBrains Mono\';font-size:16px;color:var(--gold)">' + l.odds + '</div><div style="font-size:10px;color:' + ((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)") + '">' + (l.prob||50) + '%</div></div></div></div>';
+    }).join("") + '</div>' +
+    '<div style="padding:7px 0;text-align:right"><button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder(' + idx + ')">↺ REBUILD IN BUILDER</button></div>' +
+    '</div>';
 }
 
 function reAddToBuilder(idx) {
-  const p = savedParlays[idx]; if (!p) return
-  parlaySelections = typeof p.legs === "string" ? JSON.parse(p.legs) : p.legs || []
-  showPage("home", document.getElementById("nav-home"))
-  renderParlay(); renderPage()
-  showToast("↺ Parlay loaded into builder!")
+  var p = savedParlays[idx]; if (!p) return;
+  parlaySelections = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];
+  showPage("home", document.getElementById("nav-home"));
+  renderParlay(); renderPage();
+  showToast("↺ Parlay loaded into builder!");
 }
 
-// ─── NEWS PAGE — full article text + AI summary button ────
+// ─── NEWS ─────────────────────────────────────────────────────────────────────
 async function loadNews(force) {
-  document.getElementById("newsList").innerHTML = `<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING NEWS...</div></div>`
-  const team = document.getElementById("newsTeam")?.value || ""
-  const league = document.getElementById("newsLeague")?.value || ""
+  document.getElementById("newsList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING NEWS...</div></div>';
+  var team = document.getElementById("newsTeam").value || "";
+  var league = document.getElementById("newsLeague").value || "";
   try {
-    const params = new URLSearchParams()
-    if (team) params.set("team", team)
-    if (league) params.set("league", league)
-    const res = await fetch(`${API}/news?${params}`)
-    allNewsArticles = await res.json()
-    renderNewsList()
-  } catch(e) { document.getElementById("newsList").innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">News unavailable.</div></div>` }
+    var params = new URLSearchParams();
+    if (team) params.set("team", team);
+    if (league) params.set("league", league);
+    var res = await fetch(API + "/news?" + params.toString());
+    allNewsArticles = await res.json();
+    renderNewsList();
+  } catch(e) {
+    document.getElementById("newsList").innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">News unavailable.</div></div>';
+  }
 }
 
 function renderNewsList() {
-  const sort = document.getElementById("newsSort")?.value || "date"
-  let articles = [...allNewsArticles]
-  if (sort === "league") articles.sort((a, b) => (a.leagueName || "").localeCompare(b.leagueName || ""))
-  document.getElementById("newsList").innerHTML = articles.length ? articles.map((a, i) => `<div class="news-card" onclick="openNewsArticle(${i})" id="nc-${i}">
-    <div class="nc-source">${a.source || a.leagueName || "Football"}</div>
-    <div class="nc-title">${a.title || "No title"}</div>
-    <div class="nc-meta">
-      <span>${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("en-GB", {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : ""}</span>
-      ${a.leagueName ? `<span>🏆 ${a.leagueName}</span>` : ""}
-    </div>
-  </div>`).join("") : `<div class="empty-state"><div class="empty-icon">📰</div><div class="empty-text">No articles found.</div></div>`
+  var sort = document.getElementById("newsSort").value || "date";
+  var articles = allNewsArticles.slice();
+  if (sort === "league") articles.sort(function(a,b){ return (a.leagueName||"").localeCompare(b.leagueName||""); });
+  document.getElementById("newsList").innerHTML = articles.length ? articles.map(function(a,i){
+    return '<div class="news-card" onclick="openNewsArticle(' + i + ')" id="nc-' + i + '">' +
+      '<div class="nc-source">' + (a.source||a.leagueName||"Football") + '</div>' +
+      '<div class="nc-title">' + (a.title||"No title") + '</div>' +
+      '<div class="nc-meta"><span>' + (a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "") + '</span>' +
+      (a.leagueName ? '<span>🏆 ' + a.leagueName + '</span>' : '') +
+      '</div></div>';
+  }).join("") : '<div class="empty-state"><div class="empty-icon">📰</div><div class="empty-text">No articles found.</div></div>';
 }
 
-async function openNewsArticle(idx) {
-  const a = allNewsArticles[idx]; if (!a) return
-  document.querySelectorAll(".news-card").forEach((el, i) => el.classList.toggle("active", i === idx))
-  const det = document.getElementById("newsDetail")
-  // Show what we have immediately
-  const fullBody = a.body || a.description || ""
-  const isShort = fullBody.length < 300
-  det.innerHTML = `<div style="max-width:700px">
-    <div class="asection">
-      <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:5px">${a.source||a.leagueName||"Football News"} · ${a.publishedAt ? new Date(a.publishedAt).toLocaleString("en-GB") : ""}</div>
-      <div style="font-family:'Bebas Neue';font-size:21px;color:var(--text);letter-spacing:1px;line-height:1.2;margin-bottom:9px">${a.title||""}</div>
-      ${a.urlToImage ? `<img src="${a.urlToImage}" style="width:100%;border-radius:8px;margin-bottom:12px;max-height:220px;object-fit:cover" onerror="this.style.display='none'">` : ""}
-      <div id="articleBody" class="ai-text" style="white-space:pre-line;line-height:1.8;font-size:13px">${fullBody.replace(/\n\n/g,"<br><br>").replace(/\n/g,"<br>") || "<span style='color:var(--text3)'>Loading article content...</span>"}</div>
-      ${isShort && a.url ? `<div id="fetchingMore" style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:8px">⟳ Fetching full article...</div>` : ""}
-      ${a.url ? `<a href="${a.url}" target="_blank" rel="noopener" style="display:inline-block;margin-top:12px;font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:4px 10px;border-radius:4px">↗ READ ON ${(a.source||"SOURCE").toUpperCase()}</a>` : ""}
-    </div>
-    <div style="margin:14px 0;padding-top:12px;border-top:1px solid var(--border)">
-      <button id="aiSummaryBtn" onclick="aiSummarizeArticle(${idx})" style="background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:9px 20px;border-radius:6px;border:none;cursor:pointer;box-shadow:0 0 16px rgba(0,200,248,.2)">🤖 GPT-4o — AI BETTING ANALYSIS</button>
-      <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:5px">Costs 5 credits · Identifies betting impact, affected teams, recommended action</div>
-    </div>
-    <div id="newsAISection" style="display:none">
-      <div class="asection"><div class="asection-title">GPT-4o IMPACT ANALYSIS</div>
-        <div id="newsAI"></div>
-      </div>
-    </div>
-  </div>`
+function openNewsArticle(idx) {
+  var a = allNewsArticles[idx]; if (!a) return;
+  document.querySelectorAll(".news-card").forEach(function(el,i){ el.classList.toggle("active", i===idx); });
+  var det = document.getElementById("newsDetail");
+  var fullBody = a.body || a.description || "";
+  det.innerHTML =
+    '<div style="max-width:700px"><div class="asection">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:5px">' + (a.source||a.leagueName||"Football News") + ' · ' + (a.publishedAt ? new Date(a.publishedAt).toLocaleString("en-GB") : "") + '</div>' +
+    '<div style="font-family:\'Bebas Neue\';font-size:21px;color:var(--text);letter-spacing:1px;line-height:1.2;margin-bottom:9px">' + (a.title||"") + '</div>' +
+    (a.urlToImage ? '<img src="' + a.urlToImage + '" style="width:100%;border-radius:8px;margin-bottom:12px;max-height:220px;object-fit:cover" onerror="this.style.display=\'none\'">' : '') +
+    '<div class="ai-text" style="white-space:pre-line;line-height:1.8;font-size:13px">' + (fullBody.replace(/\n\n/g,"<br><br>").replace(/\n/g,"<br>") || "<span style='color:var(--text3)'>No content available.</span>") + '</div>' +
+    (a.url ? '<a href="' + a.url + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:12px;font-family:\'JetBrains Mono\';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:4px 10px;border-radius:4px">↗ READ FULL ARTICLE</a>' : '') +
+    '</div>' +
+    '<div style="margin:14px 0;padding-top:12px;border-top:1px solid var(--border)">' +
+    '<button id="aiSummaryBtn" onclick="aiSummarizeArticle(' + idx + ')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:10px;font-weight:700;letter-spacing:1px;padding:9px 20px;border-radius:6px;border:none;cursor:pointer">🤖 GPT-4o — AI BETTING ANALYSIS</button>' +
+    '</div><div id="newsAISection" style="display:none"><div class="asection"><div class="asection-title">GPT-4o IMPACT ANALYSIS</div><div id="newsAI"></div></div></div></div>';
 }
 
 async function aiSummarizeArticle(idx) {
-  const a = allNewsArticles[idx]; if (!a) return
-  const btn = document.getElementById("aiSummaryBtn")
-  if (btn) { btn.disabled = true; btn.textContent = "⏳ GPT-4o ANALYZING..." }
-  const section = document.getElementById("newsAISection")
-  if (section) section.style.display = "block"
-  fetch(`${API}/news/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ article: a, predictions: allMatches.slice(0, 30) }) })
-    .then(r => r.json()).then(data => {
-      const el = document.getElementById("newsAI"); if (!el) return
-      const impCols = { HIGH: "var(--red)", MEDIUM: "var(--orange)", LOW: "var(--teal)", NONE: "var(--text3)" }
-      el.innerHTML = `${data.summary ? `<div class="ai-text" style="margin-bottom:9px">${data.summary}</div>` : ""}
-        ${data.impactLevel ? `<div style="display:inline-block;padding:3px 9px;border-radius:4px;font-family:'JetBrains Mono';font-size:9px;margin-bottom:9px;background:rgba(${data.impactLevel==="HIGH"?"255,59,92":data.impactLevel==="MEDIUM"?"255,140,66":"0,229,200"},.1);border:1px solid rgba(${data.impactLevel==="HIGH"?"255,59,92":data.impactLevel==="MEDIUM"?"255,140,66":"0,229,200"},.3);color:${impCols[data.impactLevel]||"var(--text3)"}">${data.impactLevel} IMPACT</div>` : ""}
-        ${data.marketImpact ? `<div class="key-factor"><strong style="color:var(--accent)">MARKET IMPACT:</strong> ${data.marketImpact}</div>` : ""}
-        ${data.recommendation ? `<div class="key-factor" style="border-left-color:var(--green)"><strong style="color:var(--green)">BETTOR ACTION:</strong> ${data.recommendation}</div>` : ""}
-        ${data.keyInsight ? `<div style="margin-top:9px;padding:9px 11px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:7px;font-size:12px;color:var(--text2)"><strong style="color:var(--accent)">⚡ KEY INSIGHT:</strong> ${data.keyInsight}</div>` : ""}
-        ${data.impactTeams?.length ? `<div style="margin-top:9px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">TEAMS AFFECTED: ${data.impactTeams.join(", ")}</div>` : ""}`
-      if (btn) { btn.disabled = false; btn.textContent = "🔄 REFRESH AI ANALYSIS" }
-    }).catch(() => {
-      const el = document.getElementById("newsAI"); if (el) el.innerHTML = `<div class="ai-text" style="color:var(--text3)">AI analysis unavailable</div>`
-      if (btn) { btn.disabled = false; btn.textContent = "🤖 GPT-4o — AI BETTING ANALYSIS" }
-    })
+  var a = allNewsArticles[idx]; if (!a) return;
+  var btn = document.getElementById("aiSummaryBtn");
+  if (btn) { btn.disabled=true; btn.textContent="⏳ GPT-4o ANALYZING..."; }
+  var section = document.getElementById("newsAISection");
+  if (section) section.style.display = "block";
+  try {
+    var res = await fetch(API + "/news/analyze", {
+      method:"POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ userId: USER_ID, article: a })
+    });
+    if (res.status === 402) {
+      var errData = await res.json().catch(function(){ return {}; });
+      showLockModal(errData.action || 'news_analysis');
+      if (btn) { btn.disabled=false; btn.textContent="🤖 GPT-4o — AI BETTING ANALYSIS"; }
+      return;
+    }
+    var data = await res.json();
+    var el = document.getElementById("newsAI"); if (!el) return;
+    var impCols = {HIGH:"var(--red)",MEDIUM:"var(--orange)",LOW:"var(--teal)",NONE:"var(--text3)"};
+    el.innerHTML =
+      (data.summary ? '<div class="ai-text" style="margin-bottom:9px">' + data.summary + '</div>' : '') +
+      (data.impactLevel ? '<div style="display:inline-block;padding:3px 9px;border-radius:4px;font-family:\'JetBrains Mono\';font-size:9px;margin-bottom:9px;background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.3);color:' + (impCols[data.impactLevel]||"var(--text3)") + '">' + data.impactLevel + ' IMPACT</div>' : '') +
+      (data.marketImpact ? '<div class="key-factor"><strong style="color:var(--accent)">MARKET IMPACT:</strong> ' + data.marketImpact + '</div>' : '') +
+      (data.recommendation ? '<div class="key-factor" style="border-left-color:var(--green)"><strong style="color:var(--green)">BETTOR ACTION:</strong> ' + data.recommendation + '</div>' : '') +
+      (data.keyInsight ? '<div style="margin-top:9px;padding:9px 11px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:7px;font-size:12px;color:var(--text2)"><strong style="color:var(--accent)">⚡ KEY INSIGHT:</strong> ' + data.keyInsight + '</div>' : '');
+    if (btn) { btn.disabled=false; btn.textContent="🔄 REFRESH AI ANALYSIS"; }
+  } catch(e) {
+    var el = document.getElementById("newsAI"); if (el) el.innerHTML = '<div class="ai-text" style="color:var(--text3)">AI unavailable</div>';
+    if (btn) { btn.disabled=false; btn.textContent="🤖 GPT-4o — AI BETTING ANALYSIS"; }
+  }
 }
 
 async function loadNewsTicker() {
   try {
-    const res = await fetch(`${API}/news`); const a = await res.json()
-    if (a.length) document.getElementById("newsTicker").textContent = a.map(x => `📰 ${x.title}${x.source?" ["+x.source+"]":""}`).join("  ·  ") + "  ·  "
+    var res = await fetch(API + "/news");
+    var a = await res.json();
+    if (a.length) document.getElementById("newsTicker").textContent = a.map(function(x){ return "📰 " + x.title + (x.source?" ["+x.source+"]":""); }).join("  ·  ") + "  ·  ";
   } catch(e) {}
 }
 
-function showToast(msg) {
-  const t = document.getElementById("saveToast"); t.textContent = msg; t.classList.add("show")
-  setTimeout(() => t.classList.remove("show"), 3000)
+// ─── LOCK MODAL ───────────────────────────────────────────────────────────────
+var FEATURE_LABELS = {
+  match_analysis:  {icon:'🤖',title:'AI MATCH ANALYSIS',desc:'GPT-4o powered analysis with real player data, ELO and predictions.'},
+  news_analysis:   {icon:'📰',title:'AI NEWS ANALYSIS',desc:'AI reads articles and extracts betting impact.'},
+  risk_analysis:   {icon:'📊',title:'RISK ANALYSIS',desc:'Monte Carlo risk scoring for your parlay.'},
+  auto_parlay:     {icon:'⚡',title:'AUTO PARLAY BUILDER',desc:'AI optimises your parlay automatically.'},
+  parlay_advice:   {icon:'🎯',title:'PARLAY AI ADVICE',desc:'GPT-4o analyses your legs and gives a confidence grade.'},
+  team_stats:      {icon:'📈',title:'TEAM STATS',desc:'Full team breakdown: ELO, xG, formation, real squad data.'},
+  leagues_tab:     {icon:'🏆',title:'LEAGUES HUB',desc:'Live standings, bracket viewer, team profiles.'},
+  sport_analysis:  {icon:'🏅',title:'SPORT AI ANALYSIS',desc:'AI analysis for NBA, NFL, Tennis, F1, Boxing & MMA.'},
+  ai_agent:        {icon:'🤖',title:'AI AGENT (PLATINUM)',desc:'Unlimited AI conversation about any match, team or market.'}
+};
+
+function getUserPlan() { return currentSub && currentSub.plan ? currentSub.plan : 'free'; }
+
+function showLockModal(feature) {
+  var info = FEATURE_LABELS[feature] || {icon:'🔒',title:'LOCKED',desc:'Upgrade to access this feature.'};
+  var minPlan = FEATURE_MIN_PLAN[feature] || 'plus';
+  var cost = ACTION_COSTS[feature] || 0;
+  document.getElementById('lmIcon').textContent = info.icon;
+  document.getElementById('lmTitle').textContent = info.title;
+  document.getElementById('lmDesc').textContent = info.desc;
+  document.getElementById('lmCost').innerHTML = cost > 0 ? 'Costs <b style="color:#ffd700">' + cost + ' credits</b> per use' : '';
+  document.getElementById('lmCurrent').textContent = 'Your plan: ' + getUserPlan().toUpperCase();
+  var plansDiv = document.getElementById('lmPlans');
+  plansDiv.innerHTML = '';
+  var minRank = PLAN_RANK[minPlan] || 0;
+  PLAN_HIERARCHY.forEach(function(plan) {
+    var chip = document.createElement('span');
+    chip.className = 'plan-chip ' + ((PLAN_RANK[plan]||0) >= minRank ? 'pc-' + plan : 'pc-locked');
+    chip.style.opacity = (PLAN_RANK[plan]||0) < minRank ? '.35' : '1';
+    chip.textContent = plan.toUpperCase();
+    plansDiv.appendChild(chip);
+  });
+  document.getElementById('lockModal').classList.add('open');
 }
 
-// ─── AI CHAT ──────────────────────────────────────────────
-function toggleChat() { chatOpen = !chatOpen; document.getElementById("aiChat").classList.toggle("open", chatOpen) }
-function chip(t) { document.getElementById("chatIn").value = t; sendMsg() }
+function closeLockModal() { document.getElementById('lockModal').classList.remove('open'); }
+
+// ─── AI CHAT ──────────────────────────────────────────────────────────────────
+function toggleChat() { chatOpen = !chatOpen; document.getElementById("aiChat").classList.toggle("open", chatOpen); }
+function chipMsg(t) { document.getElementById("chatIn").value = t; sendMsg(); }
 function sendMsg() {
-  const input = document.getElementById("chatIn"), text = input.value.trim(); if (!text) return
-  addChatMsg(text, "user"); input.value = ""
-  const msgs = document.getElementById("chatMsgs"), typing = document.createElement("div")
-  typing.className = "msg ai"; typing.innerHTML = "<div class='typing-indicator'><div class='typing-dot'></div><div class='typing-dot'></div><div class='typing-dot'></div></div>"
-  msgs.appendChild(typing); msgs.scrollTop = msgs.scrollHeight
-  setTimeout(() => { typing.remove(); addChatMsg(chatReply(text), "ai") }, 700 + Math.random() * 500)
+  var input = document.getElementById("chatIn"), text = input.value.trim(); if (!text) return;
+  addChatMsg(text, "user"); input.value = "";
+  var msgs = document.getElementById("chatMsgs"), typing = document.createElement("div");
+  typing.className = "msg ai";
+  typing.innerHTML = "<div class='typing-indicator'><div class='typing-dot'></div><div class='typing-dot'></div><div class='typing-dot'></div></div>";
+  msgs.appendChild(typing); msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(function() { typing.remove(); addChatMsg(chatReply(text), "ai"); }, 700 + Math.random()*500);
 }
-function addChatMsg(t, type) { const msgs = document.getElementById("chatMsgs"), div = document.createElement("div"); div.className = `msg ${type}`; div.innerHTML = t; msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight }
+function addChatMsg(t, type) {
+  var msgs = document.getElementById("chatMsgs"), div = document.createElement("div");
+  div.className = "msg " + type; div.innerHTML = t;
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+}
 function chatReply(text) {
-  const t = text.toLowerCase(), f = filteredMatches, sorted = [...f].sort((a, b) => b.confidence - a.confidence)
-  const top = sorted[0], vals = f.filter(m => m.valueBet), ups = f.filter(m => m.isUpsetWatch).sort((a, b) => b.upsetProb - a.upsetProb), live = f.filter(m => m.isLive)
-  const mismatches = f.filter(m => m.mismatches && m.mismatches.length > 0)
-  if (t.includes("best") || t.includes("top") || t.includes("today")) { if (!top) return "No matches loaded."; const maxP = Math.max(top.homeProb, top.drawProb, top.awayProb); const pick = top.homeProb === maxP ? top.home + " Win" : top.drawProb === maxP ? "Draw" : top.away + " Win"; return `<strong>Top pick:</strong> ${top.home} vs ${top.away}<br>→ <strong style="color:var(--accent)">${pick}</strong><br>${top.confidence}% confidence · ${top.league}` }
-  if (t.includes("parlay") || t.includes("acca")) return `Set target odds & markets, then hit <strong>Auto-Build</strong>. ${f.length} matches available.`
-  if (t.includes("value") || t.includes("edge")) { if (!vals.length) return "No value bets right now."; return `<strong>${vals.length} value bets:</strong><br>${vals.slice(0, 3).map(m => `• ${m.home} vs ${m.away}`).join("<br>")}` }
-  if (t.includes("upset") || t.includes("underdog")) { if (!ups.length) return "No upset watches."; const u = ups[0]; return `<strong>⚡ Upset:</strong> ${u.home} vs ${u.away}<br>${u.awayProb}% away · odds ${u.awayOdds}` }
-  if (t.includes("mismatch")) { if (!mismatches.length) return "No mismatch alerts right now."; const mm = mismatches[0]; return `<strong>⚡ Mismatch:</strong> ${mm.home} vs ${mm.away}<br>${mm.mismatches[0]?.description||"Significant mismatch detected"}` }
-  if (t.includes("live")) { if (!live.length) return "No live matches."; return `<strong>${live.length} live:</strong><br>${live.map(m => `• ${m.home} ${m.score||""} ${m.away}`).join("<br>")}` }
-  return `Analyzing <strong>${f.length} matches</strong> · <strong>${new Set(f.map(m => m.league)).size} leagues</strong>.<br>Try: best bets, value, upsets, mismatches, live, save parlay.`
+  var t = text.toLowerCase();
+  var f = filteredMatches;
+  var sorted = f.slice().sort(function(a,b){ return (b.confidence||0)-(a.confidence||0); });
+  var top = sorted[0];
+  var vals = f.filter(function(m){ return m.valueBet; });
+  var ups = f.filter(function(m){ return m.isUpsetWatch; });
+  var live = f.filter(function(m){ return m.isLive; });
+  if (t.includes("best")||t.includes("top")||t.includes("today")) {
+    if (!top) return "No matches loaded. Click ⟳ REFRESH.";
+    var maxP = Math.max(top.homeProb||0,top.drawProb||0,top.awayProb||0);
+    var pick = (top.homeProb||0)===maxP?top.home+" Win":(top.drawProb||0)===maxP?"Draw":top.away+" Win";
+    return '<strong>Top pick:</strong> ' + top.home + ' vs ' + top.away + '<br>→ <strong style="color:var(--accent)">' + pick + '</strong><br>' + (top.confidence||0) + '% confidence · ' + (top.league||'');
+  }
+  if (t.includes("value")||t.includes("edge")) {
+    if (!vals.length) return "No value bets right now.";
+    return '<strong>' + vals.length + ' value bets:</strong><br>' + vals.slice(0,3).map(function(m){ return '• ' + m.home + ' vs ' + m.away; }).join("<br>");
+  }
+  if (t.includes("upset")||t.includes("underdog")) {
+    if (!ups.length) return "No upset watches.";
+    var u = ups[0];
+    return '<strong>⚡ Upset:</strong> ' + u.home + ' vs ' + u.away + '<br>' + u.awayProb + '% away · odds ' + u.awayOdds;
+  }
+  if (t.includes("live")) {
+    if (!live.length) return "No live matches right now.";
+    return '<strong>' + live.length + ' live:</strong><br>' + live.map(function(m){ return '• ' + m.home + ' ' + (m.score||'') + ' ' + m.away; }).join("<br>");
+  }
+  if (t.includes("parlay")||t.includes("acca")) return 'Set target odds & markets, then hit <strong>Auto-Build</strong>. ' + f.length + ' matches available.';
+  return 'Analyzing <strong>' + f.length + ' matches</strong> · <strong>' + new Set(f.map(function(m){ return m.league; })).size + ' leagues</strong>.<br>Try: best bets, value, upsets, live, save parlay.';
 }
 
-// ─── UTILS ────────────────────────────────────────────────
-function esc(s) { return (s || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"') }
-function sn(s) { return (s || "").split(" ").slice(-1)[0] }
-function fmtDate(d) { if (!d) return ""; const dt = new Date(d), now = new Date(), tom = new Date(now); tom.setDate(now.getDate() + 1); if (dt.toDateString() === now.toDateString()) return "Today"; if (dt.toDateString() === tom.toDateString()) return "Tomorrow"; return dt.toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"}) }
-function fmtTime(d) { if (!d) return ""; return new Date(d).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"}) }
-function flagFor(n) { n = (n || "").toLowerCase(); if (n.includes("premier league") || n.includes("england")) return "🏴󠁧󠁢󠁥󠁮󠁧󠁿"; if (n.includes("la liga") || n.includes("spain")) return "🇪🇸"; if (n.includes("serie a") || n.includes("italy")) return "🇮🇹"; if (n.includes("bundesliga") || n.includes("germany")) return "🇩🇪"; if (n.includes("ligue") || n.includes("france")) return "🇫🇷"; if (n.includes("champions")) return "⭐"; if (n.includes("europa")) return "🟠"; if (n.includes("conference")) return "🟢"; if (n.includes("fa cup")) return "🏆"; if (n.includes("carabao") || n.includes("efl cup")) return "🥤"; if (n.includes("championship")) return "🏴󠁧󠁢󠁥󠁮󠁧󠁿"; if (n.includes("portugal")) return "🇵🇹"; if (n.includes("eredivisie") || n.includes("dutch")) return "🇳🇱"; if (n.includes("brasil") || n.includes("brazil")) return "🇧🇷"; if (n.includes("argentina")) return "🇦🇷"; if (n.includes("turkey") || n.includes("süper") || n.includes("super lig")) return "🇹🇷"; if (n.includes("scotland") || n.includes("scottish")) return "🏴󠁧󠁢󠁳󠁣󠁴󠁿"; if (n.includes("belgium")) return "🇧🇪"; if (n.includes("denmark")) return "🇩🇰"; if (n.includes("greek") || n.includes("greece")) return "🇬🇷"; if (n.includes("czech")) return "🇨🇿"; if (n.includes("mls") || n.includes("major league")) return "🇺🇸"; if (n.includes("saudi")) return "🇸🇦"; if (n.includes("zamb")) return "🇿🇲"; if (n.includes("estonia")) return "🇪🇪"; if (n.includes("south africa")) return "🇿🇦"; return "⚽" }
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  var t = document.getElementById("saveToast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, 3000);
+}
+function esc(s) {
+  return (s||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
+function sn(s) { return (s||"").split(" ").slice(-1)[0]; }
+function fmtDate(d) {
+  if (!d) return "";
+  var dt = new Date(d), now = new Date(), tom = new Date(now);
+  tom.setDate(now.getDate()+1);
+  if (dt.toDateString()===now.toDateString()) return "Today";
+  if (dt.toDateString()===tom.toDateString()) return "Tomorrow";
+  return dt.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+}
+function fmtTime(d) {
+  if (!d) return "";
+  try { return new Date(d).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); } catch(e) { return ""; }
+}
+function flagFor(n) {
+  n = (n||"").toLowerCase();
+  if (n.includes("premier league")||n.includes("england")) return "🏴󠁧󠁢󠁥󠁮󠁧󠁿";
+  if (n.includes("la liga")||n.includes("spain")) return "🇪🇸";
+  if (n.includes("serie a")||n.includes("italy")) return "🇮🇹";
+  if (n.includes("bundesliga")||n.includes("germany")) return "🇩🇪";
+  if (n.includes("ligue")||n.includes("france")) return "🇫🇷";
+  if (n.includes("champions")) return "⭐";
+  if (n.includes("europa")) return "🟠";
+  if (n.includes("conference")) return "🟢";
+  if (n.includes("fa cup")) return "🏆";
+  if (n.includes("carabao")||n.includes("efl cup")) return "🥤";
+  if (n.includes("championship")) return "🏴󠁧󠁢󠁥󠁮󠁧󠁿";
+  if (n.includes("portugal")) return "🇵🇹";
+  if (n.includes("eredivisie")||n.includes("dutch")) return "🇳🇱";
+  if (n.includes("brasil")||n.includes("brazil")) return "🇧🇷";
+  if (n.includes("argentina")) return "🇦🇷";
+  if (n.includes("turkey")||n.includes("süper")||n.includes("super lig")) return "🇹🇷";
+  if (n.includes("scotland")||n.includes("scottish")) return "🏴󠁧󠁢󠁳󠁣󠁴󠁿";
+  if (n.includes("belgium")) return "🇧🇪";
+  if (n.includes("denmark")) return "🇩🇰";
+  if (n.includes("greek")||n.includes("greece")) return "🇬🇷";
+  if (n.includes("czech")) return "🇨🇿";
+  if (n.includes("mls")||n.includes("major league")) return "🇺🇸";
+  if (n.includes("saudi")) return "🇸🇦";
+  if (n.includes("zamb")) return "🇿🇲";
+  if (n.includes("estonia")) return "🇪🇪";
+  if (n.includes("south africa")) return "🇿🇦";
+  if (n.includes("nba")||n.includes("basketball")) return "🏀";
+  if (n.includes("nfl")||n.includes("football")) return "🏈";
+  if (n.includes("tennis")||n.includes("atp")||n.includes("wta")) return "🎾";
+  if (n.includes("formula")||n.includes("f1")) return "🏎️";
+  if (n.includes("boxing")) return "🥊";
+  if (n.includes("mma")||n.includes("ufc")) return "🥋";
+  return "⚽";
+}
 
-window.addEventListener("DOMContentLoaded", init)
+async function loadUserCredits() {
+  try {
+    var res = await fetch(API + "/user/" + USER_ID);
+    if (!res.ok) return;
+    var u = await res.json();
+    var btn = document.getElementById("creditsBtn");
+    if (btn && u.credits_available !== undefined) {
+      var inf = u.plan === "platinum";
+      btn.textContent = "💳 " + (inf ? "∞" : u.credits_available) + " CREDITS";
+    }
+    currentSub = u;
+  } catch(e) {}
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  // FIX: Auth guard — check for Supabase session token in localStorage
+  // Looks for any sb-*-auth-token key set by Supabase client
+  var hasSession = false;
+  try {
+    for (var k in localStorage) {
+      if (k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1) {
+        var stored = localStorage.getItem(k);
+        if (stored) {
+          var parsed = JSON.parse(stored);
+          if (parsed && parsed.access_token) {
+            // Use the actual Supabase user ID if available
+            if (parsed.user && parsed.user.id) {
+              USER_ID = parsed.user.id;
+            }
+            hasSession = true;
+          }
+        }
+        break;
+      }
+    }
+  } catch(e) {}
+
+  // Fallback: check for a manually stored session
+  if (!hasSession) {
+    var manualSession = localStorage.getItem('slipiq_session');
+    if (manualSession) {
+      try {
+        var ms = JSON.parse(manualSession);
+        if (ms && ms.user_id) { USER_ID = ms.user_id; hasSession = true; }
+      } catch(e) {}
+    }
+  }
+
+  // Redirect to login if no session found and Supabase URL is configured
+  if (!hasSession && window.SUPABASE_URL) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  await loadCurrentSport();
+  loadNewsTicker();
+  loadUserCredits();
+}
+
+window.addEventListener("DOMContentLoaded", init);
 </script>
 </body>
 </html>
