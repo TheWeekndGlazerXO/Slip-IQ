@@ -1562,7 +1562,7 @@ function buildNFLPrediction(event) {
     const status = comp.status?.type?.name || "STATUS_SCHEDULED"
     const isFinal = comp.status?.type?.completed === true || status === "STATUS_FINAL"
     // During offseason, include scheduled matchups too
-    if (isFinal && game._source !== 'schedule') return null
+    if (isFinal && event._source !== 'schedule') return null
 
     const hElo = NFL_ELO_BASE[homeName] || (1750 + Math.abs(homeName.length * 37) % 100)
     const aElo = NFL_ELO_BASE[awayName] || (1750 + Math.abs(awayName.length * 41) % 100)
@@ -3246,13 +3246,8 @@ app.get("/news", async (req, res) => {
   } catch(e) { res.json([]) }
 })
 
-app.post("/news/analyze", requireAccess('news_analysis'),  async (req, res) => {
-  // Add at the top of /analyze POST handler, after destructuring req.body:
-if (userId && sb) {
-  const access = await checkAccess(userId, 'match_analysis')
-  if (!access.ok) return res.status(402).json({ creditGate: true, ...access })
-  await useCredits(userId, 'match_analysis')
-}
+app.post("/news/analyze", requireAccess('news_analysis'), async (req, res) => {
+  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId
   const { article, predictions } = req.body
   if (!article) return res.json({ error: "No article" })
   try {
@@ -3263,12 +3258,7 @@ if (userId && sb) {
 
 // ── ANALYZE ───────────────────────────────────────────────
 app.post("/analyze", async (req, res) => {
-  // Add at the top of /analyze POST handler, after destructuring req.body:
-if (userId && sb) {
-  const access = await checkAccess(userId, 'match_analysis')
-  if (!access.ok) return res.status(402).json({ creditGate: true, ...access })
-  await useCredits(userId, 'match_analysis')
-}
+  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId
   const { match, type } = req.body
   try {
     let prompt = ""
@@ -3510,29 +3500,7 @@ if (event.type === "checkout.session.completed") {
     res.json({ received: true })
   } catch(e) { res.status(500).json({ error: e.message }) }
 })
-app.get('/standings/football', async (req, res) => {
-  try {
-    const leagues = ['Premier League','La Liga','Serie A','Bundesliga','Ligue 1']
-    const results = []
-    for (const name of leagues) {
-      const fdCode = FD_COMPETITIONS_REVERSE[name]
-      if (fdCode && FD_KEY) {
-        const data = await fdStandings(fdCode).catch(() => null)
-        if (data) {
-          const rows = parseFdStandings(data)
-          if (rows.length) { results.push({ name, season: data.season?.startYear, table: rows }); continue }
-        }
-      }
-      // Fallback SM
-      const sid = await getSmSeasonId(name).catch(() => null)
-      if (sid) {
-        const smData = await smStandings(sid).catch(() => [])
-        if (smData.length) results.push({ name, table: smData })
-      }
-    }
-    res.json(results)
-  } catch(e) { res.status(500).json({ error: e.message }) }
-})
+
 // ── STARTUP ───────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`\n╔═══════════════════════════════════════════════╗`)
