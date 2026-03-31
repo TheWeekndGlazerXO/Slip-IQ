@@ -165,7 +165,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .cfg-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
 .markets-checkboxes{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px}
 .mkt-cb{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono';font-size:9px;color:var(--text2);cursor:pointer;padding:2px 0}
-.pp-legs{flex:1;overflow-y:auto;padding:7px 11px;display:flex;flex-direction:column;gap:5px}
+.pp-legs{flex:1;overflow-y:auto;padding:7px 11px;display:flex;flex-direction:column;gap:5px;min-height:80px;max-height:calc(100vh - 520px)}
 .pp-legs::-webkit-scrollbar{width:3px}
 .pp-legs::-webkit-scrollbar-thumb{background:var(--border2)}
 .parlay-leg{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 8px;position:relative}
@@ -175,7 +175,8 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .leg-conf{font-family:'JetBrains Mono';font-size:8px;color:var(--text3)}
 .leg-remove{position:absolute;top:6px;right:6px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;transition:color .15s}
 .leg-remove:hover{color:var(--red)}
-.pp-actions{padding:7px 11px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.pp-actions{padding:7px 11px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;flex-shrink:0;background:var(--bg2)}
+
 .btn-auto{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;letter-spacing:1px;padding:8px;border-radius:6px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 0 14px rgba(0,200,248,.25)}
 .btn-auto:hover{transform:translateY(-1px);box-shadow:0 0 22px rgba(0,200,248,.4)}
 .btn-auto:disabled{opacity:.4;cursor:not-allowed;transform:none}
@@ -1471,45 +1472,57 @@ function riskLabel(legs, odds) {
 // FIX: autoParlay — correct JSON.stringify body, no broken spread syntax
 async function autoParlay() {
   var btn = document.getElementById("autoBtn");
-  btn.textContent = "⏳ FETCHING MULTI-SPORT DATA...";
+  btn.textContent = "⏳ BUILDING OPTIMAL PARLAY...";
   btn.disabled = true;
   try {
     var enabledSports = getEnabledSports();
     var timeframe = parseInt((document.getElementById('parlayTimeframe') || {}).value || '7');
+    var minLegs = parseInt(document.getElementById("legMin").value) || 2;
+    var maxLegs = parseInt(document.getElementById("legMax").value) || 6;
+    var markets = getEnabledMarkets();
     var allCandidates = [];
 
+    // Collect football matches
     if (enabledSports.indexOf('football') !== -1) {
-      var footballMatches = filteredMatches.filter(function(m){ return !m.isLive && m.sport === 'football'; });
-      allCandidates = allCandidates.concat(footballMatches);
+      allCandidates = allCandidates.concat(
+        allMatches.filter(function(m){ return !m.isLive && !m.isFinished; })
+                  .map(function(m){ return Object.assign({}, m, { sport: 'football' }); })
+      );
     }
 
+    // Fetch other sports in parallel
     var otherSports = enabledSports.filter(function(s){ return s !== 'football'; });
-    for (var i = 0; i < otherSports.length; i++) {
-      var sport = otherSports[i];
+    var sportFetches = otherSports.map(function(sport) {
       var cfg = SPORT_CONFIG[sport];
-      if (!cfg) continue;
-      try {
-        var r = await fetch(API + cfg.endpoint);
-        if (r.ok) {
-          var sportData = await r.json();
-          var matches = sportData.predictions || sportData;
-          if (Array.isArray(matches)) {
-            var upcoming = matches.filter(function(m){ return !m.isLive && !m.isFinished; });
-            allCandidates = allCandidates.concat(upcoming);
-          }
-        }
-      } catch(e2) {}
-    }
+      if (!cfg) return Promise.resolve([]);
+      return fetch(API + cfg.endpoint)
+        .then(function(r){ return r.ok ? r.json() : []; })
+        .then(function(d){
+          var arr = d.predictions || d;
+          if (!Array.isArray(arr)) return [];
+          return arr.filter(function(m){ return !m.isLive && !m.isFinished; })
+                    .map(function(m){ return Object.assign({}, m, { sport: sport }); });
+        })
+        .catch(function(){ return []; });
+    });
+    var sportResults = await Promise.all(sportFetches);
+    sportResults.forEach(function(arr){ allCandidates = allCandidates.concat(arr); });
 
+    // Filter by timeframe
     var now = Date.now();
     var maxMs = timeframe * 86400000;
     allCandidates = allCandidates.filter(function(m){
-      return !m.date || (new Date(m.date).getTime() - now <= maxMs && new Date(m.date).getTime() >= now - 3600000);
+      if (!m.date) return true;
+      var t = new Date(m.date).getTime();
+      return t >= now - 3600000 && t <= now + maxMs;
     });
 
-    if (!allCandidates.length) { alert("No matches found for selected sports/timeframe."); return; }
+    if (!allCandidates.length) {
+      alert("No matches found for selected sports/timeframe.");
+      return;
+    }
 
-    // FIX: correct JSON body — no broken spread/IIFE syntax
+    // Send to server with full market + odds context
     var res = await fetch(API + "/parlay/auto", {
       method: "POST",
       headers: authHeaders(),
@@ -1518,14 +1531,14 @@ async function autoParlay() {
         predictions: allCandidates,
         targetOdds: targetOdds,
         riskLevel: riskLevel,
-        minLegs: parseInt(document.getElementById("legMin").value) || 2,
-        maxLegs: parseInt(document.getElementById("legMax").value) || 6,
+        minLegs: minLegs,
+        maxLegs: maxLegs,
         timeframeDays: timeframe,
-        preferredMarkets: getEnabledMarkets()
+        preferredMarkets: markets,
+        enabledSports: enabledSports
       })
     });
 
-    // FIX: handle 402 plan lock from server
     if (res.status === 402) {
       var errData = await res.json().catch(function(){ return {}; });
       showLockModal(errData.action || 'auto_parlay');
@@ -1533,10 +1546,22 @@ async function autoParlay() {
     }
 
     var data = await res.json();
+
+    if (data.notEnoughMatches || !data.parlay || !data.parlay.length) {
+      showToast("⚠️ No parlay possible for these filters — try adjusting target odds, markets or timeframe.");
+      return;
+    }
+
     parlaySelections = data.parlay || [];
-    renderParlay(); renderPage();
-  } catch(err) { alert("Auto-build failed: " + err.message); }
-  finally { btn.textContent = "⚡ AUTO-BUILD OPTIMAL PARLAY"; btn.disabled = false; }
+    renderParlay();
+    renderPage();
+    showToast("⚡ Optimal parlay built — " + parlaySelections.length + " legs @ " + (data.combinedOdds||'?') + "x");
+  } catch(err) {
+    alert("Auto-build failed: " + err.message);
+  } finally {
+    btn.textContent = "⚡ AUTO-BUILD OPTIMAL PARLAY";
+    btn.disabled = false;
+  }
 }
 
 async function saveParlay() {

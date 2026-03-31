@@ -6,9 +6,9 @@ const axios    = require("axios")
 const path     = require("path")
 const https    = require("https")
 const dns      = require("dns")
+
 // ── AI LEARNING SYSTEM ─────────────────────────────────────────────────────
-// Stores prediction outcomes and adjusts weights dynamically
-const predictionLog    = new Map()  // matchId → { predicted, actual, sport, factors }
+const predictionLog    = new Map()
 const sportWeights     = {
   football:          { eloWeight: 0.35, formWeight: 0.25, xgWeight: 0.20, homeWeight: 0.12, h2hWeight: 0.08 },
   basketball:        { eloWeight: 0.40, formWeight: 0.20, homeWeight: 0.25, paceWeight: 0.15 },
@@ -18,33 +18,40 @@ const sportWeights     = {
   boxing:            { eloWeight: 0.40, reachWeight: 0.15, recordWeight: 0.25, styleWeight: 0.20 },
   mma:               { eloWeight: 0.38, strikingWeight: 0.22, grapplingWeight: 0.22, reachWeight: 0.10, recordWeight: 0.08 },
 }
-
-const weightUpdateLog  = []  // tracks weight changes over time
+const weightUpdateLog  = []
 let   lastWeightUpdate = 0
-// Per-team adaptive weightings — these override global sport weights for specific teams
-// Keys: teamName → { home: 0-1, away: 0-1, form: 0-1, elo: 0-1, xg: 0-1, ... }
-const teamWeights = new Map()
 
+// ── PER-TEAM ADAPTIVE WEIGHTS ─────────────────────────────────────────────
+const teamWeights = new Map()
 const DEFAULT_TEAM_WEIGHTS = () => ({
-  homeWin:  0.62, awayWin: 0.38,          // home/away win rate factor
-  homeEuropean: 0.60, awayEuropean: 0.40, // European home/away
-  formFactor: 0.72,                        // how much recent form matters
-  eloFactor: 0.68,                         // ELO weight in prediction
-  xgFactor: 0.55,                          // xG importance
-  tablePlacement: 0.45,                    // league position relevance
-  oppositionStrength: 0.50,                // how they do vs top/mid/bottom
-  pressingIntensity: 0.50,                 // high press susceptibility
-  setpieceVulnerability: 0.50,             // set piece conceding/scoring
-  counterAttackRisk: 0.50,                 // vulnerable to counter attack
-  injuryImpact: 0.40,                      // injury sensitivity
-  managerTactical: 0.45,                   // manager tactical factor
+  homeWin:  0.62, awayWin: 0.38,
+  homeEuropean: 0.60, awayEuropean: 0.40,
+  formFactor: 0.72,
+  eloFactor: 0.68,
+  xgFactor: 0.55,
+  tablePlacement: 0.45,
+  oppositionStrength: 0.50,
+  pressingIntensity: 0.50,
+  setpieceVulnerability: 0.50,
+  counterAttackRisk: 0.50,
+  injuryImpact: 0.40,
+  managerTactical: 0.45,
+  // deep Sportmonks factors
+  avgPossession: 0.50,
+  shotsOnTargetRatio: 0.50,
+  cornersWon: 0.50,
+  yellowCardRisk: 0.50,
+  goalsFromSetPiece: 0.50,
+  cleanSheetRate: 0.50,
+  goalsConcededLastN: 0.50,
+  homeGoalsScoredAvg: 0.00,
+  awayGoalsScoredAvg: 0.00,
+  homeGoalsConcededAvg: 0.00,
+  awayGoalsConcededAvg: 0.00,
+  avgRating: 0.00,
   // Descriptor matchups
-  vsFinessers: 0.50,    // vs technical/possession teams
-  vsDirectPlay: 0.50,   // vs long ball/direct teams
-  vsHighPress: 0.50,    // vs pressing teams
-  vsLowBlock: 0.50,     // vs defensive teams
-  matchCount: 0,        // how many matches used for learning
-  lastUpdated: Date.now()
+  vsFinessers: 0.50, vsDirectPlay: 0.50, vsHighPress: 0.50, vsLowBlock: 0.50,
+  matchCount: 0, lastUpdated: Date.now()
 })
 
 function getTeamWeights(teamName) {
@@ -52,44 +59,55 @@ function getTeamWeights(teamName) {
   return teamWeights.get(teamName)
 }
 
-// Update team weights after a match result — call this when outcomes come in
 async function updateTeamWeights(homeTeam, awayTeam, homeScore, awayScore, wasHome, matchContext) {
-  const lr = 0.015  // conservative learning rate per match
+  const lr = 0.015
   for (const [teamName, isHome] of [[homeTeam, true], [awayTeam, false]]) {
     const w = getTeamWeights(teamName)
-    const scored  = isHome ? homeScore : awayScore
-    const conceded= isHome ? awayScore : homeScore
-    const won     = scored > conceded
-    const context = matchContext || {}
+    const scored   = isHome ? homeScore : awayScore
+    const conceded = isHome ? awayScore : homeScore
+    const won      = scored > conceded
+    const ctx      = matchContext || {}
 
-    // Update home/away weighting
     if (isHome) {
-      if (won) w.homeWin = Math.min(0.85, w.homeWin + lr)
-      else     w.homeWin = Math.max(0.35, w.homeWin - lr)
+      w.homeWin = won ? Math.min(0.85, w.homeWin + lr) : Math.max(0.35, w.homeWin - lr)
       w.awayWin = 1 - w.homeWin
     } else {
-      if (won) w.awayWin = Math.min(0.75, w.awayWin + lr)
-      else     w.awayWin = Math.max(0.25, w.awayWin - lr)
+      w.awayWin = won ? Math.min(0.75, w.awayWin + lr) : Math.max(0.25, w.awayWin - lr)
       w.homeWin = 1 - w.awayWin
     }
 
-    // Form factor — if they're winning consistently, form matters more
-    if (won) w.formFactor = Math.min(0.90, w.formFactor + lr * 0.5)
-    else     w.formFactor = Math.max(0.40, w.formFactor - lr * 0.3)
+    w.formFactor = won ? Math.min(0.90, w.formFactor + lr * 0.5) : Math.max(0.40, w.formFactor - lr * 0.3)
 
-    // xG factor — if their xG is predicting results well, increase weight
-    if (context.homeXg && Math.abs(context.homeXg - scored) < 0.5) {
+    if (ctx.homeXg && Math.abs(ctx.homeXg - scored) < 0.5) {
       w.xgFactor = Math.min(0.80, w.xgFactor + lr * 0.4)
     } else {
       w.xgFactor = Math.max(0.30, w.xgFactor - lr * 0.2)
     }
+
+    // Update goals stats
+    if (isHome) {
+      w.homeGoalsScoredAvg   = w.homeGoalsScoredAvg   * 0.9 + scored   * 0.1
+      w.homeGoalsConcededAvg = w.homeGoalsConcededAvg * 0.9 + conceded * 0.1
+    } else {
+      w.awayGoalsScoredAvg   = w.awayGoalsScoredAvg   * 0.9 + scored   * 0.1
+      w.awayGoalsConcededAvg = w.awayGoalsConcededAvg * 0.9 + conceded * 0.1
+    }
+
+    if (ctx.cleanSheet) w.cleanSheetRate = Math.min(0.90, w.cleanSheetRate + lr)
+    else                w.cleanSheetRate = Math.max(0.10, w.cleanSheetRate - lr * 0.5)
+
+    if (ctx.possession)        w.avgPossession       = ctx.possession / 100
+    if (ctx.shotsOnTarget)     w.shotsOnTargetRatio  = Math.min(1, ctx.shotsOnTarget / 10)
+    if (ctx.corners)           w.cornersWon          = Math.min(1, ctx.corners / 12)
+    if (ctx.yellowCards)       w.yellowCardRisk      = Math.min(1, ctx.yellowCards / 5)
+    if (ctx.setpieceGoals)     w.goalsFromSetPiece   = Math.min(1, ctx.setpieceGoals / 3)
+    if (ctx.avgRating)         w.avgRating           = ctx.avgRating
 
     w.matchCount++
     w.lastUpdated = Date.now()
     teamWeights.set(teamName, w)
   }
 
-  // Persist to Supabase
   if (sb) {
     for (const teamName of [homeTeam, awayTeam]) {
       const w = teamWeights.get(teamName)
@@ -98,7 +116,6 @@ async function updateTeamWeights(homeTeam, awayTeam, homeScore, awayScore, wasHo
   }
 }
 
-// Load persisted team weights from Supabase on startup
 async function loadTeamWeights() {
   if (!sb) return
   try {
@@ -109,7 +126,7 @@ async function loadTeamWeights() {
     }
   } catch(e) {}
 }
-// Load persisted weights from Supabase if available
+
 async function loadSportWeights() {
   if (!sb) return
   try {
@@ -123,7 +140,6 @@ async function loadSportWeights() {
   } catch(e) {}
 }
 
-// Record a prediction for later accuracy tracking
 function logPrediction(matchId, sport, homeTeam, awayTeam, predictedWinner, probabilities, factors) {
   predictionLog.set(String(matchId), {
     matchId, sport, homeTeam, awayTeam, predictedWinner,
@@ -131,7 +147,6 @@ function logPrediction(matchId, sport, homeTeam, awayTeam, predictedWinner, prob
   })
 }
 
-// When a result comes in, update weights based on accuracy
 async function recordOutcome(matchId, actualWinner, homeScore, awayScore) {
   const pred = predictionLog.get(String(matchId))
   if (!pred || pred.resolved) return
@@ -141,32 +156,21 @@ async function recordOutcome(matchId, actualWinner, homeScore, awayScore) {
   const sport = pred.sport || 'football'
   const w = sportWeights[sport]
   if (!w) return
-
-  // Adjust weights based on what factors predicted correctly
-  const lr = 0.02  // learning rate — small adjustments
+  const lr = 0.02
   if (!pred.correct) {
-    // If we got it wrong, reduce weight of the dominant factor slightly
     const dominant = pred.factors && pred.factors[0] ? pred.factors[0].key : null
     if (dominant && w[dominant] !== undefined) {
       w[dominant] = Math.max(0.05, w[dominant] - lr)
-      // redistribute to other weights proportionally
       const others = Object.keys(w).filter(k => k !== dominant)
       const adj = lr / others.length
       for (const k of others) w[k] = Math.min(0.60, w[k] + adj)
     }
   } else {
-    // Correct — slightly boost dominant factor confidence
     const dominant = pred.factors && pred.factors[0] ? pred.factors[0].key : null
-    if (dominant && w[dominant] !== undefined) {
-      w[dominant] = Math.min(0.60, w[dominant] + lr * 0.5)
-    }
+    if (dominant && w[dominant] !== undefined) w[dominant] = Math.min(0.60, w[dominant] + lr * 0.5)
   }
-
   weightUpdateLog.push({ sport, matchId, correct: pred.correct, timestamp: Date.now() })
-  // Persist to Supabase every 10 updates
-  if (weightUpdateLog.length % 10 === 0) {
-    await persistWeights(sport, w).catch(() => {})
-  }
+  if (weightUpdateLog.length % 10 === 0) await persistWeights(sport, w).catch(() => {})
 }
 
 async function persistWeights(sport, weights) {
@@ -175,6 +179,7 @@ async function persistWeights(sport, weights) {
     await sb.from('sport_weights').upsert({ sport, weights, updated_at: new Date().toISOString() }, { onConflict: 'sport' })
   } catch(e) {}
 }
+
 dns.setDefaultResultOrder("ipv4first")
 
 // ── AI ────────────────────────────────────────────────────
@@ -182,14 +187,9 @@ let OpenAI, aiClient
 try {
   OpenAI = require("openai")
   if (process.env.GITHUB_TOKEN) {
-    aiClient = new OpenAI({
-      baseURL: "https://models.github.ai/inference",
-      apiKey: process.env.GITHUB_TOKEN
-    })
+    aiClient = new OpenAI({ baseURL: "https://models.github.ai/inference", apiKey: process.env.GITHUB_TOKEN })
     console.log("✅ GitHub AI ready —", process.env.MODEL_NAME || "openai/gpt-4o")
-  } else {
-    console.log("⚠️  GITHUB_TOKEN missing — AI disabled")
-  }
+  } else console.log("⚠️  GITHUB_TOKEN missing — AI disabled")
 } catch(e) { console.log("⚠️  Run: npm install openai") }
 
 // ── SUPABASE ──────────────────────────────────────────────
@@ -242,16 +242,7 @@ const FEATURE_MIN_PLAN = {
   auto_parlay: 'plus',    parlay_advice: 'plus', team_stats: 'plus',
   leagues_tab: 'plus',    sport_analysis: 'plus', ai_agent: 'platinum',
 }
-const PLAN_FEATURES = {
-  auto_parlay:   ["plus","pro","elite","platinum"],
-  parlay_advice: ["plus","pro","elite","platinum"],
-  ai_agent:      ["plus","pro","elite","platinum"],
-  team_stats:    ["plus","pro","elite","platinum"],
-  leagues_tab:   ["plus","pro","elite","platinum"],
-  match_analysis:["free","basic","plus","pro","elite","platinum"],
-  news_analysis: ["free","basic","plus","pro","elite","platinum"],
-  risk_analysis: ["free","basic","plus","pro","elite","platinum"],
-}
+
 function planCanAccess(userPlan, feature) {
   const minPlan = FEATURE_MIN_PLAN[feature] || 'free'
   return (PLAN_RANK[userPlan] || 0) >= (PLAN_RANK[minPlan] || 0)
@@ -276,15 +267,13 @@ async function cached(key, fn, ttl) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-// ── HTTP helper (SM only — uses smAgent) ─────────────────
+// ── HTTP helpers ─────────────────────────────────────────
 async function http(url, params, hdrs, retries) {
   params = params || {}; hdrs = hdrs || {}; retries = retries || 3
   for (let i = 1; i <= retries; i++) {
     try {
       return await axios.get(url, {
-        params,
-        timeout: 30000,
-        httpsAgent: smAgent,
+        params, timeout: 30000, httpsAgent: smAgent,
         headers: { "Accept": "application/json", "Accept-Encoding": "gzip", "User-Agent": "SlipIQ/1.0", ...hdrs }
       })
     } catch(e) {
@@ -297,11 +286,9 @@ async function http(url, params, hdrs, retries) {
   }
 }
 
-// ── HTTP helper (no agent — for external APIs) ────────────
 async function httpExt(url, params, hdrs) {
   return axios.get(url, {
-    params: params || {},
-    timeout: 20000,
+    params: params || {}, timeout: 20000,
     headers: { "Accept": "application/json", "User-Agent": "SlipIQ/1.0", ...(hdrs||{}) }
   })
 }
@@ -321,42 +308,12 @@ const f1EloMap     = new Map()
 const boxingEloMap = new Map()
 const mmaEloMap    = new Map()
 
-
-// ── AUTH MIDDLEWARE ───────────────────────────────────────
-function requireAccess(action) {
-  return async function(req, res, next) {
-    const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId
-    if (!userId || !sb) return next() // no Supabase = dev mode, allow through
-    
-    const access = await checkAccess(userId, action)
-    if (!access.ok) {
-      return res.status(402).json({
-        ok: false,
-        reason: access.reason,
-        action,
-        required_plan: FEATURE_MIN_PLAN[action],
-        user_plan: access.user_plan,
-        credits_needed: ACTION_COSTS[action],
-        credits_available: access.credits_available
-      })
-    }
-    
-    // Deduct credits AFTER confirming access
-    if (access.plan !== 'platinum') {
-      await useCredits(userId, action, action)
-    }
-    
-    req.userPlan = access.plan
-    next()
-  }
-}
 // ── CREDITS ────────────────────────────────────────────────
 async function useCredits(userId, action) {
   if (!sb) return { ok: true }
   const cost = ACTION_COSTS[action] || 0
   if (!cost) return { ok: true }
   try {
-    // Get current state
     const { data: sub } = await sb.from('subscriptions')
       .select('plan, credits_total, credits_used')
       .eq('user_id', userId).single()
@@ -366,11 +323,10 @@ async function useCredits(userId, action) {
     await sb.from('subscriptions')
       .update({ credits_used: newUsed, updated_at: new Date().toISOString() })
       .eq('user_id', userId)
-    return { ok: true, credits_remaining: Math.max(0, sub.credits_total - newUsed) }
+    return { ok: true, credits_remaining: Math.max(0, (sub.credits_total || 25) - newUsed) }
   } catch(e) { return { ok: false, reason: 'db_error' } }
 }
 
-// REPLACE the entire checkAccess function:
 async function checkAccess(userId, action) {
   if (!sb) return { ok: true, plan: 'platinum' }
   try {
@@ -379,18 +335,56 @@ async function checkAccess(userId, action) {
       .eq('user_id', userId).single()
     if (error || !data) return { ok: false, reason: 'user_not_found' }
     if (data.status !== 'active') return { ok: false, reason: 'subscription_inactive' }
+
     const plan = data.plan || 'free'
+
+    // Auto-reset credits if reset_at has passed
+    if (data.credits_reset_at && new Date(data.credits_reset_at) < new Date() && plan !== 'platinum') {
+      const newTotal = PLAN_CREDITS[plan] || 25
+      await sb.from('subscriptions').update({
+        credits_used: 0,
+        credits_total: newTotal,
+        credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq('user_id', userId)
+      data.credits_used = 0
+      data.credits_total = newTotal
+    }
+
     if (!planCanAccess(plan, action)) {
       return { ok: false, reason: 'plan_locked', user_plan: plan,
         required_plan: FEATURE_MIN_PLAN[action], action }
     }
     const cost = ACTION_COSTS[action] || 0
-    const available = plan === 'platinum' ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
+    const available = plan === 'platinum' ? 999999 : Math.max(0, (data.credits_total || 25) - (data.credits_used || 0))
     if (plan !== 'platinum' && available < cost) {
       return { ok: false, reason: 'insufficient_credits', credits_available: available, credits_needed: cost }
     }
     return { ok: true, plan, credits_available: available }
   } catch(e) { return { ok: false, reason: 'db_error' } }
+}
+
+// ── AUTH MIDDLEWARE ───────────────────────────────────────
+function requireAccess(action) {
+  return async function(req, res, next) {
+    const userId = req.headers['x-user-id'] || req.query.userId || (req.body && req.body.userId)
+    if (!userId || !sb) return next()
+    const access = await checkAccess(userId, action)
+    if (!access.ok) {
+      return res.status(402).json({
+        ok: false, reason: access.reason, action,
+        required_plan: FEATURE_MIN_PLAN[action],
+        user_plan: access.user_plan,
+        credits_needed: ACTION_COSTS[action],
+        credits_available: access.credits_available
+      })
+    }
+    if (access.plan !== 'platinum') {
+      await useCredits(userId, action)
+    }
+    req.userPlan = access.plan
+    next()
+  }
 }
 
 function sbSave(table, row, conflict) {
@@ -532,198 +526,84 @@ function getElo(name, league, approxPos) {
   return 1500 + bonus
 }
 
-const MANAGER_SEEDS = {
-  "Pep Guardiola":   { team: "Man City",    base: 1920, style: "Possession" },
-  "Carlo Ancelotti": { team: "Real Madrid", base: 1900, style: "Flexible" },
-  "Mikel Arteta":    { team: "Arsenal",     base: 1870, style: "Pressing" },
-  "Diego Simeone":   { team: "Atletico",    base: 1850, style: "Defensive" },
-  "Xabi Alonso":     { team: "Leverkusen",  base: 1900, style: "Pressing" },
-  // Find MANAGER_SEEDS and add:
-"Igor Tudor":       { team: "Tottenham Hotspur", base: 1760, style: "Aggressive 3-4-3" },
-"Liam Rosenior":    { team: "Chelsea",           base: 1790, style: "Attacking" },
-"Robert Carrick":   { team: "Manchester United", base: 1770, style: "3-4-3" },
-  
-}
-
-function getManagerElo(name, team) {
-  const s = managerDB.get(name)
-  if (s && s.elo > 0) return s.elo
-  const seed = MANAGER_SEEDS[name]
-  if (seed) return seed.base
-  return getElo(team || "") - 30
-}
-
 // ── PLAYER ATTRIBUTES ─────────────────────────────────────
 function clamp(v) { return Math.min(99, Math.max(20, v)) }
 const POS_ID_MAP = { 24:"GK",25:"CB",26:"CM",27:"ST",28:"LB",29:"RB",30:"CDM",31:"CAM",32:"LW",33:"RW",34:"RM",35:"LM",36:"LWB",37:"RWB" }
 function mapPosId(id) { return POS_ID_MAP[id] || "CM" }
 
-// ══════════════════════════════════════════════════════════
-//  SPORT-SPECIFIC PLAYSTYLES
-// ══════════════════════════════════════════════════════════
-
-// FOOTBALL playstyles
+// ── PLAYSTYLES ────────────────────────────────────────────
 const FOOTBALL_PLAYSTYLES = {
-  GK:  { name: "Sweeper Keeper",   desc: "Commands area, builds from back",          icon: "🧤" },
-  CB:  { name: "Ball-Playing CB",  desc: "Line-breaking passes, steps into midfield",icon: "⚽" },
-  LB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third",icon: "🏃" },
-  RB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third",icon: "🏃" },
-  CDM: { name: "Press Conductor",  desc: "Sets press triggers, shields the backline", icon: "🔥" },
-  CM:  { name: "Box-to-Box",       desc: "Covers ground, contributes both phases",    icon: "⚙️" },
-  CAM: { name: "Playmaker",        desc: "Creates between lines, key passes",         icon: "✨" },
-  LW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",            icon: "↩️" },
-  RW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",            icon: "↩️" },
-  ST:  { name: "Target Striker",   desc: "Holds up play, aerial threat, clinical",    icon: "🎯" },
-  LWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",     icon: "🏃" },
-  RWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",     icon: "🏃" },
-  RM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                 icon: "📐" },
-  LM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                 icon: "📐" },
+  GK:  { name: "Sweeper Keeper",   desc: "Commands area, builds from back",           icon: "🧤" },
+  CB:  { name: "Ball-Playing CB",  desc: "Line-breaking passes, steps into midfield", icon: "⚽" },
+  LB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third", icon: "🏃" },
+  RB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third", icon: "🏃" },
+  CDM: { name: "Press Conductor",  desc: "Sets press triggers, shields the backline",  icon: "🔥" },
+  CM:  { name: "Box-to-Box",       desc: "Covers ground, contributes both phases",     icon: "⚙️" },
+  CAM: { name: "Playmaker",        desc: "Creates between lines, key passes",          icon: "✨" },
+  LW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",             icon: "↩️" },
+  RW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",             icon: "↩️" },
+  ST:  { name: "Target Striker",   desc: "Holds up play, aerial threat, clinical",     icon: "🎯" },
+  LWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",      icon: "🏃" },
+  RWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",      icon: "🏃" },
+  RM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                  icon: "📐" },
+  LM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                  icon: "📐" },
 }
 
-// NBA playstyles — assigned by role
 const NBA_PLAYSTYLES = {
-  "PG": [
-    { name: "Floor General",    desc: "Elite court vision, drives offense, assists machine",     icon: "🎯" },
-    { name: "Microwave Scorer", desc: "Instant offense off bench, shoot-first mentality",        icon: "🔥" },
-    { name: "Defensive Menace", desc: "Disrupts passing lanes, elite on-ball defender",          icon: "🛡" },
-  ],
-  "SG": [
-    { name: "Catch & Shoot",    desc: "Elite off-ball movement, deadly spot-up shooter",         icon: "🎯" },
-    { name: "Shot Creator",     desc: "Creates own shot off dribble, pull-up specialist",        icon: "⚡" },
-    { name: "Two-Way Guard",    desc: "Contributes on both ends, versatile defender",            icon: "⚙️" },
-  ],
-  "SF": [
-    { name: "3-and-D",          desc: "Corners three specialist, lockdown on wings",             icon: "🔐" },
-    { name: "Slash & Kick",     desc: "Attacks closeouts, creates for teammates",                icon: "💨" },
-    { name: "Versatile Wing",   desc: "Can play multiple positions, switchable defender",        icon: "🔄" },
-  ],
-  "PF": [
-    { name: "Stretch Four",     desc: "Extends floor with three-point shooting",                 icon: "📐" },
-    { name: "Power Bruiser",    desc: "Physical presence, rebounds, finishes in traffic",        icon: "💪" },
-    { name: "Pick & Pop",       desc: "Sets hard screens, pops to mid-range",                   icon: "🎯" },
-  ],
-  "C": [
-    { name: "Rim Protector",    desc: "Anchors defense, elite shot blocker, paint presence",    icon: "🏰" },
-    { name: "Modern Center",    desc: "Can step out, pass out of pick-and-roll",                icon: "✨" },
-    { name: "Lob Threat",       desc: "Dominant above the rim, elite at rolling hard",          icon: "🚀" },
-  ],
+  "PG": [{ name:"Floor General",desc:"Elite court vision",icon:"🎯"},{name:"Microwave Scorer",desc:"Instant offense",icon:"🔥"},{name:"Defensive Menace",desc:"Disrupts passing lanes",icon:"🛡"}],
+  "SG": [{ name:"Catch & Shoot",desc:"Deadly spot-up shooter",icon:"🎯"},{name:"Shot Creator",desc:"Creates own shot",icon:"⚡"},{name:"Two-Way Guard",desc:"Versatile defender",icon:"⚙️"}],
+  "SF": [{ name:"3-and-D",desc:"Corner three specialist",icon:"🔐"},{name:"Slash & Kick",desc:"Attacks closeouts",icon:"💨"},{name:"Versatile Wing",desc:"Multiple positions",icon:"🔄"}],
+  "PF": [{ name:"Stretch Four",desc:"Extends floor with shooting",icon:"📐"},{name:"Power Bruiser",desc:"Physical presence",icon:"💪"},{name:"Pick & Pop",desc:"Sets hard screens",icon:"🎯"}],
+  "C":  [{ name:"Rim Protector",desc:"Anchors defense",icon:"🏰"},{name:"Modern Center",desc:"Can step out, pass",icon:"✨"},{name:"Lob Threat",desc:"Dominant above the rim",icon:"🚀"}],
 }
 
-// NFL playstyles — by position
 const NFL_PLAYSTYLES = {
-  "QB": [
-    { name: "Pocket Passer",    desc: "Elite accuracy standing tall in the pocket",             icon: "🎯" },
-    { name: "Dual Threat",      desc: "Dangerous with arm and legs, extends plays",             icon: "⚡" },
-    { name: "Gunslinger",       desc: "High risk/reward, aggressive deep ball thrower",         icon: "🔥" },
-  ],
-  "RB": [
-    { name: "Every Down Back",  desc: "Runs, catches, blocks — complete back",                  icon: "⚙️" },
-    { name: "Scat Back",        desc: "Elusive in space, receiving specialist",                 icon: "💨" },
-    { name: "Power Runner",     desc: "Runs between the tackles, breaks tackles",               icon: "💪" },
-  ],
-  "WR": [
-    { name: "Route Runner",     desc: "Elite separation using precise route technique",          icon: "📐" },
-    { name: "Contested Catch",  desc: "Big bodied, wins jump balls, RAC monster",               icon: "🏆" },
-    { name: "Burner",           desc: "Game-breaking top speed, deep threat",                   icon: "🚀" },
-  ],
-  "TE": [
-    { name: "Move TE",          desc: "Flexes out wide, mismatch nightmare",                    icon: "🔄" },
-    { name: "Inline Blocker",   desc: "Dominant blocker, finishes run plays",                   icon: "💪" },
-    { name: "Red Zone Target",  desc: "Huge target in the end zone, reliable hands",            icon: "🎯" },
-  ],
-  "DEF": [
-    { name: "Pass Rusher",      desc: "Elite edge pressure, disrupts quarterback",              icon: "💥" },
-    { name: "Coverage Corner",  desc: "Shadows top receivers, press or zone",                   icon: "🔐" },
-    { name: "Run Stuffer",      desc: "Fills gaps, tackles for loss specialist",                icon: "🛡" },
-  ],
+  "QB": [{name:"Pocket Passer",desc:"Elite accuracy",icon:"🎯"},{name:"Dual Threat",desc:"Dangerous with arm and legs",icon:"⚡"},{name:"Gunslinger",desc:"Aggressive deep ball",icon:"🔥"}],
+  "RB": [{name:"Every Down Back",desc:"Complete back",icon:"⚙️"},{name:"Scat Back",desc:"Elusive in space",icon:"💨"},{name:"Power Runner",desc:"Runs between tackles",icon:"💪"}],
+  "WR": [{name:"Route Runner",desc:"Elite separation",icon:"📐"},{name:"Contested Catch",desc:"Wins jump balls",icon:"🏆"},{name:"Burner",desc:"Deep threat",icon:"🚀"}],
+  "TE": [{name:"Move TE",desc:"Mismatch nightmare",icon:"🔄"},{name:"Inline Blocker",desc:"Dominant blocker",icon:"💪"},{name:"Red Zone Target",desc:"Huge target",icon:"🎯"}],
+  "DEF":[{name:"Pass Rusher",desc:"Elite edge pressure",icon:"💥"},{name:"Coverage Corner",desc:"Shadows receivers",icon:"🔐"},{name:"Run Stuffer",desc:"Tackles for loss",icon:"🛡"}],
 }
 
-// TENNIS playstyles
 const TENNIS_PLAYSTYLES = [
-  { name: "Baseline Grinder",   desc: "Outlasts opponents from the back court, elite consistency", icon: "🔄" },
-  { name: "Aggressive Baseliner",desc: "Takes ball early, dictates with heavy groundstrokes",     icon: "⚡" },
-  { name: "Serve & Volley",     desc: "Big serve, rushes net, uncomfortable to play against",     icon: "🚀" },
-  { name: "All Court Player",   desc: "Adapts to surface and opponent, complete game",            icon: "⚙️" },
-  { name: "Counter Puncher",    desc: "Reads the game, turns defence into offence",              icon: "🔐" },
-  { name: "Big Server",         desc: "Winning free points off serve, ace machine",              icon: "💥" },
-  { name: "Net Rusher",         desc: "Looks for any opportunity to volley, uncomfortable",      icon: "🎯" },
-  { name: "Clay Specialist",    desc: "Thrives on slow surface, heavy topspin game",             icon: "🏆" },
-  { name: "Grass Specialist",   desc: "Low bounce lover, serve and slice game",                  icon: "🌿" },
-  { name: "Hard Court Specialist",desc:"Consistent on hard courts, thrives in fast conditions",  icon: "🏟" },
+  {name:"Baseline Grinder",desc:"Outlasts from back court",icon:"🔄"},{name:"Aggressive Baseliner",desc:"Heavy groundstrokes",icon:"⚡"},
+  {name:"Serve & Volley",desc:"Big serve, rushes net",icon:"🚀"},{name:"All Court Player",desc:"Adapts to any surface",icon:"⚙️"},
+  {name:"Counter Puncher",desc:"Turns defence into offence",icon:"🔐"},{name:"Big Server",desc:"Ace machine",icon:"💥"},
+  {name:"Clay Specialist",desc:"Heavy topspin game",icon:"🏆"},{name:"Grass Specialist",desc:"Serve and slice",icon:"🌿"},
 ]
 
-// F1 driver styles
 const F1_PLAYSTYLES = [
-  { name: "Qualifying Ace",     desc: "Often fastest one lap, extracts max from car",           icon: "⚡" },
-  { name: "Race Craftsman",     desc: "Tyre management, strategy expert, consistent over distance", icon: "⚙️" },
-  { name: "Overtaker",          desc: "Aggressive on the brakes, finds gaps others won't take", icon: "💨" },
-  { name: "Wet Weather Master", desc: "Elevated performance in tricky conditions",              icon: "🌧" },
-  { name: "Street Circuit King",desc: "Thrives on tight street circuits, millimetre accuracy", icon: "🏙" },
-  { name: "Pressure Player",    desc: "Delivers in title fights and decisive moments",          icon: "🔥" },
-  { name: "Young Gun",          desc: "Raw speed, still developing racecraft and experience",   icon: "🚀" },
-  { name: "Veteran",            desc: "Seen it all, calm under pressure, strategic thinker",   icon: "🧠" },
+  {name:"Qualifying Ace",desc:"Fastest one lap",icon:"⚡"},{name:"Race Craftsman",desc:"Tyre management expert",icon:"⚙️"},
+  {name:"Overtaker",desc:"Aggressive on the brakes",icon:"💨"},{name:"Wet Weather Master",desc:"Elevated in tricky conditions",icon:"🌧"},
+  {name:"Street Circuit King",desc:"Thrives on tight circuits",icon:"🏙"},{name:"Pressure Player",desc:"Delivers in title fights",icon:"🔥"},
+  {name:"Young Gun",desc:"Raw speed, developing racecraft",icon:"🚀"},{name:"Veteran",desc:"Calm under pressure",icon:"🧠"},
 ]
 
-// BOXING styles
 const BOXING_PLAYSTYLES = [
-  { name: "Pressure Fighter",   desc: "Walks opponents down, heavy body punching",             icon: "💪" },
-  { name: "Boxer-Puncher",      desc: "Technical boxing with power, dangerous counter",        icon: "🎯" },
-  { name: "Out-Boxer",          desc: "Uses jab and footwork, fights at long range",           icon: "📐" },
-  { name: "Swarmer",            desc: "High-volume puncher, relentless pressure",              icon: "🔥" },
-  { name: "Counter Puncher",    desc: "Patient, looks to counter on the way in",              icon: "🔐" },
-  { name: "Knockout Artist",    desc: "One punch power in both hands, ends fights early",     icon: "💥" },
-  { name: "Technical Master",   desc: "Elite defensive skills, controls distance and angles", icon: "🧠" },
-  { name: "Southpaw",           desc: "Unorthodox stance causes problems for opponents",      icon: "🔄" },
+  {name:"Pressure Fighter",desc:"Walks opponents down",icon:"💪"},{name:"Boxer-Puncher",desc:"Technical with power",icon:"🎯"},
+  {name:"Out-Boxer",desc:"Jab and footwork",icon:"📐"},{name:"Swarmer",desc:"High-volume puncher",icon:"🔥"},
+  {name:"Counter Puncher",desc:"Patient, looks to counter",icon:"🔐"},{name:"Knockout Artist",desc:"One punch power",icon:"💥"},
+  {name:"Technical Master",desc:"Elite defensive skills",icon:"🧠"},
 ]
 
-// MMA styles
 const MMA_PLAYSTYLES = [
-  { name: "Striker",            desc: "Stands and trades, brings punching/kicking power",     icon: "💥" },
-  { name: "Wrestler",           desc: "Dominant takedowns, controls on the mat",              icon: "💪" },
-  { name: "BJJ Specialist",     desc: "Looks for submissions, dangerous on the ground",       icon: "🔐" },
-  { name: "Counter Striker",    desc: "Patient, reads openings, punishes aggression",         icon: "🎯" },
-  { name: "Clinch Fighter",     desc: "Dirty boxing, dirty wrestling, wears opponents down",  icon: "⚙️" },
-  { name: "Finisher",           desc: "Doesn't go to decisions, always looking to end it",   icon: "🔥" },
-  { name: "Complete Fighter",   desc: "Elite in all areas, adapts mid-fight",                 icon: "⭐" },
-  { name: "Southpaw Striker",   desc: "Unorthodox stance, times opponents with power left",  icon: "🔄" },
+  {name:"Striker",desc:"Stands and trades",icon:"💥"},{name:"Wrestler",desc:"Dominant takedowns",icon:"💪"},
+  {name:"BJJ Specialist",desc:"Looks for submissions",icon:"🔐"},{name:"Counter Striker",desc:"Punishes aggression",icon:"🎯"},
+  {name:"Clinch Fighter",desc:"Dirty boxing and wrestling",icon:"⚙️"},{name:"Finisher",desc:"Always looking to end it",icon:"🔥"},
+  {name:"Complete Fighter",desc:"Elite in all areas",icon:"⭐"},
 ]
 
-// Assign playstyle based on sport + position/role
 function getPlaystyleForSport(sport, position, name, elo) {
   let seed = 0
   for (let i = 0; i < (name||"").length; i++) seed = seed * 31 + name.charCodeAt(i)
   const pick = arr => arr[Math.abs(seed) % arr.length]
-  const pick2 = arr => {
-    const a = Math.abs(seed) % arr.length
-    const b = (Math.abs(seed >> 4) + 1) % arr.length
-    return [arr[a], arr[b !== a ? b : (b+1)%arr.length]]
-  }
-
-  if (sport === 'football') {
-    return FOOTBALL_PLAYSTYLES[position] || FOOTBALL_PLAYSTYLES.CM
-  }
-  if (sport === 'basketball') {
-    const pos = position || 'SF'
-    const styles = NBA_PLAYSTYLES[pos] || NBA_PLAYSTYLES['SF']
-    return pick(styles)
-  }
-  if (sport === 'american_football') {
-    const pos = position || 'WR'
-    const styles = NFL_PLAYSTYLES[pos] || NFL_PLAYSTYLES['WR']
-    return pick(styles)
-  }
-  if (sport === 'tennis') {
-    return pick(TENNIS_PLAYSTYLES)
-  }
-  if (sport === 'f1') {
-    return pick(F1_PLAYSTYLES)
-  }
-  if (sport === 'boxing') {
-    return pick(BOXING_PLAYSTYLES)
-  }
-  if (sport === 'mma') {
-    return pick(MMA_PLAYSTYLES)
-  }
+  if (sport === 'football') return FOOTBALL_PLAYSTYLES[position] || FOOTBALL_PLAYSTYLES.CM
+  if (sport === 'basketball') { const styles = NBA_PLAYSTYLES[position] || NBA_PLAYSTYLES['SF']; return pick(styles) }
+  if (sport === 'american_football') { const styles = NFL_PLAYSTYLES[position] || NFL_PLAYSTYLES['WR']; return pick(styles) }
+  if (sport === 'tennis') return pick(TENNIS_PLAYSTYLES)
+  if (sport === 'f1') return pick(F1_PLAYSTYLES)
+  if (sport === 'boxing') return pick(BOXING_PLAYSTYLES)
+  if (sport === 'mma') return pick(MMA_PLAYSTYLES)
   return { name: "Unknown", desc: "Style not identified", icon: "❓" }
 }
 
@@ -776,70 +656,8 @@ function buildPlayerAttrs(name, pos, pElo, tElo, rating) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  NBA — BallDontLie API (free, no key needed for basic)
+//  NBA
 // ══════════════════════════════════════════════════════════
-async function fetchNBAGames() {
-  return cached("nba_games", async () => {
-    const today = new Date().toISOString().slice(0,10)
-    const nextWeek = new Date(Date.now() + 7*86400000).toISOString().slice(0,10)
-
-    // Try SportsData.io NBA first (most reliable for real scores)
-    if (process.env.SPORTSDATAIO_KEY) {
-      try {
-        const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
-        const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/${today}`,
-          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-        const games = r.data || []
-        if (games.length > 0) {
-          console.log(`✅ NBA SportsData.io: ${games.length} games`)
-          // Also fetch upcoming
-          let upcoming = []
-          try {
-            const r2 = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Games/${season}`,
-              {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-            upcoming = (r2.data || []).filter(g => g.Day && g.Day.slice(0,10) > today && g.Day.slice(0,10) <= nextWeek)
-          } catch(e2) {}
-          const allGames = [...games, ...upcoming]
-          return allGames.map(g => ({
-            id: g.GameID,
-            _source: 'sportsdata',
-            home_team: { full_name: g.HomeTeam, abbreviation: g.HomeTeam, city: '', name: g.HomeTeam },
-            away_team: { full_name: g.AwayTeam, abbreviation: g.AwayTeam, city: '', name: g.AwayTeam },
-            visitor_team: { full_name: g.AwayTeam },
-            date: g.Day,
-            status: g.Status === 'Final' ? 'Final' : g.Status === 'InProgress' ? 'In Progress' : 'scheduled',
-            home_team_score: g.HomeTeamScore,
-            visitor_team_score: g.AwayTeamScore,
-            period: g.Quarter || 0,
-            season: g.Season,
-            homeTeamFull: NBA_TEAM_NAMES[g.HomeTeam] || g.HomeTeam,
-            awayTeamFull: NBA_TEAM_NAMES[g.AwayTeam] || g.AwayTeam,
-          }))
-        }
-      } catch(e) { console.log('⚠️  NBA SportsData.io:', e.message?.slice(0,50)) }
-    }
-
-    // Try BallDontLie
-    try {
-      const headers = process.env.BALLDONTLIE_API_KEY ? { Authorization: process.env.BALLDONTLIE_API_KEY } : {}
-      const r = await httpExt(`https://api.balldontlie.io/v1/games`, { start_date: today, end_date: nextWeek, per_page: 100 }, headers)
-      const games = r.data?.data || []
-      if (games.length > 0) { console.log(`✅ NBA BallDontLie: ${games.length} games`); return games }
-    } catch(e) { console.log('⚠️  NBA BallDontLie:', e.message?.slice(0,40)) }
-
-    // TheSportsDB fallback
-    try {
-      const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d: today, s: 'Basketball' })
-      const events = (r.data?.events || []).filter(e => (e.strLeague||'').includes('NBA'))
-      if (events.length > 0) return events.map(mapTSDBtoGame)
-    } catch(e) {}
-
-    // Static schedule fallback
-    return generateNBASchedule()
-  }, TTL.S)
-}
-
-// Map abbreviation to full team name for SportsData.io
 const NBA_TEAM_NAMES = {
   'BOS':'Boston Celtics','NYK':'New York Knicks','BKN':'Brooklyn Nets','PHI':'Philadelphia 76ers',
   'TOR':'Toronto Raptors','CHI':'Chicago Bulls','CLE':'Cleveland Cavaliers','DET':'Detroit Pistons',
@@ -851,323 +669,6 @@ const NBA_TEAM_NAMES = {
   'MEM':'Memphis Grizzlies','NOP':'New Orleans Pelicans','SAS':'San Antonio Spurs',
 }
 
-function mapTSDBtoGame(e) {
-  return {
-    id: e.idEvent, _source: 'tsdb',
-    home_team: { full_name: e.strHomeTeam, abbreviation: (e.strHomeTeam||'').slice(0,3).toUpperCase() },
-    away_team: { full_name: e.strAwayTeam, abbreviation: (e.strAwayTeam||'').slice(0,3).toUpperCase() },
-    visitor_team: { full_name: e.strAwayTeam },
-    date: e.dateEvent + 'T' + (e.strTime||'00:00') + ':00',
-    status: e.strStatus === 'Match Finished' ? 'Final' : 'scheduled',
-    home_team_score: parseInt(e.intHomeScore)||null,
-    visitor_team_score: parseInt(e.intAwayScore)||null,
-    period: 0, season: 2025,
-  }
-}
-function generateNBASchedule() {
-  const today = new Date()
-  const games = [
-    { home: "Boston Celtics",          away: "New York Knicks",           daysOut: 0 },
-    { home: "Golden State Warriors",   away: "Los Angeles Lakers",        daysOut: 0 },
-    { home: "Oklahoma City Thunder",   away: "Denver Nuggets",            daysOut: 0 },
-    { home: "Cleveland Cavaliers",     away: "Milwaukee Bucks",           daysOut: 0 },
-    { home: "Minnesota Timberwolves",  away: "Phoenix Suns",              daysOut: 1 },
-    { home: "Miami Heat",              away: "Philadelphia 76ers",        daysOut: 1 },
-    { home: "Dallas Mavericks",        away: "Sacramento Kings",          daysOut: 1 },
-    { home: "Indiana Pacers",          away: "Atlanta Hawks",             daysOut: 1 },
-    { home: "New York Knicks",         away: "Boston Celtics",            daysOut: 2 },
-    { home: "Denver Nuggets",          away: "Los Angeles Clippers",      daysOut: 2 },
-    { home: "Memphis Grizzlies",       away: "Houston Rockets",           daysOut: 2 },
-    { home: "Milwaukee Bucks",         away: "Cleveland Cavaliers",       daysOut: 2 },
-    { home: "Los Angeles Lakers",      away: "Golden State Warriors",     daysOut: 3 },
-    { home: "Oklahoma City Thunder",   away: "Memphis Grizzlies",         daysOut: 3 },
-    { home: "Boston Celtics",          away: "Miami Heat",                daysOut: 3 },
-    { home: "Phoenix Suns",            away: "Minnesota Timberwolves",    daysOut: 3 },
-    { home: "San Antonio Spurs",       away: "Chicago Bulls",             daysOut: 4 },
-    { home: "Toronto Raptors",         away: "Orlando Magic",             daysOut: 4 },
-    { home: "Portland Trail Blazers",  away: "Oklahoma City Thunder",     daysOut: 5 },
-    { home: "Golden State Warriors",   away: "Denver Nuggets",            daysOut: 5 },
-    { home: "Cleveland Cavaliers",     away: "Boston Celtics",            daysOut: 5 },
-    { home: "Philadelphia 76ers",      away: "New York Knicks",           daysOut: 6 },
-    { home: "Milwaukee Bucks",         away: "Minnesota Timberwolves",    daysOut: 6 },
-    { home: "Los Angeles Lakers",      away: "Phoenix Suns",              daysOut: 6 },
-    { home: "New Orleans Pelicans",    away: "Utah Jazz",                 daysOut: 4 },
-  ]
-  let id = 900000
-  return games.map(g => {
-    const d = new Date(today.getTime() + g.daysOut * 86400000)
-    const hour = 19 + (id % 3)
-    return {
-      id: id++,
-      home_team: { full_name: g.home, city: g.home.split(' ').slice(0,-1).join(' '), name: g.home.split(' ').slice(-1)[0] },
-      away_team: { full_name: g.away, city: g.away.split(' ').slice(0,-1).join(' '), name: g.away.split(' ').slice(-1)[0] },
-      visitor_team: { full_name: g.away },
-      date: d.toISOString().slice(0,10) + 'T' + String(hour).padStart(2,'0') + ':00:00Z',
-      status: 'scheduled',
-      home_team_score: null, visitor_team_score: null,
-      period: 0, season: 2025, _source: 'schedule'
-    }
-  })
-}
-
-// Fetch real NBA player stats for a team
-async function fetchNBATeamRoster(teamAbbr) {
-  return cached(`nba_roster_${teamAbbr}`, async () => {
-    if (process.env.SPORTSDATAIO_KEY) {
-      try {
-        const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Players/${teamAbbr}`,
-          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-        const players = r.data || []
-        const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
-        let stats = {}
-        try {
-          const r2 = await httpExt(`https://api.sportsdata.io/v3/nba/stats/json/PlayerSeasonStatsByTeam/${season}/${teamAbbr}`,
-            {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-          for (const s of (r2.data||[])) stats[s.PlayerID] = s
-        } catch(e) {}
-        return players.map(p => {
-          const s = stats[p.PlayerID] || {}
-          const pos = p.Position || 'F'
-          const posMap = { PG:'PG', SG:'SG', SF:'SF', PF:'PF', C:'C', G:'SG', F:'SF' }
-          const normPos = posMap[pos] || 'SF'
-          const ppg = s.Points ? parseFloat((s.Points/Math.max(1,s.Games)).toFixed(1)) : 0
-          const apg = s.Assists ? parseFloat((s.Assists/Math.max(1,s.Games)).toFixed(1)) : 0
-          const rpg = s.Rebounds ? parseFloat((s.Rebounds/Math.max(1,s.Games)).toFixed(1)) : 0
-          const elo = NBA_ELO_BASE[NBA_TEAM_NAMES[teamAbbr]] || 1700
-          const playerElo = clamp(elo - 50 + Math.round((ppg*3 + apg*1.5 + rpg) * 2))
-          return {
-            name: `${p.FirstName} ${p.LastName}`, position: normPos,
-            elo: playerElo, isKey: ppg > 15 || apg > 7,
-            playstyle: getPlaystyleForSport('basketball', normPos, p.FirstName + ' ' + p.LastName, playerElo),
-            points: ppg, assists: apg, rebounds: rpg,
-            games: s.Games || 0, jersey: p.Jersey,
-            stats: `${ppg}ppg ${apg}apg ${rpg}rpg`,
-            speed: clamp(50 + Math.round(ppg*1.5)), attack: clamp(45 + Math.round(ppg*2)),
-            defense: clamp(40 + Math.round(rpg*3)), bigMatch: clamp(45 + Math.round(ppg*1.8)),
-          }
-        }).filter(p => p.name.trim() !== '')
-      } catch(e) { console.log('⚠️  NBA roster', teamAbbr, e.message?.slice(0,40)) }
-    }
-    // Fall back to hardcoded key players
-    const fullName = NBA_TEAM_NAMES[teamAbbr]
-    return buildNBAPlayerList(fullName || teamAbbr, NBA_ELO_BASE[fullName] || 1700)
-  }, TTL.L)
-}
-
-// Fetch real NFL roster
-async function fetchNFLTeamRoster(teamAbbr) {
-  return cached(`nfl_roster_${teamAbbr}`, async () => {
-    if (process.env.SPORTSDATAIO_KEY) {
-      try {
-        const r = await httpExt(`https://api.sportsdata.io/v3/nfl/scores/json/Players/${teamAbbr}`,
-          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-        const players = (r.data||[]).filter(p => p.Active && p.Position)
-        const posMap = { QB:'QB', RB:'RB', WR:'WR', TE:'TE', DE:'DEF', DT:'DEF', LB:'DEF', CB:'DEF', S:'DEF', OL:'OL', K:'K' }
-        return players.slice(0,22).map(p => {
-          const pos = posMap[p.Position] || p.Position
-          const elo = NFL_ELO_BASE[NFL_TEAM_NAMES[teamAbbr]] || 1750
-          const pElo = clamp(elo - 80 + Math.abs((p.PlayerID||0) % 120))
-          return {
-            name: `${p.FirstName} ${p.LastName}`, position: pos,
-            elo: pElo, isKey: ['QB','WR'].includes(pos),
-            playstyle: getPlaystyleForSport('american_football', pos, p.FirstName+' '+p.LastName, pElo),
-            jersey: p.Number, stats: `#${p.Number} ${p.Position}`,
-            speed: clamp(50 + Math.abs((p.PlayerID||0) % 30)),
-            attack: clamp(50 + Math.abs((p.PlayerID||0) % 25)),
-            defense: clamp(40 + Math.abs((p.PlayerID||0) % 30)),
-            bigMatch: clamp(45 + Math.abs((p.PlayerID||0) % 25)),
-          }
-        })
-      } catch(e) {}
-    }
-    return buildNFLPlayerList(NFL_TEAM_NAMES[teamAbbr] || teamAbbr, NFL_ELO_BASE[NFL_TEAM_NAMES[teamAbbr]] || 1750)
-  }, TTL.L)
-}
-
-// NBA Standings
-app.get('/standings/nba', async (req, res) => {
-  try {
-    const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
-    if (process.env.SPORTSDATAIO_KEY) {
-      const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Standings/${season}`,
-        {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-      const teams = r.data || []
-      if (teams.length) {
-        const east = teams.filter(t => t.Conference === 'Eastern').sort((a,b) => (b.Wins||0)-(a.Wins||0))
-        const west = teams.filter(t => t.Conference === 'Western').sort((a,b) => (b.Wins||0)-(a.Wins||0))
-        return res.json({ source: 'sportsdata.io', east, west, season })
-      }
-    }
-    // ESPN fallback
-    const r = await httpExt('https://site.api.espn.com/apis/v2/sports/basketball/nba/standings', { limit: 100 })
-    res.json({ source: 'espn', data: r.data })
-  } catch(e) { res.json({ error: e.message, east: [], west: [] }) }
-})
-
-// NFL Standings
-app.get('/standings/nfl', async (req, res) => {
-  try {
-    const season = new Date().getFullYear()
-    if (process.env.SPORTSDATAIO_KEY) {
-      const r = await httpExt(`https://api.sportsdata.io/v3/nfl/scores/json/Standings/${season}`,
-        {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-      if (r.data?.length) return res.json({ source: 'sportsdata.io', data: r.data, season })
-    }
-    const r = await httpExt('https://site.api.espn.com/apis/v2/sports/football/nfl/standings', { limit: 100 })
-    res.json({ source: 'espn', data: r.data })
-  } catch(e) { res.json({ error: e.message }) }
-})
-
-// F1 Driver Standings
-app.get('/standings/f1', async (req, res) => {
-  try {
-    const r = await httpExt(`${OPEN_F1_BASE}/drivers?session_key=latest`)
-    const drivers = r.data || []
-    const withStyles = drivers.map(d => ({
-      name: d.full_name || d.broadcast_name,
-      number: d.driver_number,
-      team: d.team_name,
-      country: d.country_code,
-      headshot: d.headshot_url,
-      elo: F1_DRIVERS_2025.find(fd => fd.name === d.full_name)?.elo || 1800,
-      playstyle: getPlaystyleForSport('f1', null, d.full_name||'', 1800),
-    }))
-    res.json({ source: 'openf1', drivers: withStyles, constructors: Object.entries(F1_CONSTRUCTOR_ELO).map(([t,e])=>({team:t,elo:e})) })
-  } catch(e) {
-    res.json({ source: 'static', drivers: F1_DRIVERS_2025.map(d => ({
-      ...d, playstyle: getPlaystyleForSport('f1', null, d.name, d.elo)
-    })), constructors: Object.entries(F1_CONSTRUCTOR_ELO).map(([t,e])=>({team:t,elo:e})) })
-  }
-})
-
-// Tennis ATP/WTA Rankings
-app.get('/standings/tennis', async (req, res) => {
-  const tour = req.query.tour || 'ATP'
-  const pool = tour === 'WTA' ? TENNIS_PLAYERS.WTA : TENNIS_PLAYERS.ATP
-  res.json({ source: 'internal', tour, players: pool.map(p => ({
-    ...p, playstyle: getPlaystyleForSport('tennis', null, p.name, p.elo)
-  })) })
-})
-
-// Boxing rankings by weight class
-app.get('/standings/boxing', async (req, res) => {
-  const wc = req.query.weightClass
-  const fighters = wc ? BOXING_FIGHTERS.filter(f => f.weightClass === wc) : BOXING_FIGHTERS
-  res.json({ source: 'internal', fighters: fighters.map(f => ({
-    ...f, playstyle: getPlaystyleForSport('boxing', null, f.name, f.elo)
-  })) })
-})
-
-// MMA rankings by division
-app.get('/standings/mma', async (req, res) => {
-  const div = req.query.division
-  const fighters = div ? MMA_FIGHTERS.filter(f => f.division === div) : MMA_FIGHTERS
-  res.json({ source: 'internal', fighters: fighters.map(f => ({
-    ...f, playstyle: getPlaystyleForSport('mma', null, f.name, f.elo)
-  })) })
-})
-app.get('/standings/football', async (req, res) => {
-  try {
-    // Try ESPN for live standings first
-    const leagues = [
-      { espnSlug: 'eng.1', name: 'Premier League' },
-      { espnSlug: 'esp.1', name: 'La Liga' },
-      { espnSlug: 'ger.1', name: 'Bundesliga' },
-      { espnSlug: 'ita.1', name: 'Serie A' },
-      { espnSlug: 'fra.1', name: 'Ligue 1' },
-    ]
-    const results = []
-    for (const lg of leagues) {
-      try {
-        const r = await httpExt(
-          `https://site.api.espn.com/apis/v2/sports/soccer/${lg.espnSlug}/standings`,
-          { limit: 30 }
-        )
-        const entries = r.data?.standings?.entries || r.data?.children?.[0]?.standings?.entries || []
-        if (entries.length) {
-          const table = entries.map(e => {
-            const stats = {}
-            for (const s of (e.stats || [])) stats[s.abbreviation || s.name] = s.value || s.displayValue
-            return {
-              position: e.note?.rank || parseInt(stats.rank) || 0,
-              name: e.team?.displayName || e.team?.name || '?',
-              played: parseInt(stats.GP || stats.gp || 0),
-              won: parseInt(stats.W || stats.w || 0),
-              drawn: parseInt(stats.T || stats.t || stats.D || 0),
-              lost: parseInt(stats.L || stats.l || 0),
-              goalsFor: parseInt(stats.GF || stats.gf || 0),
-              goalsAgainst: parseInt(stats.GA || stats.ga || 0),
-              goalDifference: parseInt(stats.GD || stats.gd || 0),
-              points: parseInt(stats.PTS || stats.pts || stats.Pts || 0),
-              form: (stats.FORM || stats.form || '').replace(/[^WDL]/gi, '').slice(-5).split(''),
-            }
-          }).sort((a, b) => a.position - b.position || b.points - a.points)
-          results.push({ name: lg.name, season: new Date().getFullYear(), table })
-        }
-      } catch(e2) { console.log('⚠️  Standings', lg.name, e2.message?.slice(0,40)) }
-      await sleep(150)
-    }
-    if (results.length) return res.json(results)
-    res.json([])
-  } catch(e) { res.status(500).json({ error: e.message }) }
-})
-// ELO Rankings endpoint — all sports
-app.get('/elo/sport/:sport', (req, res) => {
-  const sport = req.params.sport
-  const limit = parseInt(req.query.limit||'50')
-  const posFilter = req.query.position
-  const styleFilter = req.query.playstyle
-
-  let results = []
-  if (sport === 'football') {
-    const all = []
-    for (const [k, v] of playerDB) {
-      const p = typeof v === 'object' ? v : {}
-      if (posFilter && p.position !== posFilter) continue
-      if (styleFilter && (p.playstyle?.name||p.playstyle_name) !== styleFilter) continue
-      all.push({ name: p.player_name||k.split('__')[0], team: p.team_name||k.split('__')[1], elo: p.elo||1500, position: p.position, playstyle: p.playstyle?.name||p.playstyle_name, sport: 'football' })
-    }
-    results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
-  } else if (sport === 'basketball') {
-    results = Object.entries(NBA_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'basketball', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
-  } else if (sport === 'american_football') {
-    results = Object.entries(NFL_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'nfl', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
-  } else if (sport === 'tennis') {
-    const all = [...TENNIS_PLAYERS.ATP, ...TENNIS_PLAYERS.WTA]
-    results = (posFilter ? all.filter(p=>(req.query.tour||'ATP')===p.tour) : all).sort((a,b)=>b.elo-a.elo).slice(0,limit).map(p=>({...p,sport:'tennis',type:'player',playstyle:getPlaystyleForSport('tennis',null,p.name,p.elo)}))
-  } else if (sport === 'f1') {
-    results = F1_DRIVERS_2025.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(d=>({...d,sport:'f1',type:'driver',playstyle:getPlaystyleForSport('f1',null,d.name,d.elo)}))
-  } else if (sport === 'boxing') {
-    results = BOXING_FIGHTERS.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(f=>({...f,sport:'boxing',type:'fighter',playstyle:getPlaystyleForSport('boxing',null,f.name,f.elo)}))
-  } else if (sport === 'mma') {
-    results = MMA_FIGHTERS.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(f=>({...f,sport:'mma',type:'fighter',playstyle:getPlaystyleForSport('mma',null,f.name,f.elo)}))
-  }
-  res.json({ sport, results, count: results.length, filters: { position: posFilter, playstyle: styleFilter } })
-})
-
-// Record a match outcome — call this when results come in to train the AI
-app.post('/outcomes/record', async (req, res) => {
-  const { matchId, actualWinner, homeScore, awayScore, sport } = req.body
-  if (!matchId) return res.status(400).json({ error: 'matchId required' })
-  await recordOutcome(matchId, actualWinner, homeScore, awayScore)
-  res.json({ ok: true, weights: sportWeights[sport] })
-})
-
-// Get current AI weights — shows what the system has learned
-app.get('/ai/weights', (req, res) => {
-  res.json({ weights: sportWeights, recentUpdates: weightUpdateLog.slice(-20), totalPredictions: predictionLog.size })
-})
-
-// Get sport-specific real team roster
-app.get('/roster/:sport/:teamId', async (req, res) => {
-  const { sport, teamId } = req.params
-  try {
-    if (sport === 'nba') return res.json(await fetchNBATeamRoster(teamId))
-    if (sport === 'nfl') return res.json(await fetchNFLTeamRoster(teamId))
-    res.json([])
-  } catch(e) { res.json([]) }
-})
-// NBA team ELO seeding
 const NBA_ELO_BASE = {
   "Boston Celtics": 1920, "Oklahoma City Thunder": 1910, "Cleveland Cavaliers": 1900,
   "New York Knicks": 1870, "Denver Nuggets": 1860, "Los Angeles Lakers": 1840,
@@ -1181,278 +682,134 @@ const NBA_ELO_BASE = {
   "Charlotte Hornets": 1600, "Washington Wizards": 1560, "Detroit Pistons": 1580,
 }
 
-// NBA notable players by team for playstyle assignment
-const NBA_KEY_PLAYERS = {
-  "Boston Celtics": [
-    { name: "Jayson Tatum", pos: "SF", stats: "~26ppg, 8rpg, elite scorer" },
-    { name: "Jaylen Brown", pos: "SG", stats: "~23ppg, 2-way wing" },
-    { name: "Jrue Holiday", pos: "PG", stats: "Defensive anchor, steal machine" },
-    { name: "Al Horford",   pos: "C",  stats: "Veteran floor spacer, rim protector" },
-    { name: "Kristaps Porzingis", pos: "C", stats: "Stretch center, shot blocker" },
-    { name: "Derrick White", pos: "SG", stats: "3-and-D, clutch shooter" },
-    { name: "Payton Pritchard", pos: "PG", stats: "Deep three-point range" },
-  ],
-  "Oklahoma City Thunder": [
-    { name: "Shai Gilgeous-Alexander", pos: "PG", stats: "~32ppg, elite scorer, MVP candidate" },
-    { name: "Chet Holmgren",  pos: "C",  stats: "Unicorn: shots blocks and range" },
-    { name: "Jalen Williams", pos: "SG", stats: "Rising star scorer" },
-    { name: "Luguentz Dort",  pos: "SF", stats: "Elite perimeter defender" },
-    { name: "Isaiah Hartenstein", pos: "C", stats: "Rim runner, good passer" },
-  ],
-  "Cleveland Cavaliers": [
-    { name: "Donovan Mitchell", pos: "SG", stats: "~27ppg, clutch scorer" },
-    { name: "Darius Garland",   pos: "PG", stats: "Shot creator, facilitator" },
-    { name: "Evan Mobley",      pos: "PF", stats: "Versatile defender, developing scorer" },
-    { name: "Jarrett Allen",    pos: "C",  stats: "Efficient roll man, rim protector" },
-    { name: "Max Strus",        pos: "SF", stats: "3-point specialist" },
-  ],
-  "Denver Nuggets": [
-    { name: "Nikola Jokic",   pos: "C",  stats: "3x MVP, elite passing center" },
-    { name: "Jamal Murray",   pos: "PG", stats: "Clutch performer, off-screen specialist" },
-    { name: "Michael Porter Jr", pos: "SF", stats: "Elite scorer, three-point range" },
-    { name: "Aaron Gordon",   pos: "PF", stats: "Energy finisher, defensive versatility" },
-  ],
-  "Los Angeles Lakers": [
-    { name: "LeBron James",   pos: "SF", stats: "40 years old, still elite all-around" },
-    { name: "Anthony Davis",  pos: "C",  stats: "Dominant two-way big when healthy" },
-    { name: "Austin Reaves",  pos: "SG", stats: "Clutch performer, improving scorer" },
-    { name: "D'Angelo Russell", pos: "PG", stats: "Three-point shooter, floor spacer" },
-  ],
-  "Golden State Warriors": [
-    { name: "Stephen Curry",  pos: "PG", stats: "GOAT shooter, all-time three-point leader" },
-    { name: "Draymond Green", pos: "PF", stats: "Defensive mastermind, passer" },
-    { name: "Andrew Wiggins", pos: "SF", stats: "Athletic wing, 3-and-D" },
-    { name: "Jonathan Kuminga", pos: "PF", stats: "Young athlete, powerful finisher" },
-  ],
-  "Milwaukee Bucks": [
-    { name: "Giannis Antetokounmpo", pos: "PF", stats: "2x MVP, dominant physical force" },
-    { name: "Damian Lillard",  pos: "PG", stats: "Elite scorer, deep shooting range" },
-    { name: "Brook Lopez",     pos: "C",  stats: "Corner three threat, rim protector" },
-    { name: "Khris Middleton", pos: "SF", stats: "Midrange killer when healthy" },
-  ],
-  "New York Knicks": [
-    { name: "Jalen Brunson",  pos: "PG", stats: "~27ppg, isolation scorer, clutch" },
-    { name: "Karl-Anthony Towns", pos: "C", stats: "Stretch center, inside-out" },
-    { name: "OG Anunoby",     pos: "SF", stats: "Elite defender, improving scorer" },
-    { name: "Josh Hart",      pos: "SG", stats: "High energy, rebounding guard" },
-    { name: "Mikal Bridges",  pos: "SF", stats: "Efficient scorer, defensive stopper" },
-  ],
-  "Minnesota Timberwolves": [
-    { name: "Anthony Edwards", pos: "SG", stats: "~25ppg, rising superstar, explosive" },
-    { name: "Karl-Anthony Towns", pos: "C", stats: "Stretch big, outside shot" },
-    { name: "Rudy Gobert",    pos: "C",  stats: "4x DPOY, rim anchor" },
-    { name: "Mike Conley",    pos: "PG", stats: "Veteran floor general" },
-  ],
-  "Phoenix Suns": [
-    { name: "Kevin Durant",   pos: "SF", stats: "Elite scorer, unstoppable mid-range" },
-    { name: "Devin Booker",   pos: "SG", stats: "30ppg scorer, clutch performer" },
-    { name: "Bradley Beal",   pos: "SG", stats: "Veteran scorer when healthy" },
-    { name: "Jusuf Nurkic",   pos: "C",  stats: "Physical big man, rim finisher" },
-  ],
-  "Miami Heat": [
-    { name: "Jimmy Butler",   pos: "SF", stats: "Playoff performer, defensive leader" },
-    { name: "Bam Adebayo",    pos: "C",  stats: "Versatile big, passing center" },
-    { name: "Tyler Herro",    pos: "SG", stats: "High-volume scorer, pull-up threat" },
-  ],
+async function fetchNBAGames() {
+  return cached("nba_games", async () => {
+    const today = new Date().toISOString().slice(0,10)
+    const nextWeek = new Date(Date.now() + 7*86400000).toISOString().slice(0,10)
+    if (process.env.SPORTSDATAIO_KEY) {
+      try {
+        const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/${today}`,
+          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+        const games = r.data || []
+        if (games.length > 0) {
+          let upcoming = []
+          try {
+            const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
+            const r2 = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Games/${season}`,
+              {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+            upcoming = (r2.data || []).filter(g => g.Day && g.Day.slice(0,10) > today && g.Day.slice(0,10) <= nextWeek)
+          } catch(e2) {}
+          return [...games, ...upcoming].map(g => ({
+            id: g.GameID, _source: 'sportsdata',
+            home_team: { full_name: NBA_TEAM_NAMES[g.HomeTeam]||g.HomeTeam },
+            away_team: { full_name: NBA_TEAM_NAMES[g.AwayTeam]||g.AwayTeam },
+            visitor_team: { full_name: NBA_TEAM_NAMES[g.AwayTeam]||g.AwayTeam },
+            date: g.Day,
+            status: g.Status === 'Final' ? 'Final' : g.Status === 'InProgress' ? 'In Progress' : 'scheduled',
+            home_team_score: g.HomeTeamScore, visitor_team_score: g.AwayTeamScore,
+            period: g.Quarter || 0, season: g.Season,
+          }))
+        }
+      } catch(e) { console.log('⚠️  NBA SportsData.io:', e.message?.slice(0,50)) }
+    }
+    try {
+      const headers = process.env.BALLDONTLIE_API_KEY ? { Authorization: process.env.BALLDONTLIE_API_KEY } : {}
+      const r = await httpExt(`https://api.balldontlie.io/v1/games`, { start_date: today, end_date: nextWeek, per_page: 100 }, headers)
+      const games = r.data?.data || []
+      if (games.length > 0) return games
+    } catch(e) {}
+    return generateNBASchedule()
+  }, TTL.S)
 }
 
-function buildNBAPlayerList(teamName, teamElo) {
-  const known = NBA_KEY_PLAYERS[teamName] || []
-  const players = []
-  let seed = 0
-  for (let i = 0; i < teamName.length; i++) seed = seed * 31 + teamName.charCodeAt(i)
-
-  // Build from known list
-  for (const p of known.slice(0, 8)) {
-    const ps = getPlaystyleForSport('basketball', p.pos, p.name, teamElo)
-    const elo = clamp(teamElo - 50 + (Math.abs(seed + players.length * 31) % 100))
-    players.push({
-      name: p.name, position: p.pos, elo, isKey: players.length < 3,
-      stats: p.stats, playstyle: ps,
-      points: Math.round(8 + (elo - 1600) / 20 + Math.abs(seed % 12)),
-      assists: Math.round(1 + Math.abs((seed >> 2) % 8)),
-      rebounds: Math.round(2 + Math.abs((seed >> 3) % 9)),
-      speed: clamp(50 + Math.abs(seed % 30)),
-      attack: clamp(50 + (elo - 1600)/10 + Math.abs((seed>>1)%20)),
-      defense: clamp(40 + (elo - 1600)/12 + Math.abs((seed>>4)%20)),
-      bigMatch: clamp(45 + (elo - 1600)/10 + Math.abs((seed>>5)%20)),
-    })
-  }
-  // Fill with generic positional players
-  const positions = ['PG','SG','SF','PF','C','PG','SG','SF','PF','C','PG','SG']
-  while (players.length < 12) {
-    const pos = positions[players.length % positions.length]
-    const nameIdx = players.length
-    const genericNames = ['J. Williams','M. Johnson','D. Robinson','K. Davis','A. Thompson','C. Anderson','T. Jackson','R. Wilson','B. Harris','N. Young','S. Collins','P. Brown']
-    const nm = genericNames[nameIdx % genericNames.length]
-    const ps = getPlaystyleForSport('basketball', pos, nm, teamElo)
-    const elo = clamp(teamElo - 100 + (Math.abs(seed + players.length * 97) % 150))
-    players.push({
-      name: nm, position: pos, elo, isKey: false,
-      stats: `~${Math.round(5 + Math.abs(seed+nameIdx) % 12)}ppg`,
-      playstyle: ps,
-      points: Math.round(5 + Math.abs((seed + nameIdx * 13) % 15)),
-      assists: Math.round(1 + Math.abs((seed + nameIdx * 7) % 6)),
-      rebounds: Math.round(1 + Math.abs((seed + nameIdx * 11) % 8)),
-      speed: clamp(40 + Math.abs((seed + nameIdx * 17) % 35)),
-      attack: clamp(40 + Math.abs((seed + nameIdx * 23) % 35)),
-      defense: clamp(35 + Math.abs((seed + nameIdx * 29) % 35)),
-      bigMatch: clamp(35 + Math.abs((seed + nameIdx * 31) % 35)),
-    })
-  }
-  return players
+function generateNBASchedule() {
+  const today = new Date()
+  const games = [
+    { home:"Boston Celtics",away:"New York Knicks",daysOut:0 },
+    { home:"Golden State Warriors",away:"Los Angeles Lakers",daysOut:0 },
+    { home:"Oklahoma City Thunder",away:"Denver Nuggets",daysOut:0 },
+    { home:"Cleveland Cavaliers",away:"Milwaukee Bucks",daysOut:1 },
+    { home:"Minnesota Timberwolves",away:"Phoenix Suns",daysOut:1 },
+    { home:"Miami Heat",away:"Philadelphia 76ers",daysOut:2 },
+    { home:"Dallas Mavericks",away:"Sacramento Kings",daysOut:2 },
+    { home:"Indiana Pacers",away:"Atlanta Hawks",daysOut:3 },
+    { home:"Los Angeles Lakers",away:"Golden State Warriors",daysOut:3 },
+    { home:"Oklahoma City Thunder",away:"Memphis Grizzlies",daysOut:4 },
+    { home:"Boston Celtics",away:"Miami Heat",daysOut:5 },
+    { home:"Denver Nuggets",away:"Los Angeles Clippers",daysOut:5 },
+  ]
+  let id = 900000
+  return games.map(g => {
+    const d = new Date(today.getTime() + g.daysOut * 86400000)
+    return {
+      id: id++,
+      home_team: { full_name: g.home },
+      away_team: { full_name: g.away },
+      visitor_team: { full_name: g.away },
+      date: d.toISOString().slice(0,10) + 'T19:00:00Z',
+      status: 'scheduled', home_team_score: null, visitor_team_score: null,
+      period: 0, season: 2025, _source: 'schedule'
+    }
+  })
 }
 
 function buildNBAPrediction(game) {
   if (!game) return null
   try {
-    const isSource = game._source === 'tsdb'
-    const homeName = isSource ? game.home_team?.full_name : (game.home_team?.full_name || game.home_team?.city + " " + game.home_team?.name)
-    const awayName = isSource ? game.away_team?.full_name : (game.away_team?.full_name || game.visitor_team?.full_name || game.away_team?.city + " " + game.away_team?.name)
+    const homeName = game.home_team?.full_name || ''
+    const awayName = game.away_team?.full_name || game.visitor_team?.full_name || ''
     if (!homeName || !awayName) return null
-
-    const hElo = NBA_ELO_BASE[homeName] || (1700 + Math.abs(homeName.length * 37) % 150)
-    const aElo = NBA_ELO_BASE[awayName] || (1700 + Math.abs(awayName.length * 41) % 150)
-    const isLive = game.status === "In Progress" || game.period > 0 && !["Final","scheduled"].includes(game.status)
-    const isFinal = game.status === "Final"
-    if (isFinal) return null  // Skip finished games
-
-    const eloDiff = (hElo + 50) - aElo  // +50 for home court
-    const homeProb = Math.round(50 + eloDiff / 15)
+    if (game.status === "Final") return null
+    const hElo = NBA_ELO_BASE[homeName] || 1700
+    const aElo = NBA_ELO_BASE[awayName] || 1700
+    const eloDiff = (hElo + 50) - aElo
+    const homeProb = Math.max(15, Math.min(85, Math.round(50 + eloDiff / 15)))
     const awayProb = 100 - homeProb
     const homeOdds = parseFloat((100 / Math.max(1, homeProb) * 1.05).toFixed(2))
     const awayOdds = parseFloat((100 / Math.max(1, awayProb) * 1.05).toFixed(2))
-    const confidence = Math.max(homeProb, awayProb)
-
-
-    // Try to get real roster asynchronously — cache will serve it on next load
-const homeAbbr = Object.keys(NBA_TEAM_NAMES).find(k => NBA_TEAM_NAMES[k] === homeName)
-const awayAbbr = Object.keys(NBA_TEAM_NAMES).find(k => NBA_TEAM_NAMES[k] === awayName)
-if (homeAbbr) fetchNBATeamRoster(homeAbbr).then(r => { if (r.length) squadDB.set(homeName, r) }).catch(()=>{})
-if (awayAbbr) fetchNBATeamRoster(awayAbbr).then(r => { if (r.length) squadDB.set(awayName, r) }).catch(()=>{})
-// Use real roster if already cached
-const realHome = squadDB.get(homeName)
-const realAway = squadDB.get(awayName)
-const hPlayers = realHome?.length ? realHome : buildNBAPlayerList(homeName, hElo)
-const aPlayers = realAway?.length ? realAway : buildNBAPlayerList(awayName, aElo)
-
-    let seed = 0
-    for (let i = 0; i < homeName.length; i++) seed = seed * 31 + homeName.charCodeAt(i)
-
+    let seed = 0; for (let i = 0; i < homeName.length; i++) seed = seed * 31 + homeName.charCodeAt(i)
     return {
-      id: `nba_${game.id || game.idEvent || Date.now()}`,
-      sport: 'basketball',
-      home: homeName, away: awayName,
-      league: "NBA", flag: "🏀",
-      date: isSource ? (game.date + "T" + (game.time||"00:00") + ":00") : game.date,
-      isLive, score: isLive ? `${game.home_team_score||0}-${game.visitor_team_score||0}` : null,
-      period: game.period || null,
+      id: `nba_${game.id || Date.now()}`, sport: 'basketball',
+      home: homeName, away: awayName, league: "NBA", flag: "🏀",
+      date: game.date,
+      isLive: game.status === "In Progress",
+      score: game.status === "In Progress" ? `${game.home_team_score||0}-${game.visitor_team_score||0}` : null,
       homeElo: hElo, awayElo: aElo,
       homeProb, drawProb: 0, awayProb,
       homeOdds, drawOdds: null, awayOdds,
-      confidence,
-      homeLineup: hPlayers.slice(0, 8),
-      awayLineup: aPlayers.slice(0, 8),
-      homeForm: ["W","W","L","W","W"].slice(0, 5),
-      awayForm: ["L","W","W","L","W"].slice(0, 5),
-      valueBet: Math.abs(eloDiff) > 100,
-      isUpsetWatch: awayProb > 40 && aElo > hElo - 50,
-      upsetProb: awayProb,
-      hasRealOdds: false,
-      homeXg: parseFloat((105 + eloDiff/3 + (Math.abs(seed)%12 - 6)).toFixed(1)), // points projection
-      awayXg: parseFloat((105 - eloDiff/3 + (Math.abs(seed>>1)%12 - 6)).toFixed(1)),
+      confidence: Math.max(homeProb, awayProb),
+      homeLineup: buildNBAPlayerList(homeName, hElo).slice(0, 8),
+      awayLineup: buildNBAPlayerList(awayName, aElo).slice(0, 8),
+      homeForm: ["W","W","L","W","W"], awayForm: ["L","W","W","L","W"],
+      valueBet: Math.abs(eloDiff) > 100, isUpsetWatch: awayProb > 40,
+      upsetProb: awayProb, hasRealOdds: false,
       factors: [
-        { name:"ELO RATING", homeScore: Math.round(hElo/20), awayScore: Math.round(aElo/20), color:"#00d4ff" },
-        { name:"HOME COURT", homeScore: 65, awayScore: 35, color:"#ff8c42" },
-        { name:"RECENT FORM", homeScore: 55 + Math.abs(seed%20)-10, awayScore: 45 + Math.abs((seed>>1)%20)-10, color:"#00ff88" },
-        { name:"PACE", homeScore: 50 + Math.abs((seed>>2)%25), awayScore: 50 - Math.abs((seed>>3)%25), color:"#ffd700" },
-        { name:"DEPTH", homeScore: 50 + eloDiff/30, awayScore: 50 - eloDiff/30, color:"#a855f7" },
+        { name:"ELO RATING",homeScore:Math.round(hElo/20),awayScore:Math.round(aElo/20),color:"#00d4ff" },
+        { name:"HOME COURT",homeScore:65,awayScore:35,color:"#ff8c42" },
+        { name:"RECENT FORM",homeScore:55+Math.abs(seed%20)-10,awayScore:45+Math.abs((seed>>1)%20)-10,color:"#00ff88" },
+        { name:"PACE",homeScore:50+Math.abs((seed>>2)%25),awayScore:50-Math.abs((seed>>3)%25),color:"#ffd700" },
       ],
-      h2h: [],
-      bttsProb: null, over25Prob: null,
-      ouProbs: {}, ouOdds: {},
-      bookmaker: "Model",
-      mismatches: [],
+      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {}, bookmaker: "Model", mismatches: []
     }
   } catch(e) { return null }
 }
 
-// ══════════════════════════════════════════════════════════
-//  NFL — ESPN API (public) + TheSportsDB
-// ══════════════════════════════════════════════════════════
-function generateNFLOffseasonContent() {
-  // NFL Draft 2026 + upcoming preseason games (real teams)
-  const today = new Date()
-  const matchups = [
-    { home: "Kansas City Chiefs",     away: "Philadelphia Eagles",   note: "Super Bowl LX Rematch",  daysOut: 7  },
-    { home: "Baltimore Ravens",       away: "Buffalo Bills",         note: "AFC Championship Preview", daysOut: 10 },
-    { home: "Detroit Lions",          away: "San Francisco 49ers",   note: "NFC Showdown",           daysOut: 14 },
-    { home: "Dallas Cowboys",         away: "New York Giants",       note: "NFC East Rivalry",       daysOut: 17 },
-    { home: "Green Bay Packers",      away: "Minnesota Vikings",     note: "NFC North",              daysOut: 21 },
-    { home: "Los Angeles Rams",       away: "Seattle Seahawks",      note: "NFC West",               daysOut: 24 },
-    { home: "Cincinnati Bengals",     away: "Pittsburgh Steelers",   note: "AFC North Rivalry",      daysOut: 28 },
-    { home: "Houston Texans",         away: "Indianapolis Colts",    note: "AFC South",              daysOut: 31 },
-    { home: "Miami Dolphins",         away: "New England Patriots",  note: "AFC East",               daysOut: 35 },
-    { home: "Chicago Bears",          away: "Green Bay Packers",     note: "NFC North Rivalry",      daysOut: 38 },
-  ]
-  let id = 800000
-  return matchups.map(m => {
-    const d = new Date(today.getTime() + m.daysOut * 86400000)
-    return {
-      id: String(id++), _source: 'schedule', _note: m.note,
-      competitions: [{
-        competitors: [
-          { homeAway: 'home', team: { displayName: m.home, abbreviation: m.home.split(' ').pop().slice(0,3).toUpperCase() } },
-          { homeAway: 'away', team: { displayName: m.away, abbreviation: m.away.split(' ').pop().slice(0,3).toUpperCase() } }
-        ],
-        status: { type: { name: 'STATUS_SCHEDULED', completed: false } },
-        date: d.toISOString()
-      }],
-      date: d.toISOString()
-    }
+function buildNBAPlayerList(teamName, teamElo) {
+  const positions = ['PG','SG','SF','PF','C','PG','SG','SF','PF','C','PG','SG']
+  const names = ['J. Williams','M. Johnson','D. Robinson','K. Davis','A. Thompson','C. Anderson','T. Jackson','R. Wilson','B. Harris','N. Young','S. Collins','P. Brown']
+  let seed = 0; for (let i = 0; i < teamName.length; i++) seed = seed * 31 + teamName.charCodeAt(i)
+  return positions.map((pos, i) => {
+    const nm = names[i % names.length]
+    const elo = clamp(teamElo - 100 + (Math.abs(seed + i * 97) % 150))
+    return { name: nm, position: pos, elo, isKey: i < 3, playstyle: getPlaystyleForSport('basketball', pos, nm, teamElo),
+      points: Math.round(5 + Math.abs((seed+i*13)%15)), assists: Math.round(1+Math.abs((seed+i*7)%6)), rebounds: Math.round(1+Math.abs((seed+i*11)%8)),
+      speed: clamp(40+Math.abs((seed+i*17)%35)), attack: clamp(40+Math.abs((seed+i*23)%35)), defense: clamp(35+Math.abs((seed+i*29)%35)), bigMatch: clamp(35+Math.abs((seed+i*31)%35)) }
   })
 }
 
-async function fetchNFLGames() {
-  return cached("nfl_games", async () => {
-    // SportsData.io NFL
-    if (process.env.SPORTSDATAIO_KEY) {
-      try {
-        const today = new Date().toISOString().slice(0,10)
-        const r = await httpExt(`https://api.sportsdata.io/v3/nfl/scores/json/ScoresByDate/${today}`,
-          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-        const games = r.data || []
-        if (games.length > 0) {
-          console.log(`✅ NFL SportsData.io: ${games.length} games`)
-          return games.map(g => ({
-            id: String(g.GameKey), _source: 'sportsdata',
-            competitions: [{
-              competitors: [
-                { homeAway: 'home', team: { displayName: NFL_TEAM_NAMES[g.HomeTeam]||g.HomeTeam, abbreviation: g.HomeTeam }, score: g.HomeScore },
-                { homeAway: 'away', team: { displayName: NFL_TEAM_NAMES[g.AwayTeam]||g.AwayTeam, abbreviation: g.AwayTeam }, score: g.AwayScore },
-              ],
-              status: { type: { name: g.Status==='Final'?'STATUS_FINAL':'STATUS_SCHEDULED', completed: g.Status==='Final' }},
-              date: g.Date,
-            }],
-            date: g.Date,
-            channel: g.Channel,
-          }))
-        }
-      } catch(e) { console.log('⚠️  NFL SportsData.io:', e.message?.slice(0,50)) }
-    }
-
-    // ESPN public scoreboard
-    try {
-      const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', { limit: 100 })
-      const events = r.data?.events || []
-      if (events.length > 0) { console.log(`✅ NFL ESPN: ${events.length} games`); return events }
-    } catch(e) { console.log('⚠️  NFL ESPN:', e.message?.slice(0,40)) }
-
-    // Offseason — real matchup schedule
-    return generateNFLOffseasonContent()
-  }, TTL.S)
-}
-
+// ══════════════════════════════════════════════════════════
+//  NFL
+// ══════════════════════════════════════════════════════════
 const NFL_TEAM_NAMES = {
   'NE':'New England Patriots','BUF':'Buffalo Bills','NYJ':'New York Jets','MIA':'Miami Dolphins',
   'BAL':'Baltimore Ravens','PIT':'Pittsburgh Steelers','CLE':'Cleveland Browns','CIN':'Cincinnati Bengals',
@@ -1478,75 +835,62 @@ const NFL_ELO_BASE = {
   "New England Patriots": 1700, "New York Jets": 1720,
 }
 
-const NFL_KEY_PLAYERS = {
-  "Kansas City Chiefs": [
-    { name: "Patrick Mahomes", pos: "QB", stats: "~4,500 passing yds, 38 TDs, MVP-level" },
-    { name: "Travis Kelce",    pos: "TE", stats: "Best TE ever, ~90 rec 1000+ yds" },
-    { name: "Rashee Rice",     pos: "WR", stats: "Top target, route runner" },
-    { name: "Chris Jones",     pos: "DEF", stats: "Elite pass rusher, disruptor" },
-  ],
-  "Baltimore Ravens": [
-    { name: "Lamar Jackson",   pos: "QB", stats: "2x MVP, dual threat, 100+ rush yds/game" },
-    { name: "Derrick Henry",   pos: "RB", stats: "Power back, hard to bring down" },
-    { name: "Zay Flowers",     pos: "WR", stats: "Quick slot receiver" },
-    { name: "Roquan Smith",    pos: "DEF", stats: "Linebacker, tackling machine" },
-  ],
-  "San Francisco 49ers": [
-    { name: "Brock Purdy",    pos: "QB", stats: "System fits perfectly, efficient" },
-    { name: "Christian McCaffrey", pos: "RB", stats: "Elite all-purpose back, 2000+ total yards" },
-    { name: "Deebo Samuel",   pos: "WR", stats: "Swiss army knife, after-catch monster" },
-    { name: "Nick Bosa",      pos: "DEF", stats: "Premier pass rusher, 15+ sacks" },
-  ],
-  "Buffalo Bills": [
-    { name: "Josh Allen",     pos: "QB", stats: "Dual threat, 40+ TDs, physical specimen" },
-    { name: "Stefon Diggs",   pos: "WR", stats: "Deep threat, reliable hands" },
-    { name: "James Cook",     pos: "RB", stats: "Speedy back, receiving threat" },
-    { name: "Von Miller",     pos: "DEF", stats: "Pass rusher veteran" },
-  ],
-  "Detroit Lions": [
-    { name: "Jared Goff",     pos: "QB", stats: "Top 5 passer in 2024, accurate" },
-    { name: "Amon-Ra St. Brown", pos: "WR", stats: "Elite route runner, high catch rate" },
-    { name: "Jahmyr Gibbs",   pos: "RB", stats: "Explosive back, dual threat" },
-    { name: "Aidan Hutchinson", pos: "DEF", stats: "Elite young pass rusher" },
-  ],
+async function fetchNFLGames() {
+  return cached("nfl_games", async () => {
+    if (process.env.SPORTSDATAIO_KEY) {
+      try {
+        const today = new Date().toISOString().slice(0,10)
+        const r = await httpExt(`https://api.sportsdata.io/v3/nfl/scores/json/ScoresByDate/${today}`,
+          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+        const games = r.data || []
+        if (games.length > 0) return games.map(g => ({
+          id: String(g.GameKey), _source: 'sportsdata',
+          competitions: [{
+            competitors: [
+              { homeAway:'home', team:{ displayName:NFL_TEAM_NAMES[g.HomeTeam]||g.HomeTeam, abbreviation:g.HomeTeam }, score:g.HomeScore },
+              { homeAway:'away', team:{ displayName:NFL_TEAM_NAMES[g.AwayTeam]||g.AwayTeam, abbreviation:g.AwayTeam }, score:g.AwayScore },
+            ],
+            status: { type:{ name:g.Status==='Final'?'STATUS_FINAL':'STATUS_SCHEDULED', completed:g.Status==='Final' }},
+            date: g.Date,
+          }],
+          date: g.Date,
+        }))
+      } catch(e) {}
+    }
+    try {
+      const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', { limit: 100 })
+      const events = r.data?.events || []
+      if (events.length > 0) return events
+    } catch(e) {}
+    return generateNFLSchedule()
+  }, TTL.S)
 }
 
-function buildNFLPlayerList(teamName, teamElo) {
-  const known = NFL_KEY_PLAYERS[teamName] || []
-  const players = []
-  let seed = 0
-  for (let i = 0; i < teamName.length; i++) seed = seed * 31 + teamName.charCodeAt(i)
-
-  for (const p of known.slice(0, 6)) {
-    const ps = getPlaystyleForSport('american_football', p.pos, p.name, teamElo)
-    const elo = teamElo - 20 + Math.abs((seed + players.length * 31) % 60)
-    players.push({
-      name: p.name, position: p.pos, elo, isKey: players.length < 2,
-      stats: p.stats, playstyle: ps,
-      speed: clamp(50 + Math.abs((seed + players.length) % 30)),
-      attack: clamp(55 + (elo - 1700) / 10 + Math.abs((seed >> 1) % 20)),
-      defense: clamp(45 + (elo - 1700) / 12 + Math.abs((seed >> 4) % 20)),
-      bigMatch: clamp(50 + (elo - 1700) / 10 + Math.abs((seed >> 5) % 20)),
-    })
-  }
-  // Fill generic
-  const nflPositions = ['QB','WR','RB','TE','DEF','WR','DEF','WR','RB','DEF','WR','DEF']
-  const genericNFLNames = ['J. Williams','M. Brown','D. Jackson','K. Davis','T. Smith','R. Jones','C. Allen','B. Thomas','A. Taylor','N. Graham','P. White','L. Robinson']
-  while (players.length < 10) {
-    const pos = nflPositions[players.length % nflPositions.length]
-    const nm = genericNFLNames[players.length % genericNFLNames.length]
-    const ps = getPlaystyleForSport('american_football', pos, nm, teamElo)
-    const elo = teamElo - 150 + Math.abs((seed + players.length * 97) % 200)
-    players.push({
-      name: nm, position: pos, elo, isKey: false, stats: "Starter",
-      playstyle: ps,
-      speed: clamp(40 + Math.abs((seed + players.length * 17) % 35)),
-      attack: clamp(40 + Math.abs((seed + players.length * 23) % 35)),
-      defense: clamp(35 + Math.abs((seed + players.length * 29) % 35)),
-      bigMatch: clamp(35 + Math.abs((seed + players.length * 31) % 35)),
-    })
-  }
-  return players
+function generateNFLSchedule() {
+  const today = new Date()
+  const matchups = [
+    {home:"Kansas City Chiefs",away:"Philadelphia Eagles",daysOut:7},
+    {home:"Baltimore Ravens",away:"Buffalo Bills",daysOut:10},
+    {home:"Detroit Lions",away:"San Francisco 49ers",daysOut:14},
+    {home:"Dallas Cowboys",away:"New York Giants",daysOut:17},
+    {home:"Green Bay Packers",away:"Minnesota Vikings",daysOut:21},
+  ]
+  let id = 800000
+  return matchups.map(m => {
+    const d = new Date(today.getTime() + m.daysOut * 86400000)
+    return {
+      id: String(id++), _source: 'schedule',
+      competitions: [{
+        competitors: [
+          { homeAway:'home', team:{ displayName:m.home } },
+          { homeAway:'away', team:{ displayName:m.away } }
+        ],
+        status: { type:{ name:'STATUS_SCHEDULED', completed:false } },
+        date: d.toISOString()
+      }],
+      date: d.toISOString()
+    }
+  })
 }
 
 function buildNFLPrediction(event) {
@@ -1557,195 +901,106 @@ function buildNFLPrediction(event) {
     const homeC = comps.find(c => c.homeAway === 'home') || comps[0]
     const awayC = comps.find(c => c.homeAway === 'away') || comps[1]
     if (!homeC || !awayC) return null
-    const homeName = homeC.team?.displayName || homeC.team?.name || "Home"
-    const awayName = awayC.team?.displayName || awayC.team?.name || "Away"
-    const status = comp.status?.type?.name || "STATUS_SCHEDULED"
-    const isFinal = comp.status?.type?.completed === true || status === "STATUS_FINAL"
-    // During offseason, include scheduled matchups too
-    if (isFinal && event._source !== 'schedule') return null
-
-    const hElo = NFL_ELO_BASE[homeName] || (1750 + Math.abs(homeName.length * 37) % 100)
-    const aElo = NFL_ELO_BASE[awayName] || (1750 + Math.abs(awayName.length * 41) % 100)
+    const homeName = homeC.team?.displayName || "Home"
+    const awayName = awayC.team?.displayName || "Away"
+    if (comp.status?.type?.completed && event._source !== 'schedule') return null
+    const hElo = NFL_ELO_BASE[homeName] || 1750
+    const aElo = NFL_ELO_BASE[awayName] || 1750
     const eloDiff = (hElo + 30) - aElo
-    const homeProb = Math.round(50 + eloDiff / 12)
+    const homeProb = Math.max(15, Math.min(85, Math.round(50 + eloDiff / 12)))
     const awayProb = 100 - homeProb
-    const homeOdds = parseFloat((100 / Math.max(1, homeProb) * 1.05).toFixed(2))
-    const awayOdds = parseFloat((100 / Math.max(1, awayProb) * 1.05).toFixed(2))
-
-    let seed = 0
-    for (let i = 0; i < homeName.length; i++) seed = seed * 31 + homeName.charCodeAt(i)
-
     return {
-      id: `nfl_${event.id || Date.now()}`,
-      sport: 'american_football',
-      home: homeName, away: awayName,
-      homeAbbr: homeC.team?.abbreviation, awayAbbr: awayC.team?.abbreviation,
-      league: "NFL", flag: "🏈",
+      id: `nfl_${event.id || Date.now()}`, sport: 'american_football',
+      home: homeName, away: awayName, league: "NFL", flag: "🏈",
       date: comp.date || event.date,
-      isLive: status === "STATUS_IN_PROGRESS",
-      score: status === "STATUS_IN_PROGRESS" ? `${homeC.score||0}-${awayC.score||0}` : null,
+      isLive: comp.status?.type?.name === "STATUS_IN_PROGRESS",
       homeElo: hElo, awayElo: aElo,
       homeProb, drawProb: 0, awayProb,
-      homeOdds, drawOdds: null, awayOdds,
+      homeOdds: parseFloat((100/Math.max(1,homeProb)*1.05).toFixed(2)),
+      drawOdds: null,
+      awayOdds: parseFloat((100/Math.max(1,awayProb)*1.05).toFixed(2)),
       confidence: Math.max(homeProb, awayProb),
-      homeLineup: buildNFLPlayerList(homeName, hElo).slice(0, 8),
-      awayLineup: buildNFLPlayerList(awayName, aElo).slice(0, 8),
-      homeForm: ["W","L","W","W","L"],
-      awayForm: ["W","W","L","W","L"],
-      valueBet: Math.abs(eloDiff) > 80,
-      isUpsetWatch: awayProb > 38,
-      upsetProb: awayProb,
-      hasRealOdds: false,
-      homeXg: parseFloat((24 + eloDiff/4 + (Math.abs(seed)%8-4)).toFixed(1)), // pts projection
-      awayXg: parseFloat((24 - eloDiff/4 + (Math.abs(seed>>1)%8-4)).toFixed(1)),
+      homeLineup: [], awayLineup: [],
+      homeForm: ["W","L","W","W","L"], awayForm: ["W","W","L","W","L"],
+      valueBet: Math.abs(eloDiff) > 80, isUpsetWatch: awayProb > 38,
+      upsetProb: awayProb, hasRealOdds: false,
       factors: [
-        { name:"ELO RATING",    homeScore: Math.round(hElo/20), awayScore: Math.round(aElo/20), color:"#00d4ff" },
-        { name:"HOME FIELD",    homeScore: 62, awayScore: 38, color:"#ff8c42" },
-        { name:"QB RATING",     homeScore: 50+eloDiff/20, awayScore: 50-eloDiff/20, color:"#00ff88" },
-        { name:"DEFENSE",       homeScore: 50+Math.abs(seed%20)-10, awayScore: 50+Math.abs((seed>>1)%20)-10, color:"#ffd700" },
-        { name:"RUSHING GAME",  homeScore: 50+Math.abs((seed>>2)%20)-10, awayScore: 50+Math.abs((seed>>3)%20)-10, color:"#a855f7" },
+        { name:"ELO RATING",homeScore:Math.round(hElo/20),awayScore:Math.round(aElo/20),color:"#00d4ff" },
+        { name:"HOME FIELD",homeScore:62,awayScore:38,color:"#ff8c42" },
+        { name:"QB RATING",homeScore:50+Math.round(eloDiff/20),awayScore:50-Math.round(eloDiff/20),color:"#00ff88" },
       ],
-      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {},
-      bookmaker: "Model", mismatches: [],
+      h2h:[], bttsProb:null, ouProbs:{}, ouOdds:{}, bookmaker:"Model", mismatches:[]
     }
   } catch(e) { return null }
 }
 
 // ══════════════════════════════════════════════════════════
-//  TENNIS — TheSportsDB + ATP/WTA fallback
+//  TENNIS
 // ══════════════════════════════════════════════════════════
-async function fetchTennisTournaments() {
-  return cached("tennis_events", async () => {
-    const today = new Date().toISOString().slice(0,10)
-
-    // RapidAPI Tennis Live Data
-    if (process.env.RAPIDAPI_KEY) {
-      try {
-        const r = await httpExt('https://tennis-live-data.p.rapidapi.com/matches-by-date/' + today,
-          {}, { 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY, 'X-RapidAPI-Host': 'tennis-live-data.p.rapidapi.com' })
-        const matches = r.data?.results || []
-        if (matches.length > 0) {
-          console.log(`✅ Tennis RapidAPI: ${matches.length} matches`)
-          return matches.map(m => ({
-            idEvent: `tennis_rapid_${m.id||Date.now()}`,
-            strHomeTeam: m.home?.name || m.home_player?.name || '',
-            strAwayTeam: m.away?.name || m.away_player?.name || '',
-            strStatus: m.status === 'Finished' ? 'Match Finished' : m.status || 'Not Started',
-            dateEvent: today,
-            strTime: m.time || '12:00',
-            strLeague: m.tournament?.name || 'ATP Tour',
-            _tournament: { name: m.tournament?.name||'ATP', surface: m.court_type||'Hard', tour: m.category||'ATP', location: m.venue||'' },
-            _p1: enrichTennisPlayer(m.home?.name||m.home_player?.name, m.home?.ranking),
-            _p2: enrichTennisPlayer(m.away?.name||m.away_player?.name, m.away?.ranking),
-            _homeScore: m.home_score, _awayScore: m.away_score,
-          }))
-        }
-      } catch(e) { console.log('⚠️  Tennis RapidAPI:', e.message?.slice(0,50)) }
-    }
-
-    // TheSportsDB tennis
-    try {
-      const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d: today, s: 'Tennis' })
-      const events = r.data?.events || []
-      if (events.length > 0) {
-        console.log(`✅ Tennis TSDB: ${events.length} events`)
-        return events.map(e => ({ ...e, _p1: enrichTennisPlayer(e.strHomeTeam), _p2: enrichTennisPlayer(e.strAwayTeam) }))
-      }
-    } catch(e) {}
-
-    // Generated from real player pool
-    console.log('ℹ️  Tennis: using generated matches from real player database')
-    return generateTennisMatches()
-  }, TTL.S)
-}
-
-// Enrich a player name with known data
-function enrichTennisPlayer(name, ranking) {
-  if (!name) return null
-  const known = [...TENNIS_PLAYERS.ATP, ...TENNIS_PLAYERS.WTA].find(p => p.name.toLowerCase() === name.toLowerCase() || p.name.toLowerCase().includes(name.toLowerCase().split(' ').pop()))
-  if (known) return { ...known, rank: ranking || known.rank }
-  return { name, elo: Math.max(1400, 1900 - (ranking||100)*3), rank: ranking||100, country: 'Unknown', surface: ['Hard'] }
-}
-
 const TENNIS_PLAYERS = {
   ATP: [
-    { name: "Jannik Sinner",     rank: 1,  elo: 2050, country: "Italy",     surface: ["Hard","Clay"] },
-    { name: "Carlos Alcaraz",    rank: 2,  elo: 2020, country: "Spain",     surface: ["Clay","Grass","Hard"] },
-    { name: "Novak Djokovic",    rank: 3,  elo: 2000, country: "Serbia",    surface: ["Hard","Clay","Grass"] },
-    { name: "Alexander Zverev",  rank: 4,  elo: 1970, country: "Germany",   surface: ["Hard","Clay"] },
-    { name: "Daniil Medvedev",   rank: 5,  elo: 1960, country: "Russia",    surface: ["Hard"] },
-    { name: "Taylor Fritz",      rank: 6,  elo: 1930, country: "USA",       surface: ["Hard"] },
-    { name: "Casper Ruud",       rank: 7,  elo: 1900, country: "Norway",    surface: ["Clay"] },
-    { name: "Alex de Minaur",    rank: 8,  elo: 1890, country: "Australia", surface: ["Hard"] },
-    { name: "Tommy Paul",        rank: 9,  elo: 1870, country: "USA",       surface: ["Hard"] },
-    { name: "Stefanos Tsitsipas",rank: 10, elo: 1870, country: "Greece",    surface: ["Clay"] },
-    { name: "Grigor Dimitrov",   rank: 11, elo: 1850, country: "Bulgaria",  surface: ["Hard","Grass"] },
-    { name: "Hubert Hurkacz",    rank: 12, elo: 1840, country: "Poland",    surface: ["Hard","Grass"] },
-    { name: "Frances Tiafoe",    rank: 13, elo: 1820, country: "USA",       surface: ["Hard"] },
-    { name: "Sebastian Baez",    rank: 14, elo: 1800, country: "Argentina", surface: ["Clay"] },
-    { name: "Ben Shelton",       rank: 15, elo: 1810, country: "USA",       surface: ["Hard"] },
-    { name: "Ugo Humbert",       rank: 16, elo: 1780, country: "France",    surface: ["Hard"] },
-    { name: "Karen Khachanov",   rank: 17, elo: 1760, country: "Russia",    surface: ["Hard"] },
-    { name: "Holger Rune",       rank: 18, elo: 1770, country: "Denmark",   surface: ["Clay","Hard"] },
-    { name: "Andrey Rublev",     rank: 19, elo: 1800, country: "Russia",    surface: ["Hard","Clay"] },
-    { name: "Lorenzo Musetti",   rank: 20, elo: 1760, country: "Italy",     surface: ["Clay"] },
+    { name:"Jannik Sinner",rank:1,elo:2050,country:"Italy",surface:["Hard","Clay"] },
+    { name:"Carlos Alcaraz",rank:2,elo:2020,country:"Spain",surface:["Clay","Grass","Hard"] },
+    { name:"Novak Djokovic",rank:3,elo:2000,country:"Serbia",surface:["Hard","Clay","Grass"] },
+    { name:"Alexander Zverev",rank:4,elo:1970,country:"Germany",surface:["Hard","Clay"] },
+    { name:"Daniil Medvedev",rank:5,elo:1960,country:"Russia",surface:["Hard"] },
+    { name:"Taylor Fritz",rank:6,elo:1930,country:"USA",surface:["Hard"] },
+    { name:"Casper Ruud",rank:7,elo:1900,country:"Norway",surface:["Clay"] },
+    { name:"Alex de Minaur",rank:8,elo:1890,country:"Australia",surface:["Hard"] },
+    { name:"Holger Rune",rank:9,elo:1870,country:"Denmark",surface:["Clay","Hard"] },
+    { name:"Andrey Rublev",rank:10,elo:1850,country:"Russia",surface:["Hard","Clay"] },
   ],
   WTA: [
-    { name: "Aryna Sabalenka",   rank: 1,  elo: 2020, country: "Belarus",   surface: ["Hard"] },
-    { name: "Iga Swiatek",       rank: 2,  elo: 2010, country: "Poland",    surface: ["Clay","Hard"] },
-    { name: "Coco Gauff",        rank: 3,  elo: 1970, country: "USA",       surface: ["Hard"] },
-    { name: "Elena Rybakina",    rank: 4,  elo: 1960, country: "Kazakhstan",surface: ["Grass","Hard"] },
-    { name: "Qinwen Zheng",      rank: 5,  elo: 1930, country: "China",     surface: ["Hard"] },
-    { name: "Jessica Pegula",    rank: 6,  elo: 1910, country: "USA",       surface: ["Hard"] },
-    { name: "Madison Keys",      rank: 7,  elo: 1890, country: "USA",       surface: ["Hard"] },
-    { name: "Mirra Andreeva",    rank: 8,  elo: 1870, country: "Russia",    surface: ["Clay","Hard"] },
-    { name: "Jasmine Paolini",   rank: 9,  elo: 1860, country: "Italy",     surface: ["Clay"] },
-    { name: "Emma Navarro",      rank: 10, elo: 1840, country: "USA",       surface: ["Hard"] },
-    { name: "Daria Kasatkina",   rank: 11, elo: 1820, country: "Russia",    surface: ["Clay"] },
-    { name: "Paula Badosa",      rank: 12, elo: 1810, country: "Spain",     surface: ["Clay"] },
-    { name: "Barbora Krejcikova",rank: 13, elo: 1800, country: "Czech Republic", surface: ["Clay","Grass"] },
-    { name: "Danielle Collins",  rank: 14, elo: 1790, country: "USA",       surface: ["Hard"] },
-    { name: "Liudmila Samsonova",rank: 15, elo: 1780, country: "Russia",    surface: ["Hard"] },
+    { name:"Aryna Sabalenka",rank:1,elo:2020,country:"Belarus",surface:["Hard"] },
+    { name:"Iga Swiatek",rank:2,elo:2010,country:"Poland",surface:["Clay","Hard"] },
+    { name:"Coco Gauff",rank:3,elo:1970,country:"USA",surface:["Hard"] },
+    { name:"Elena Rybakina",rank:4,elo:1960,country:"Kazakhstan",surface:["Grass","Hard"] },
+    { name:"Qinwen Zheng",rank:5,elo:1930,country:"China",surface:["Hard"] },
+    { name:"Jessica Pegula",rank:6,elo:1910,country:"USA",surface:["Hard"] },
+    { name:"Madison Keys",rank:7,elo:1890,country:"USA",surface:["Hard"] },
+    { name:"Jasmine Paolini",rank:8,elo:1860,country:"Italy",surface:["Clay"] },
   ]
 }
 
 const CURRENT_TOURNAMENTS = [
-  { name: "Miami Open", surface: "Hard", tour: "ATP", location: "Miami, USA", prize: "$8.9M" },
-  { name: "Miami Open", surface: "Hard", tour: "WTA", location: "Miami, USA", prize: "$8.9M" },
-  { name: "Monte-Carlo Masters", surface: "Clay", tour: "ATP", location: "Monaco", prize: "$5.4M" },
-  { name: "Madrid Open", surface: "Clay", tour: "ATP", location: "Madrid, Spain", prize: "$6.7M" },
-  { name: "Madrid Open", surface: "Clay", tour: "WTA", location: "Madrid, Spain", prize: "$6.7M" },
-  { name: "Roland Garros", surface: "Clay", tour: "ATP", location: "Paris, France", prize: "$15.3M" },
-  { name: "Wimbledon", surface: "Grass", tour: "ATP", location: "London, UK", prize: "$14.8M" },
-  { name: "US Open", surface: "Hard", tour: "ATP", location: "New York, USA", prize: "$15M" },
+  { name:"Miami Open",surface:"Hard",tour:"ATP",location:"Miami, USA",prize:"$8.9M" },
+  { name:"Miami Open",surface:"Hard",tour:"WTA",location:"Miami, USA",prize:"$8.9M" },
+  { name:"Monte-Carlo Masters",surface:"Clay",tour:"ATP",location:"Monaco",prize:"$5.4M" },
+  { name:"Roland Garros",surface:"Clay",tour:"ATP",location:"Paris, France",prize:"$15.3M" },
+  { name:"Wimbledon",surface:"Grass",tour:"ATP",location:"London, UK",prize:"$14.8M" },
 ]
+
+async function fetchTennisTournaments() {
+  return cached("tennis_events", async () => {
+    const today = new Date().toISOString().slice(0,10)
+    try {
+      const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d: today, s: 'Tennis' })
+      const events = r.data?.events || []
+      if (events.length > 0) return events.map(e => ({ ...e, _p1: enrichTennisPlayer(e.strHomeTeam), _p2: enrichTennisPlayer(e.strAwayTeam) }))
+    } catch(e) {}
+    return generateTennisMatches()
+  }, TTL.S)
+}
+
+function enrichTennisPlayer(name) {
+  if (!name) return null
+  const all = [...TENNIS_PLAYERS.ATP, ...TENNIS_PLAYERS.WTA]
+  return all.find(p => p.name.toLowerCase() === name.toLowerCase()) || { name, elo: 1700, rank: 100, country: 'Unknown', surface: ['Hard'] }
+}
 
 function generateTennisMatches() {
   const matches = []
-  const tournaments = CURRENT_TOURNAMENTS.slice(0, 4)
-  for (const tourn of tournaments) {
+  for (const tourn of CURRENT_TOURNAMENTS.slice(0,3)) {
     const pool = tourn.tour === 'ATP' ? TENNIS_PLAYERS.ATP : TENNIS_PLAYERS.WTA
-    // Generate 4-8 matches per tournament
-    const numMatches = 4 + Math.floor(Math.random() * 4)
-    const used = new Set()
-    for (let i = 0; i < numMatches && used.size < pool.length - 1; i++) {
-      let p1Idx, p2Idx
-      do { p1Idx = Math.floor(Math.random() * pool.length) } while (used.has(p1Idx))
-      do { p2Idx = Math.floor(Math.random() * pool.length) } while (used.has(p2Idx) || p2Idx === p1Idx)
-      used.add(p1Idx); used.add(p2Idx)
-      const p1 = pool[p1Idx], p2 = pool[p2Idx]
-      const daysFromNow = Math.floor(i / 4)
-      const d = new Date(Date.now() + daysFromNow * 86400000)
+    for (let i = 0; i < Math.min(4, pool.length - 1); i += 2) {
+      if (i + 1 >= pool.length) break
+      const d = new Date(Date.now() + Math.floor(i/2) * 86400000)
       matches.push({
-        idEvent: `tennis_${tourn.name.replace(/\s/g,"_")}_${i}`,
-        strHomeTeam: p1.name, strAwayTeam: p2.name,
-        strStatus: "Not Started",
-        dateEvent: d.toISOString().slice(0,10),
-        strTime: `${12 + i * 2}:00`,
-        strLeague: `${tourn.tour} ${tourn.name}`,
-        strSport: "Tennis",
-        _tournament: tourn,
-        _p1: p1, _p2: p2,
+        idEvent: `tennis_${tourn.name.replace(/\s/g,'_')}_${i}`,
+        strHomeTeam: pool[i].name, strAwayTeam: pool[i+1].name,
+        strStatus: "Not Started", dateEvent: d.toISOString().slice(0,10),
+        strTime: `${12+i}:00`, strLeague: `${tourn.tour} ${tourn.name}`,
+        _tournament: tourn, _p1: pool[i], _p2: pool[i+1],
       })
     }
   }
@@ -1758,353 +1013,232 @@ function buildTennisPrediction(event) {
     const p1Name = event.strHomeTeam || event._p1?.name
     const p2Name = event.strAwayTeam || event._p2?.name
     if (!p1Name || !p2Name) return null
-
-    const allPlayers = [...TENNIS_PLAYERS.ATP, ...TENNIS_PLAYERS.WTA]
-    const p1Data = event._p1 || allPlayers.find(p => p.name === p1Name) || { elo: 1750, rank: 50, country: "Unknown", surface: ["Hard"] }
-    const p2Data = event._p2 || allPlayers.find(p => p.name === p2Name) || { elo: 1700, rank: 80, country: "Unknown", surface: ["Hard"] }
+    if (event.strStatus === "Match Finished") return null
+    const p1 = event._p1 || enrichTennisPlayer(p1Name)
+    const p2 = event._p2 || enrichTennisPlayer(p2Name)
     const tourn = event._tournament || CURRENT_TOURNAMENTS[0]
-
-    // Surface advantage
-    const p1SurfAdv = p1Data.surface?.includes(tourn.surface) ? 50 : 0
-    const p2SurfAdv = p2Data.surface?.includes(tourn.surface) ? 50 : 0
-    const eloDiff = (p1Data.elo + p1SurfAdv) - (p2Data.elo + p2SurfAdv)
-    const homeProb = Math.round(50 + eloDiff / 20)
+    const p1surf = p1.surface?.includes(tourn.surface) ? 50 : 0
+    const p2surf = p2.surface?.includes(tourn.surface) ? 50 : 0
+    const eloDiff = (p1.elo + p1surf) - (p2.elo + p2surf)
+    const homeProb = Math.max(15, Math.min(85, Math.round(50 + eloDiff / 20)))
     const awayProb = 100 - homeProb
-    const homeOdds = parseFloat((100 / Math.max(1, homeProb) * 1.05).toFixed(2))
-    const awayOdds = parseFloat((100 / Math.max(1, awayProb) * 1.05).toFixed(2))
-
-    const p1Style = getPlaystyleForSport('tennis', null, p1Name, p1Data.elo)
-    const p2Style = getPlaystyleForSport('tennis', null, p2Name, p2Data.elo)
-
-    const isFinal = event.strStatus === "Match Finished"
-    if (isFinal) return null
-
     return {
-      id: `tennis_${event.idEvent || Date.now()}`,
-      sport: 'tennis',
+      id: `tennis_${event.idEvent || Date.now()}`, sport: 'tennis',
       home: p1Name, away: p2Name,
-      league: event.strLeague || `${tourn?.tour || 'ATP'} ${tourn?.name || 'Tournament'}`,
-      flag: "🎾",
-      tournament: tourn?.name || "ATP Tour",
-      surface: tourn?.surface || "Hard",
-      tour: tourn?.tour || "ATP",
-      date: event.dateEvent + "T" + (event.strTime || "12:00") + ":00",
-      isLive: event.strStatus === "In Progress",
-      homeElo: p1Data.elo, awayElo: p2Data.elo,
-      homeRank: p1Data.rank, awayRank: p2Data.rank,
-      homeCountry: p1Data.country, awayCountry: p2Data.country,
-      homeSurfaces: p1Data.surface || [], awaySurfaces: p2Data.surface || [],
+      league: event.strLeague || `${tourn.tour} ${tourn.name}`, flag: "🎾",
+      tournament: tourn.name, surface: tourn.surface, tour: tourn.tour,
+      date: event.dateEvent + "T" + (event.strTime||"12:00") + ":00",
+      isLive: false,
+      homeElo: p1.elo, awayElo: p2.elo, homeRank: p1.rank, awayRank: p2.rank,
+      homeCountry: p1.country, awayCountry: p2.country,
       homeProb, drawProb: 0, awayProb,
-      homeOdds, drawOdds: null, awayOdds,
+      homeOdds: parseFloat((100/Math.max(1,homeProb)*1.05).toFixed(2)),
+      drawOdds: null,
+      awayOdds: parseFloat((100/Math.max(1,awayProb)*1.05).toFixed(2)),
       confidence: Math.max(homeProb, awayProb),
-      homeLineup: [{ name: p1Name, position: "Player", elo: p1Data.elo, isKey: true, playstyle: p1Style, country: p1Data.country, rank: p1Data.rank }],
-      awayLineup: [{ name: p2Name, position: "Player", elo: p2Data.elo, isKey: true, playstyle: p2Style, country: p2Data.country, rank: p2Data.rank }],
-      homeForm: ["W","W","L","W","W"].slice(0,5),
-      awayForm: ["L","W","W","L","W"].slice(0,5),
-      valueBet: Math.abs(eloDiff) > 150 && (homeProb > 65 || awayProb > 65),
-      isUpsetWatch: awayProb > 35 && p2Data.rank < p1Data.rank - 10,
-      upsetProb: awayProb,
-      hasRealOdds: false,
-      homeXg: null, awayXg: null,
+      homeLineup: [{ name:p1Name, position:"Player", elo:p1.elo, isKey:true, playstyle:getPlaystyleForSport('tennis',null,p1Name,p1.elo), country:p1.country, rank:p1.rank }],
+      awayLineup: [{ name:p2Name, position:"Player", elo:p2.elo, isKey:true, playstyle:getPlaystyleForSport('tennis',null,p2Name,p2.elo), country:p2.country, rank:p2.rank }],
+      homeForm: ["W","W","L","W","W"], awayForm: ["L","W","W","L","W"],
+      valueBet: Math.abs(eloDiff) > 150, isUpsetWatch: awayProb > 35,
+      upsetProb: awayProb, hasRealOdds: false,
       factors: [
-        { name:"RANKING",        homeScore: Math.round(100 - p1Data.rank), awayScore: Math.round(100 - p2Data.rank), color:"#00d4ff" },
-        { name:"SURFACE FIT",    homeScore: p1SurfAdv > 0 ? 75 : 45, awayScore: p2SurfAdv > 0 ? 75 : 45, color:"#ffd700" },
-        { name:"ELO RATING",     homeScore: Math.round(p1Data.elo/22), awayScore: Math.round(p2Data.elo/22), color:"#ff8c42" },
-        { name:"RECENT FORM",    homeScore: 55, awayScore: 45, color:"#00ff88" },
-        { name:"H2H",            homeScore: 50, awayScore: 50, color:"#a855f7" },
+        { name:"RANKING",homeScore:Math.round(100-p1.rank),awayScore:Math.round(100-p2.rank),color:"#00d4ff" },
+        { name:"SURFACE FIT",homeScore:p1surf>0?75:45,awayScore:p2surf>0?75:45,color:"#ffd700" },
+        { name:"ELO RATING",homeScore:Math.round(p1.elo/22),awayScore:Math.round(p2.elo/22),color:"#ff8c42" },
       ],
-      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {},
-      bookmaker: "Model", mismatches: [],
+      h2h:[], bttsProb:null, ouProbs:{}, ouOdds:{}, bookmaker:"Model", mismatches:[]
     }
   } catch(e) { return null }
 }
 
 // ══════════════════════════════════════════════════════════
-//  F1 — OpenF1 API (free, no key)
+//  F1
 // ══════════════════════════════════════════════════════════
+const F1_DRIVERS_2025 = [
+  { name:"Max Verstappen",team:"Red Bull Racing",number:1,country:"Netherlands",championships:4,elo:2100 },
+  { name:"Lando Norris",team:"McLaren",number:4,country:"UK",championships:0,elo:2020 },
+  { name:"Charles Leclerc",team:"Ferrari",number:16,country:"Monaco",championships:0,elo:1990 },
+  { name:"Oscar Piastri",team:"McLaren",number:81,country:"Australia",championships:0,elo:1970 },
+  { name:"Carlos Sainz",team:"Williams",number:55,country:"Spain",championships:0,elo:1960 },
+  { name:"George Russell",team:"Mercedes",number:63,country:"UK",championships:0,elo:1950 },
+  { name:"Lewis Hamilton",team:"Ferrari",number:44,country:"UK",championships:7,elo:1980 },
+  { name:"Fernando Alonso",team:"Aston Martin",number:14,country:"Spain",championships:2,elo:1940 },
+  { name:"Yuki Tsunoda",team:"Red Bull Racing",number:22,country:"Japan",championships:0,elo:1860 },
+  { name:"Pierre Gasly",team:"Alpine",number:10,country:"France",championships:0,elo:1870 },
+  { name:"Kimi Antonelli",team:"Mercedes",number:12,country:"Italy",championships:0,elo:1810 },
+  { name:"Oliver Bearman",team:"Haas",number:87,country:"UK",championships:0,elo:1780 },
+  { name:"Jack Doohan",team:"Alpine",number:7,country:"Australia",championships:0,elo:1770 },
+  { name:"Alexander Albon",team:"Williams",number:23,country:"Thailand",championships:0,elo:1850 },
+  { name:"Nico Hülkenberg",team:"Sauber",number:27,country:"Germany",championships:0,elo:1840 },
+  { name:"Lance Stroll",team:"Aston Martin",number:18,country:"Canada",championships:0,elo:1800 },
+  { name:"Esteban Ocon",team:"Haas",number:31,country:"France",championships:0,elo:1840 },
+  { name:"Valtteri Bottas",team:"Sauber",number:77,country:"Finland",championships:0,elo:1820 },
+  { name:"Isack Hadjar",team:"Racing Bulls",number:6,country:"France",championships:0,elo:1790 },
+  { name:"Kevin Magnussen",team:"Haas",number:20,country:"Denmark",championships:0,elo:1800 },
+]
+
+const F1_CONSTRUCTOR_ELO = {
+  "McLaren":2030,"Red Bull Racing":2020,"Ferrari":2000,"Mercedes":1980,
+  "Aston Martin":1860,"Williams":1840,"Racing Bulls":1820,"Alpine":1800,"Haas":1780,"Sauber":1760,
+}
+
+const F1_2025_CALENDAR = [
+  { circuit_short_name:"Bahrain",country_name:"Bahrain",date_start:"2026-04-13T15:00:00",session_key:"bhr_2026" },
+  { circuit_short_name:"Jeddah",country_name:"Saudi Arabia",date_start:"2026-04-20T18:00:00",session_key:"sau_2026" },
+  { circuit_short_name:"Miami",country_name:"United States",date_start:"2026-05-04T19:00:00",session_key:"mia_2026" },
+  { circuit_short_name:"Imola",country_name:"Italy",date_start:"2026-05-18T13:00:00",session_key:"imo_2026" },
+  { circuit_short_name:"Monte Carlo",country_name:"Monaco",date_start:"2026-05-25T13:00:00",session_key:"mon_2026" },
+  { circuit_short_name:"Barcelona",country_name:"Spain",date_start:"2026-06-01T13:00:00",session_key:"esp_2026" },
+  { circuit_short_name:"Montreal",country_name:"Canada",date_start:"2026-06-15T18:00:00",session_key:"can_2026" },
+  { circuit_short_name:"Silverstone",country_name:"United Kingdom",date_start:"2026-07-06T14:00:00",session_key:"gbr_2026" },
+  { circuit_short_name:"Spa",country_name:"Belgium",date_start:"2026-07-27T13:00:00",session_key:"bel_2026" },
+  { circuit_short_name:"Monza",country_name:"Italy",date_start:"2026-09-07T13:00:00",session_key:"ita_2026" },
+]
+
 async function fetchF1NextRace() {
   return cached("f1_data", async () => {
     try {
-      // OpenF1 — free, no key needed
       const [sessionsR, driversR] = await Promise.all([
         httpExt(`${OPEN_F1_BASE}/sessions?session_type=Race&year=2025`).catch(() => ({ data: [] })),
         httpExt(`${OPEN_F1_BASE}/drivers?session_key=latest`).catch(() => ({ data: [] })),
       ])
       const sessions = sessionsR.data || []
-      const drivers  = driversR.data  || []
-      console.log(`✅ F1 OpenF1: ${sessions.length} sessions, ${drivers.length} drivers`)
-
-      // Find next upcoming race
       const now = Date.now()
-      const upcoming = sessions
-        .filter(s => new Date(s.date_start).getTime() > now - 86400000)
-        .sort((a, b) => new Date(a.date_start) - new Date(b.date_start))
-        .slice(0, 3)
-
-      const predictions = buildF1Predictions(upcoming.length > 0 ? upcoming : F1_2025_CALENDAR, drivers)
-      const standings = buildF1Standings()
-      return { predictions, standings }
+      const upcoming = sessions.filter(s => new Date(s.date_start).getTime() > now - 86400000)
+        .sort((a,b) => new Date(a.date_start) - new Date(b.date_start)).slice(0,5)
+      const predictions = buildF1Predictions(upcoming.length > 0 ? upcoming : F1_2025_CALENDAR)
+      return { predictions, standings: buildF1Standings() }
     } catch(e) {
-      console.log("⚠️  F1 OpenF1:", e.message?.slice(0,50))
-      // Use hardcoded 2025 calendar
-      return { predictions: buildF1Predictions(F1_2025_CALENDAR, []), standings: buildF1Standings() }
+      return { predictions: buildF1Predictions(F1_2025_CALENDAR), standings: buildF1Standings() }
     }
   }, TTL.L)
 }
 
-const F1_2025_CALENDAR = [
-  { circuit_short_name: "Bahrain",   country_name: "Bahrain",      date_start: "2026-04-13T15:00:00", location: "Bahrain International Circuit", session_key: "bhr_2026" },
-  { circuit_short_name: "Jeddah",    country_name: "Saudi Arabia",  date_start: "2026-04-20T18:00:00", location: "Jeddah Corniche Circuit",       session_key: "sau_2026" },
-  { circuit_short_name: "Miami",     country_name: "United States", date_start: "2026-05-04T19:00:00", location: "Miami International Autodrome", session_key: "mia_2026" },
-  { circuit_short_name: "Imola",     country_name: "Italy",         date_start: "2026-05-18T13:00:00", location: "Autodromo Enzo e Dino Ferrari", session_key: "imo_2026" },
-  { circuit_short_name: "Monte Carlo",country_name: "Monaco",       date_start: "2026-05-25T13:00:00", location: "Circuit de Monaco",            session_key: "mon_2026" },
-  { circuit_short_name: "Barcelona", country_name: "Spain",         date_start: "2026-06-01T13:00:00", location: "Circuit de Barcelona-Catalunya",session_key: "esp_2026" },
-  { circuit_short_name: "Montreal",  country_name: "Canada",        date_start: "2026-06-15T18:00:00", location: "Circuit Gilles Villeneuve",     session_key: "can_2026" },
-  { circuit_short_name: "Silverstone",country_name:"United Kingdom",date_start: "2026-07-06T14:00:00", location: "Silverstone Circuit",          session_key: "gbr_2026" },
-  { circuit_short_name: "Spa",       country_name: "Belgium",       date_start: "2026-07-27T13:00:00", location: "Circuit de Spa-Francorchamps", session_key: "bel_2026" },
-  { circuit_short_name: "Monza",     country_name: "Italy",         date_start: "2026-09-07T13:00:00", location: "Autodromo Nazionale Monza",    session_key: "ita_2026" },
-  { circuit_short_name: "Baku",      country_name: "Azerbaijan",    date_start: "2026-09-21T11:00:00", location: "Baku City Circuit",            session_key: "aze_2026" },
-  { circuit_short_name: "Singapore", country_name: "Singapore",     date_start: "2026-10-05T13:00:00", location: "Marina Bay Street Circuit",    session_key: "sgp_2026" },
-  { circuit_short_name: "Austin",    country_name: "United States", date_start: "2026-10-19T19:00:00", location: "Circuit of the Americas",      session_key: "usa_2026" },
-  { circuit_short_name: "Mexico City",country_name:"Mexico",        date_start: "2026-10-26T19:00:00", location: "Autodromo Hermanos Rodriguez",  session_key: "mex_2026" },
-  { circuit_short_name: "São Paulo", country_name: "Brazil",        date_start: "2026-11-09T17:00:00", location: "Autodromo Jose Carlos Pace",   session_key: "bra_2026" },
-  { circuit_short_name: "Las Vegas", country_name: "United States", date_start: "2026-11-22T06:00:00", location: "Las Vegas Strip Circuit",      session_key: "lvs_2026" },
-  { circuit_short_name: "Lusail",    country_name: "Qatar",         date_start: "2026-11-30T17:00:00", location: "Lusail International Circuit", session_key: "qat_2026" },
-  { circuit_short_name: "Yas Marina",country_name:"United Arab Emirates",date_start:"2026-12-07T13:00:00",location:"Yas Marina Circuit",         session_key: "uae_2026" },
-  { circuit_short_name: "Bahrain",   country_name: "Bahrain",   date_start: "2025-04-13T15:00:00", location: "Bahrain International Circuit", session_key: "bhr_2025" },
-  { circuit_short_name: "Jeddah",    country_name: "Saudi Arabia", date_start: "2025-04-20T18:00:00", location: "Jeddah Corniche Circuit", session_key: "sau_2025" },
-  { circuit_short_name: "Miami",     country_name: "United States", date_start: "2025-05-04T19:00:00", location: "Miami International Autodrome", session_key: "mia_2025" },
-  { circuit_short_name: "Imola",     country_name: "Italy",     date_start: "2025-05-18T13:00:00", location: "Autodromo Enzo e Dino Ferrari", session_key: "imo_2025" },
-  { circuit_short_name: "Monte Carlo", country_name: "Monaco",  date_start: "2025-05-25T13:00:00", location: "Circuit de Monaco", session_key: "mon_2025" },
-  { circuit_short_name: "Barcelona",  country_name: "Spain",    date_start: "2025-06-01T13:00:00", location: "Circuit de Barcelona-Catalunya", session_key: "esp_2025" },
-  { circuit_short_name: "Montreal",   country_name: "Canada",   date_start: "2025-06-15T18:00:00", location: "Circuit Gilles Villeneuve", session_key: "can_2025" },
-  { circuit_short_name: "Silverstone",country_name: "United Kingdom", date_start: "2025-07-06T14:00:00", location: "Silverstone Circuit", session_key: "gbr_2025" },
-  { circuit_short_name: "Spa",        country_name: "Belgium",  date_start: "2025-07-27T13:00:00", location: "Circuit de Spa-Francorchamps", session_key: "bel_2025" },
-  { circuit_short_name: "Monza",      country_name: "Italy",    date_start: "2025-09-07T13:00:00", location: "Autodromo Nazionale Monza", session_key: "ita_2025" },
-  { circuit_short_name: "Baku",       country_name: "Azerbaijan", date_start: "2025-09-21T11:00:00", location: "Baku City Circuit", session_key: "aze_2025" },
-  { circuit_short_name: "Singapore",  country_name: "Singapore", date_start: "2025-10-05T13:00:00", location: "Marina Bay Street Circuit", session_key: "sgp_2025" },
-  { circuit_short_name: "Austin",     country_name: "United States", date_start: "2025-10-19T19:00:00", location: "Circuit of the Americas", session_key: "usa_2025" },
-  { circuit_short_name: "Mexico City",country_name: "Mexico",   date_start: "2025-10-26T19:00:00", location: "Autodromo Hermanos Rodriguez", session_key: "mex_2025" },
-  { circuit_short_name: "São Paulo",  country_name: "Brazil",   date_start: "2025-11-09T17:00:00", location: "Autodromo Jose Carlos Pace", session_key: "bra_2025" },
-  { circuit_short_name: "Las Vegas",  country_name: "United States", date_start: "2025-11-22T06:00:00", location: "Las Vegas Strip Circuit", session_key: "lvs_2025" },
-  { circuit_short_name: "Lusail",     country_name: "Qatar",    date_start: "2025-11-30T17:00:00", location: "Lusail International Circuit", session_key: "qat_2025" },
-  { circuit_short_name: "Yas Marina", country_name: "United Arab Emirates", date_start: "2025-12-07T13:00:00", location: "Yas Marina Circuit", session_key: "uae_2025" },
-]
-
-const F1_DRIVERS_2025 = [
-  { name: "Max Verstappen",   team: "Red Bull Racing",   number: 1,   country: "Netherlands", championships: 4, elo: 2100 },
-  { name: "Lando Norris",     team: "McLaren",           number: 4,   country: "UK",          championships: 0, elo: 2020 },
-  { name: "Charles Leclerc",  team: "Ferrari",           number: 16,  country: "Monaco",      championships: 0, elo: 1990 },
-  { name: "Oscar Piastri",    team: "McLaren",           number: 81,  country: "Australia",   championships: 0, elo: 1970 },
-  { name: "Carlos Sainz",     team: "Williams",          number: 55,  country: "Spain",       championships: 0, elo: 1960 },
-  { name: "George Russell",   team: "Mercedes",          number: 63,  country: "UK",          championships: 0, elo: 1950 },
-  { name: "Lewis Hamilton",   team: "Ferrari",           number: 44,  country: "UK",          championships: 7, elo: 1980 },
-  { name: "Fernando Alonso",  team: "Aston Martin",      number: 14,  country: "Spain",       championships: 2, elo: 1940 },
-  { name: "Nico Hülkenberg",  team: "Sauber",            number: 27,  country: "Germany",     championships: 0, elo: 1840 },
-  { name: "Lance Stroll",     team: "Aston Martin",      number: 18,  country: "Canada",      championships: 0, elo: 1800 },
-  { name: "Yuki Tsunoda",     team: "Red Bull Racing",   number: 22,  country: "Japan",       championships: 0, elo: 1860 },
-  { name: "Alexander Albon",  team: "Williams",          number: 23,  country: "Thailand",    championships: 0, elo: 1850 },
-  { name: "Pierre Gasly",     team: "Alpine",            number: 10,  country: "France",      championships: 0, elo: 1870 },
-  { name: "Esteban Ocon",     team: "Haas",              number: 31,  country: "France",      championships: 0, elo: 1840 },
-  { name: "Valtteri Bottas",  team: "Sauber",            number: 77,  country: "Finland",     championships: 0, elo: 1820 },
-  { name: "Kevin Magnussen",  team: "Haas",              number: 20,  country: "Denmark",     championships: 0, elo: 1800 },
-  { name: "Kimi Antonelli",   team: "Mercedes",          number: 12,  country: "Italy",       championships: 0, elo: 1810 },
-  { name: "Isack Hadjar",     team: "Racing Bulls",      number: 6,   country: "France",      championships: 0, elo: 1790 },
-  { name: "Oliver Bearman",   team: "Haas",              number: 87,  country: "UK",          championships: 0, elo: 1780 },
-  { name: "Jack Doohan",      team: "Alpine",            number: 7,   country: "Australia",   championships: 0, elo: 1770 },
-]
-
-// F1 CONSTRUCTOR ELO
-const F1_CONSTRUCTOR_ELO = {
-  "McLaren": 2030, "Red Bull Racing": 2020, "Ferrari": 2000, "Mercedes": 1980,
-  "Aston Martin": 1860, "Williams": 1840, "Racing Bulls": 1820, "Alpine": 1800,
-  "Haas": 1780, "Sauber": 1760,
-}
-
-function buildF1Predictions(races, liveDrivers) {
+function buildF1Predictions(races) {
   const now = Date.now()
-  const upcoming = races
-    .filter(r => new Date(r.date_start).getTime() > now - 7 * 86400000)
-    .sort((a,b) => new Date(a.date_start) - new Date(b.date_start))
-    .slice(0, 5)
-
+  const upcoming = races.filter(r => new Date(r.date_start).getTime() > now - 7*86400000)
+    .sort((a,b) => new Date(a.date_start) - new Date(b.date_start)).slice(0,5)
+  const driversWithStyle = F1_DRIVERS_2025.map(d => ({
+    ...d, playstyle: getPlaystyleForSport('f1',null,d.name,d.elo),
+    constructorElo: F1_CONSTRUCTOR_ELO[d.team] || 1800,
+    combinedElo: Math.round(d.elo * 0.6 + (F1_CONSTRUCTOR_ELO[d.team] || 1800) * 0.4),
+  })).sort((a,b) => b.combinedElo - a.combinedElo)
   return upcoming.map((race, idx) => {
-    const raceDate = new Date(race.date_start)
-    const circuitName = race.circuit_short_name || race.location || "Circuit"
+    const circuit = race.circuit_short_name || "Circuit"
     const country = race.country_name || "Unknown"
-    const isLive = Math.abs(Date.now() - raceDate.getTime()) < 3 * 3600000
-
-    // Assign playstyles to all drivers
-    const driversWithStyle = F1_DRIVERS_2025.map(d => ({
-      ...d,
-      playstyle: getPlaystyleForSport('f1', null, d.name, d.elo),
-      constructorElo: F1_CONSTRUCTOR_ELO[d.team] || 1800,
-      combinedElo: Math.round(d.elo * 0.6 + (F1_CONSTRUCTOR_ELO[d.team] || 1800) * 0.4),
-    })).sort((a,b) => b.combinedElo - a.combinedElo)
-
-    // Determine surface-specific advantage
-    const isStreet = ["Monte Carlo","Baku","Singapore","Las Vegas","Jeddah"].includes(circuitName)
-    const topDriver = driversWithStyle[0]
-    const secondDriver = driversWithStyle[1]
-    const thirdDriver = driversWithStyle[2]
-
+    const isStreet = ["Monte Carlo","Baku","Singapore","Las Vegas","Jeddah"].includes(circuit)
     return {
-      id: `f1_${race.session_key || idx}`,
-      sport: 'f1',
-      home: topDriver.name,     // Favourite
-      away: secondDriver.name,  // Challenger
-      third: thirdDriver.name,
-      homeTeam: topDriver.team,
-      awayTeam: secondDriver.team,
-      league: "Formula 1 2025",
-      flag: "🏎️",
-      raceName: `${country} Grand Prix`,
-      circuit: `${circuitName}, ${country}`,
-      isStreetCircuit: isStreet,
-      date: race.date_start,
-      isLive,
-      homeElo: topDriver.combinedElo,
-      awayElo: secondDriver.combinedElo,
+      id: `f1_${race.session_key || idx}`, sport: 'f1',
+      home: driversWithStyle[0].name, away: driversWithStyle[1].name,
+      homeTeam: driversWithStyle[0].team, awayTeam: driversWithStyle[1].team,
+      league: "Formula 1 2025", flag: "🏎️",
+      raceName: `${country} Grand Prix`, circuit: `${circuit}, ${country}`,
+      isStreetCircuit: isStreet, date: race.date_start, isLive: false,
+      homeElo: driversWithStyle[0].combinedElo, awayElo: driversWithStyle[1].combinedElo,
       homeProb: 32, drawProb: 0, awayProb: 22,
       homeOdds: 3.1, drawOdds: null, awayOdds: 4.5,
       confidence: 32,
-      // Top 10 drivers as "lineup"
       homeLineup: driversWithStyle.filter((_,i)=>i%2===0).slice(0,5).map(d=>({
-        name: d.name, position: "Driver", number: d.number,
-        elo: d.combinedElo, driverElo: d.elo, constructorElo: d.constructorElo,
-        isKey: d.elo > 1950, playstyle: d.playstyle,
-        team: d.team, country: d.country, championships: d.championships,
+        name:d.name, position:"Driver", number:d.number,
+        elo:d.combinedElo, isKey:d.elo>1950, playstyle:d.playstyle,
+        team:d.team, country:d.country, championships:d.championships,
       })),
       awayLineup: driversWithStyle.filter((_,i)=>i%2===1).slice(0,5).map(d=>({
-        name: d.name, position: "Driver", number: d.number,
-        elo: d.combinedElo, driverElo: d.elo, constructorElo: d.constructorElo,
-        isKey: d.elo > 1950, playstyle: d.playstyle,
-        team: d.team, country: d.country, championships: d.championships,
+        name:d.name, position:"Driver", number:d.number,
+        elo:d.combinedElo, isKey:d.elo>1950, playstyle:d.playstyle,
+        team:d.team, country:d.country, championships:d.championships,
       })),
-      allDrivers: driversWithStyle.slice(0, 20),
-      constructorStandings: Object.entries(F1_CONSTRUCTOR_ELO).sort((a,b)=>b[1]-a[1]).map(([t,e])=>({ team:t, elo:e })),
-      homeForm: ["W","P2","P3","W","P2"],
-      awayForm: ["P2","W","P2","P3","P4"],
-      valueBet: false, isUpsetWatch: false, upsetProb: 15,
-      hasRealOdds: false,
-      factors: [
-        { name:"DRIVER RATING",  homeScore: Math.round(topDriver.elo/22),    awayScore: Math.round(secondDriver.elo/22), color:"#00d4ff" },
-        { name:"CONSTRUCTOR",    homeScore: Math.round(topDriver.constructorElo/22), awayScore: Math.round(secondDriver.constructorElo/22), color:"#ff8c42" },
-        { name:"CIRCUIT FIT",    homeScore: isStreet ? 70 : 55, awayScore: isStreet ? 60 : 50, color:"#ffd700" },
-        { name:"CHAMPIONSHIPS",  homeScore: Math.min(99, 50 + topDriver.championships*8), awayScore: Math.min(99, 50 + secondDriver.championships*8), color:"#00ff88" },
-        { name:"MOMENTUM",       homeScore: 55, awayScore: 50, color:"#a855f7" },
+      allDrivers: driversWithStyle.slice(0,20),
+      homeForm:["W","P2","P3","W","P2"], awayForm:["P2","W","P2","P3","P4"],
+      valueBet:false, isUpsetWatch:false, upsetProb:15, hasRealOdds:false,
+      factors:[
+        { name:"DRIVER RATING",homeScore:Math.round(driversWithStyle[0].elo/22),awayScore:Math.round(driversWithStyle[1].elo/22),color:"#00d4ff" },
+        { name:"CONSTRUCTOR",homeScore:Math.round(driversWithStyle[0].constructorElo/22),awayScore:Math.round(driversWithStyle[1].constructorElo/22),color:"#ff8c42" },
+        { name:"CIRCUIT FIT",homeScore:isStreet?70:55,awayScore:isStreet?60:50,color:"#ffd700" },
       ],
-      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {},
-      bookmaker: "Model", mismatches: [],
+      h2h:[], bttsProb:null, ouProbs:{}, ouOdds:{}, bookmaker:"Model", mismatches:[]
     }
   })
 }
 
 function buildF1Standings() {
   let pts = 290
-  return F1_DRIVERS_2025.slice(0, 20).map((d, i) => {
+  return F1_DRIVERS_2025.slice(0,20).map((d,i) => {
     const p = pts
     pts = Math.max(0, pts - Math.round(8 + Math.random() * 15))
-    return { pos: i+1, driver: d.name, team: d.team, points: p, elo: d.elo }
+    return { pos:i+1, driver:d.name, team:d.team, points:p, elo:d.elo }
   })
 }
 
 // ══════════════════════════════════════════════════════════
-//  BOXING — TheSportsDB + manual schedule
+//  BOXING & MMA
 // ══════════════════════════════════════════════════════════
+const BOXING_FIGHTERS = [
+  { name:"Oleksandr Usyk",record:"22-0",rank:1,elo:2050,weightClass:"Heavyweight",country:"Ukraine",titles:["WBA","WBC","IBF","WBO"] },
+  { name:"Tyson Fury",record:"34-1-1",rank:2,elo:1960,weightClass:"Heavyweight",country:"UK",titles:[] },
+  { name:"Anthony Joshua",record:"26-3",rank:3,elo:1950,weightClass:"Heavyweight",country:"UK",titles:[] },
+  { name:"Daniel Dubois",record:"21-1",rank:4,elo:1870,weightClass:"Heavyweight",country:"UK",titles:["IBF"] },
+  { name:"Dmitry Bivol",record:"23-0",rank:1,elo:2020,weightClass:"Light Heavyweight",country:"Russia",titles:["WBA"] },
+  { name:"Artur Beterbiev",record:"20-0",rank:2,elo:2010,weightClass:"Light Heavyweight",country:"Russia",titles:["WBC","IBF","WBO"] },
+  { name:"Saul 'Canelo' Alvarez",record:"60-2-2",rank:1,elo:2060,weightClass:"Super Middleweight",country:"Mexico",titles:["WBA","WBC","IBF","WBO"] },
+  { name:"David Benavidez",record:"29-0",rank:2,elo:1990,weightClass:"Super Middleweight",country:"USA",titles:["WBC"] },
+  { name:"Naoya Inoue",record:"27-0",rank:1,elo:2040,weightClass:"Super Bantamweight",country:"Japan",titles:["WBA","WBC","IBF","WBO"] },
+  { name:"Gervonta Davis",record:"30-0",rank:1,elo:2000,weightClass:"Super Lightweight",country:"USA",titles:["WBA"] },
+  { name:"Terence Crawford",record:"40-0",rank:1,elo:2020,weightClass:"Welterweight",country:"USA",titles:["WBO","WBA","WBC","IBF"] },
+  { name:"Errol Spence Jr",record:"28-1",rank:2,elo:2010,weightClass:"Welterweight",country:"USA",titles:[] },
+]
+
+const MMA_FIGHTERS = [
+  { name:"Jon Jones",record:"27-1",rank:1,elo:2100,division:"Heavyweight",country:"USA",titles:["UFC HW Champ"],style:"Complete Fighter" },
+  { name:"Tom Aspinall",record:"15-3",rank:2,elo:1970,division:"Heavyweight",country:"UK",titles:["Interim UFC HW Champ"],style:"Striker" },
+  { name:"Islam Makhachev",record:"26-1",rank:1,elo:2080,division:"Lightweight",country:"Russia",titles:["UFC LW Champ"],style:"Wrestler" },
+  { name:"Dustin Poirier",record:"30-8",rank:2,elo:1940,division:"Lightweight",country:"USA",titles:[],style:"Boxer" },
+  { name:"Leon Edwards",record:"22-4",rank:1,elo:2000,division:"Welterweight",country:"UK",titles:["UFC WW Champ"],style:"Complete Fighter" },
+  { name:"Alex Pereira",record:"10-2",rank:1,elo:2040,division:"Light Heavyweight",country:"Brazil",titles:["UFC LHW Champ"],style:"Striker" },
+  { name:"Dricus du Plessis",record:"22-2",rank:1,elo:2010,division:"Middleweight",country:"South Africa",titles:["UFC MW Champ"],style:"Finisher" },
+  { name:"Israel Adesanya",record:"24-3",rank:2,elo:2020,division:"Middleweight",country:"Nigeria",titles:[],style:"Counter Striker" },
+  { name:"Ilia Topuria",record:"15-0",rank:1,elo:2010,division:"Featherweight",country:"Georgia",titles:["UFC FW Champ"],style:"Finisher" },
+  { name:"Max Holloway",record:"25-7",rank:2,elo:1970,division:"Featherweight",country:"USA",titles:[],style:"Swarmer" },
+  { name:"Merab Dvalishvili",record:"17-4",rank:1,elo:2000,division:"Bantamweight",country:"Georgia",titles:["UFC BW Champ"],style:"Wrestler" },
+  { name:"Sean O'Malley",record:"18-1",rank:2,elo:1990,division:"Bantamweight",country:"USA",titles:[],style:"Striker" },
+  { name:"Alexandre Pantoja",record:"27-5",rank:1,elo:1970,division:"Flyweight",country:"Brazil",titles:["UFC FLW Champ"],style:"BJJ Specialist" },
+  { name:"Zhang Weili",record:"24-3",rank:1,elo:2000,division:"Strawweight (W)",country:"China",titles:["UFC SW Champ"],style:"Striker" },
+  { name:"Alexa Grasso",record:"16-3-1",rank:1,elo:1970,division:"Flyweight (W)",country:"Mexico",titles:["UFC FLW Champ"],style:"Striker" },
+]
+
 async function fetchBoxingEvents() {
   return cached("boxing_events", async () => {
     const today = new Date().toISOString().slice(0,10)
-
-    // RapidAPI Boxing
-    if (process.env.RAPIDAPI_KEY) {
-      try {
-        const r = await httpExt('https://boxing-data.p.rapidapi.com/events',
-          { date: today }, { 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY, 'X-RapidAPI-Host': 'boxing-data.p.rapidapi.com' })
-        const events = r.data?.data || r.data || []
-        if (events.length > 0) {
-          console.log(`✅ Boxing RapidAPI: ${events.length}`)
-          return events.map(e => ({
-            idEvent: `box_rapid_${e.id||Date.now()}`,
-            strHomeTeam: e.fighter1?.name || e.home || '',
-            strAwayTeam: e.fighter2?.name || e.away || '',
-            strLeague: e.title || e.organization || 'Boxing',
-            strStatus: e.status === 'completed' ? 'Match Finished' : 'Not Started',
-            dateEvent: (e.date||today).slice(0,10),
-            strTime: '22:00',
-            _f1: enrichBoxingFighter(e.fighter1?.name, e.fighter1),
-            _f2: enrichBoxingFighter(e.fighter2?.name, e.fighter2),
-            _weightClass: e.weightClass || e.weight_class || '',
-          }))
-        }
-      } catch(e) { console.log('⚠️  Boxing RapidAPI:', e.message?.slice(0,50)) }
-    }
-
-    // TheSportsDB — scan next 14 days
-    for (let d = 0; d <= 14; d++) {
-      try {
+    try {
+      for (let d = 0; d <= 14; d++) {
         const dd = new Date(Date.now() + d*86400000).toISOString().slice(0,10)
-        const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d: dd, s: 'Boxing' })
+        const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d:dd, s:'Boxing' })
         const events = r.data?.events || []
         if (events.length > 0) return events.map(e => ({ ...e, _f1: enrichBoxingFighter(e.strHomeTeam), _f2: enrichBoxingFighter(e.strAwayTeam) }))
         if (d > 0) await sleep(200)
-      } catch(e) {}
-    }
+      }
+    } catch(e) {}
     return generateBoxingMatches()
   }, TTL.L)
 }
 
-function enrichBoxingFighter(name, extra) {
+function enrichBoxingFighter(name) {
   if (!name) return null
-  const known = BOXING_FIGHTERS.find(f => f.name.toLowerCase() === (name||'').toLowerCase() || (name||'').toLowerCase().includes(f.name.toLowerCase().split(' ').pop()))
-  if (known) return { ...known, ...(extra||{}) }
-  return { name, elo: 1700, record: extra?.record||'?', country: extra?.country||'Unknown', weightClass: extra?.weight_class||'Unknown', titles: [] }
+  return BOXING_FIGHTERS.find(f => f.name.toLowerCase() === (name||'').toLowerCase()) || { name, elo:1700, record:'?', country:'Unknown', weightClass:'Unknown', titles:[] }
 }
-
-const BOXING_FIGHTERS = [
-  { name: "Oleksandr Usyk",      record: "22-0",  rank: 1,  elo: 2050, weightClass: "Heavyweight",    country: "Ukraine",        titles: ["WBA","WBC","IBF","WBO"] },
-  { name: "Anthony Joshua",      record: "26-3",  rank: 2,  elo: 1950, weightClass: "Heavyweight",    country: "United Kingdom", titles: ["IBF (former)"] },
-  { name: "Tyson Fury",          record: "34-1-1",rank: 3,  elo: 1960, weightClass: "Heavyweight",    country: "United Kingdom", titles: [] },
-  { name: "Deontay Wilder",      record: "43-3-1",rank: 4,  elo: 1900, weightClass: "Heavyweight",    country: "USA",            titles: [] },
-  { name: "Daniel Dubois",       record: "21-1",  rank: 5,  elo: 1870, weightClass: "Heavyweight",    country: "United Kingdom", titles: ["IBF"] },
-  { name: "Joe Joyce",           record: "16-1",  rank: 6,  elo: 1820, weightClass: "Heavyweight",    country: "United Kingdom", titles: [] },
-  { name: "Dmitry Bivol",        record: "23-0",  rank: 1,  elo: 2020, weightClass: "Light Heavyweight", country: "Russia",      titles: ["WBA"] },
-  { name: "Artur Beterbiev",     record: "20-0",  rank: 2,  elo: 2010, weightClass: "Light Heavyweight", country: "Russia",      titles: ["WBC","IBF","WBO"] },
-  { name: "Saul 'Canelo' Alvarez",record:"60-2-2",rank: 1,  elo: 2060, weightClass: "Super Middleweight", country: "Mexico",    titles: ["WBA","WBC","IBF","WBO"] },
-  { name: "David Benavidez",     record: "29-0",  rank: 2,  elo: 1990, weightClass: "Super Middleweight", country: "USA",       titles: ["WBC"] },
-  { name: "Billy Joe Saunders",  record: "30-1",  rank: 3,  elo: 1870, weightClass: "Super Middleweight", country: "UK",        titles: [] },
-  { name: "Naoya Inoue",         record: "27-0",  rank: 1,  elo: 2040, weightClass: "Super Bantamweight", country: "Japan",     titles: ["WBA","WBC","IBF","WBO"] },
-  { name: "Stephen Fulton",      record: "21-2",  rank: 2,  elo: 1900, weightClass: "Super Bantamweight", country: "USA",       titles: [] },
-  { name: "Devin Haney",         record: "31-0",  rank: 1,  elo: 1980, weightClass: "Lightweight",    country: "USA",            titles: ["WBC","WBO","WBA","IBF"] },
-  { name: "Ryan Garcia",         record: "24-1",  rank: 2,  elo: 1940, weightClass: "Lightweight",    country: "USA",            titles: [] },
-  { name: "Gervonta Davis",      record: "30-0",  rank: 1,  elo: 2000, weightClass: "Super Lightweight", country: "USA",         titles: ["WBA"] },
-  { name: "Errol Spence Jr",     record: "28-1",  rank: 1,  elo: 2010, weightClass: "Welterweight",   country: "USA",            titles: [] },
-  { name: "Terence Crawford",    record: "40-0",  rank: 2,  elo: 2020, weightClass: "Welterweight",   country: "USA",            titles: ["WBO","WBA","WBC","IBF"] },
-  { name: "Jermell Charlo",      record: "35-1-1",rank:3,   elo: 1950, weightClass: "Super Welterweight", country: "USA",       titles: [] },
-  { name: "Demetrius Andrade",   record: "32-0",  rank: 2,  elo: 1930, weightClass: "Middleweight",   country: "USA",            titles: [] },
-]
 
 function generateBoxingMatches() {
   const matches = []
-  // Group by weight class and generate bouts
-  const weightClasses = [...new Set(BOXING_FIGHTERS.map(f => f.weightClass))]
-  for (const wc of weightClasses) {
+  const wcs = [...new Set(BOXING_FIGHTERS.map(f => f.weightClass))]
+  for (const wc of wcs) {
     const fighters = BOXING_FIGHTERS.filter(f => f.weightClass === wc)
     if (fighters.length < 2) continue
-    const daysOut = Math.floor(Math.random() * 14) + 1
-    const date = new Date(Date.now() + daysOut * 86400000)
-    matches.push({
-      idEvent: `boxing_${wc.replace(/\s/g,"_")}_${Date.now()}`,
-      strHomeTeam: fighters[0].name,
-      strAwayTeam: fighters[1].name,
-      strLeague: `${wc} World Championship`,
-      strStatus: "Not Started",
-      dateEvent: date.toISOString().slice(0,10),
-      strTime: "22:00",
-      _f1: fighters[0],
-      _f2: fighters[1],
-      _weightClass: wc,
-    })
+    const d = new Date(Date.now() + (1 + Math.floor(Math.random() * 14)) * 86400000)
+    matches.push({ idEvent:`boxing_${wc.replace(/\s/g,'_')}_${Date.now()}`,
+      strHomeTeam:fighters[0].name, strAwayTeam:fighters[1].name,
+      strLeague:`${wc} World Championship`, strStatus:"Not Started",
+      dateEvent:d.toISOString().slice(0,10), strTime:"22:00",
+      _f1:fighters[0], _f2:fighters[1], _weightClass:wc })
   }
   return matches
 }
@@ -2112,269 +1246,131 @@ function generateBoxingMatches() {
 function buildBoxingPrediction(event) {
   if (!event) return null
   try {
-    const f1Name = event.strHomeTeam
-    const f2Name = event.strAwayTeam
-    if (!f1Name || !f2Name) return null
-    const isFinal = event.strStatus === "Match Finished"
-    if (isFinal) return null
-
-    const f1Data = event._f1 || BOXING_FIGHTERS.find(f => f.name === f1Name) || { elo: 1800, record: "?", country: "Unknown", weightClass: "Unknown", titles: [] }
-    const f2Data = event._f2 || BOXING_FIGHTERS.find(f => f.name === f2Name) || { elo: 1750, record: "?", country: "Unknown", weightClass: "Unknown", titles: [] }
-    const wc = event._weightClass || f1Data.weightClass || event.strLeague?.split(" ")[0] || "Boxing"
-
-    const eloDiff = f1Data.elo - f2Data.elo
-    const homeProb = Math.round(50 + eloDiff / 25)
+    const f1Name = event.strHomeTeam, f2Name = event.strAwayTeam
+    if (!f1Name || !f2Name || event.strStatus === "Match Finished") return null
+    const f1 = event._f1 || enrichBoxingFighter(f1Name)
+    const f2 = event._f2 || enrichBoxingFighter(f2Name)
+    const eloDiff = f1.elo - f2.elo
+    const homeProb = Math.max(15, Math.min(85, Math.round(50 + eloDiff / 25)))
     const awayProb = 100 - homeProb
-    const homeOdds = parseFloat((100 / Math.max(1, homeProb) * 1.05).toFixed(2))
-    const awayOdds = parseFloat((100 / Math.max(1, awayProb) * 1.05).toFixed(2))
-
-    const f1Style = getPlaystyleForSport('boxing', null, f1Name, f1Data.elo)
-    const f2Style = getPlaystyleForSport('boxing', null, f2Name, f2Data.elo)
-
     let seed = 0; for (let i = 0; i < f1Name.length; i++) seed = seed * 31 + f1Name.charCodeAt(i)
-
     return {
-      id: `boxing_${event.idEvent || Date.now()}`,
-      sport: 'boxing',
-      home: f1Name, away: f2Name,
-      league: event.strLeague || `${wc} Boxing`,
-      flag: "🥊",
-      weightClass: wc,
-      date: event.dateEvent + "T" + (event.strTime || "22:00") + ":00",
-      isLive: event.strStatus === "In Progress",
-      homeElo: f1Data.elo, awayElo: f2Data.elo,
-      homeRecord: f1Data.record, awayRecord: f2Data.record,
-      homeCountry: f1Data.country, awayCountry: f2Data.country,
-      homeTitles: f1Data.titles || [], awayTitles: f2Data.titles || [],
-      homeProb, drawProb: 5, awayProb: awayProb - 5,
-      homeOdds, drawOdds: 20.0, awayOdds,
-      confidence: Math.max(homeProb, awayProb),
-      homeLineup: [{ name: f1Name, position: "Boxer", elo: f1Data.elo, isKey: true, playstyle: f1Style, record: f1Data.record, country: f1Data.country, titles: f1Data.titles }],
-      awayLineup: [{ name: f2Name, position: "Boxer", elo: f2Data.elo, isKey: true, playstyle: f2Style, record: f2Data.record, country: f2Data.country, titles: f2Data.titles }],
-      homeForm: ["W","W","W","W","L"].slice(0,5),
-      awayForm: ["W","L","W","W","W"].slice(0,5),
-      koProb: Math.round(40 + Math.abs(eloDiff)/30 + Math.abs(seed%20)),
-      valueBet: Math.abs(eloDiff) > 100,
-      isUpsetWatch: awayProb > 38,
-      upsetProb: awayProb,
-      hasRealOdds: false,
-      factors: [
-        { name:"ELO RATING",   homeScore: Math.round(f1Data.elo/22), awayScore: Math.round(f2Data.elo/22), color:"#00d4ff" },
-        { name:"RECORD",       homeScore: 60+Math.abs(seed%20)-10,   awayScore: 50+Math.abs((seed>>1)%20)-10, color:"#ff8c42" },
-        { name:"POWER",        homeScore: 55+Math.abs((seed>>2)%25), awayScore: 45+Math.abs((seed>>3)%25), color:"#ff3b5c" },
-        { name:"DEFENSE",      homeScore: 50+eloDiff/30,             awayScore: 50-eloDiff/30, color:"#00ff88" },
-        { name:"TITLES",       homeScore: Math.min(90, 50 + (f1Data.titles?.length||0)*8), awayScore: Math.min(90, 50 + (f2Data.titles?.length||0)*8), color:"#ffd700" },
+      id: `boxing_${event.idEvent || Date.now()}`, sport:'boxing',
+      home:f1Name, away:f2Name,
+      league:event.strLeague||`${event._weightClass||'Boxing'} Boxing`, flag:"🥊",
+      weightClass:event._weightClass||f1.weightClass,
+      date:event.dateEvent+"T"+(event.strTime||"22:00")+":00", isLive:false,
+      homeElo:f1.elo, awayElo:f2.elo, homeRecord:f1.record, awayRecord:f2.record,
+      homeCountry:f1.country, awayCountry:f2.country, homeTitles:f1.titles, awayTitles:f2.titles,
+      homeProb, drawProb:5, awayProb:awayProb-5,
+      homeOdds:parseFloat((100/Math.max(1,homeProb)*1.05).toFixed(2)),
+      drawOdds:20.0,
+      awayOdds:parseFloat((100/Math.max(1,awayProb)*1.05).toFixed(2)),
+      confidence:Math.max(homeProb,awayProb),
+      homeLineup:[{name:f1Name,position:"Boxer",elo:f1.elo,isKey:true,playstyle:getPlaystyleForSport('boxing',null,f1Name,f1.elo),record:f1.record,country:f1.country,titles:f1.titles}],
+      awayLineup:[{name:f2Name,position:"Boxer",elo:f2.elo,isKey:true,playstyle:getPlaystyleForSport('boxing',null,f2Name,f2.elo),record:f2.record,country:f2.country,titles:f2.titles}],
+      homeForm:["W","W","W","W","L"], awayForm:["W","L","W","W","W"],
+      koProb:Math.round(40+Math.abs(eloDiff)/30+Math.abs(seed%20)),
+      valueBet:Math.abs(eloDiff)>100, isUpsetWatch:awayProb>38, upsetProb:awayProb, hasRealOdds:false,
+      factors:[
+        {name:"ELO RATING",homeScore:Math.round(f1.elo/22),awayScore:Math.round(f2.elo/22),color:"#00d4ff"},
+        {name:"RECORD",homeScore:60+Math.abs(seed%20)-10,awayScore:50+Math.abs((seed>>1)%20)-10,color:"#ff8c42"},
+        {name:"POWER",homeScore:55+Math.abs((seed>>2)%25),awayScore:45+Math.abs((seed>>3)%25),color:"#ff3b5c"},
+        {name:"TITLES",homeScore:Math.min(90,50+(f1.titles?.length||0)*8),awayScore:Math.min(90,50+(f2.titles?.length||0)*8),color:"#ffd700"},
       ],
-      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {},
-      bookmaker: "Model", mismatches: [],
+      h2h:[], bttsProb:null, ouProbs:{}, ouOdds:{}, bookmaker:"Model", mismatches:[]
     }
   } catch(e) { return null }
 }
 
-// ══════════════════════════════════════════════════════════
-//  MMA — TheSportsDB + ESPN MMA + manual UFC schedule
-// ══════════════════════════════════════════════════════════
 async function fetchMMAEvents() {
   return cached("mma_events", async () => {
     const today = new Date().toISOString().slice(0,10)
-
-    // RapidAPI MMA/UFC
-    if (process.env.RAPIDAPI_KEY) {
-      try {
-        const r = await httpExt('https://mma-stats.p.rapidapi.com/events',
-          {}, { 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY, 'X-RapidAPI-Host': 'mma-stats.p.rapidapi.com' })
-        const events = r.data?.data || r.data?.events || []
-        if (events.length > 0) {
-          console.log(`✅ MMA RapidAPI: ${events.length} events`)
-          return events.map(e => ({
-            idEvent: `mma_rapid_${e.id||Date.now()}`,
-            strHomeTeam: e.fighter1?.name || e.home || '',
-            strAwayTeam: e.fighter2?.name || e.away || '',
-            strLeague: e.organization || 'UFC',
-            strStatus: e.status === 'completed' ? 'Match Finished' : 'Not Started',
-            dateEvent: (e.date||today).slice(0,10),
-            strTime: '01:00',
-            strVenue: e.venue || e.location || '',
-            _f1: enrichMMAFighter(e.fighter1?.name, e.fighter1),
-            _f2: enrichMMAFighter(e.fighter2?.name, e.fighter2),
-            _division: e.weightClass || e.weight_class || 'Unknown',
-          }))
-        }
-      } catch(e) { console.log('⚠️  MMA RapidAPI:', e.message?.slice(0,50)) }
-    }
-
-    // ESPN MMA
     try {
-      const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard', { limit: 50 })
+      const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard', { limit:50 })
       const events = r.data?.events || []
-      if (events.length > 0) { console.log(`✅ MMA ESPN: ${events.length}`); return events.map(e=>({...e, _source:'espn'})) }
+      if (events.length > 0) return events.map(e=>({...e,_source:'espn'}))
     } catch(e) {}
-
-    // TheSportsDB
     try {
-      const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d: today, s: 'MMA' })
+      const r = await httpExt(`https://www.thesportsdb.com/api/v2/json/${process.env.THESPORTSDB_API_KEY||'3'}/eventsday.php`, { d:today, s:'MMA' })
       const events = r.data?.events || []
-      if (events.length > 0) return events.map(e => ({ ...e, _f1: enrichMMAFighter(e.strHomeTeam), _f2: enrichMMAFighter(e.strAwayTeam) }))
+      if (events.length > 0) return events.map(e=>({...e,_f1:enrichMMAFighter(e.strHomeTeam),_f2:enrichMMAFighter(e.strAwayTeam)}))
     } catch(e) {}
-
     return generateMMAMatches()
   }, TTL.L)
 }
 
-function enrichMMAFighter(name, extra) {
+function enrichMMAFighter(name) {
   if (!name) return null
-  const known = MMA_FIGHTERS.find(f => f.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(f.name.toLowerCase().split(' ').pop()))
-  if (known) return { ...known, ...(extra||{}) }
-  return { name, elo: 1700, record: extra?.record||'?', country: extra?.country||'Unknown', division: extra?.weight_class||'Unknown', titles: [], style: 'Striker' }
+  return MMA_FIGHTERS.find(f => f.name.toLowerCase() === name.toLowerCase()) || { name, elo:1700, record:'?', country:'Unknown', division:'Unknown', titles:[], style:'Striker' }
 }
-
-const MMA_FIGHTERS = [
-  { name: "Jon Jones",         record: "27-1",  rank: 1,  elo: 2100, division: "Heavyweight",      country: "USA",       titles: ["UFC HW Champ"], style: "Complete Fighter" },
-  { name: "Stipe Miocic",      record: "20-4",  rank: 2,  elo: 1940, division: "Heavyweight",      country: "USA",       titles: [], style: "Boxer" },
-  { name: "Tom Aspinall",      record: "15-3",  rank: 3,  elo: 1970, division: "Heavyweight",      country: "UK",        titles: ["Interim UFC HW Champ"], style: "Striker" },
-  { name: "Islam Makhachev",   record: "26-1",  rank: 1,  elo: 2080, division: "Lightweight",      country: "Russia",    titles: ["UFC LW Champ"], style: "Wrestler" },
-  { name: "Dustin Poirier",    record: "30-8",  rank: 2,  elo: 1940, division: "Lightweight",      country: "USA",       titles: [], style: "Boxer" },
-  { name: "Charles Oliveira",  record: "33-10", rank: 3,  elo: 1930, division: "Lightweight",      country: "Brazil",    titles: [], style: "BJJ Specialist" },
-  { name: "Conor McGregor",    record: "22-6",  rank: 5,  elo: 1870, division: "Lightweight",      country: "Ireland",   titles: [], style: "Counter Striker" },
-  { name: "Leon Edwards",      record: "22-4",  rank: 1,  elo: 2000, division: "Welterweight",     country: "UK",        titles: ["UFC WW Champ"], style: "Complete Fighter" },
-  { name: "Belal Muhammad",    record: "23-3",  rank: 2,  elo: 1960, division: "Welterweight",     country: "USA",       titles: [], style: "Wrestler" },
-  { name: "Alex Pereira",      record: "10-2",  rank: 1,  elo: 2040, division: "Light Heavyweight",country: "Brazil",    titles: ["UFC LHW Champ"], style: "Striker" },
-  { name: "Jamahal Hill",      record: "12-2",  rank: 2,  elo: 1950, division: "Light Heavyweight",country: "USA",       titles: [], style: "Striker" },
-  { name: "Israel Adesanya",   record: "24-3",  rank: 1,  elo: 2020, division: "Middleweight",     country: "Nigeria",   titles: [], style: "Counter Striker" },
-  { name: "Dricus du Plessis", record: "22-2",  rank: 1,  elo: 2010, division: "Middleweight",     country: "South Africa", titles: ["UFC MW Champ"], style: "Finisher" },
-  { name: "Sean Strickland",   record: "28-6",  rank: 2,  elo: 1960, division: "Middleweight",     country: "USA",       titles: [], style: "Striker" },
-  { name: "Ilia Topuria",      record: "15-0",  rank: 1,  elo: 2010, division: "Featherweight",    country: "Georgia",   titles: ["UFC FW Champ"], style: "Finisher" },
-  { name: "Max Holloway",      record: "25-7",  rank: 2,  elo: 1970, division: "Featherweight",    country: "USA",       titles: [], style: "Swarmer" },
-  { name: "Brian Ortega",      record: "16-2",  rank: 3,  elo: 1900, division: "Featherweight",    country: "USA",       titles: [], style: "BJJ Specialist" },
-  { name: "Sean O'Malley",     record: "18-1",  rank: 1,  elo: 1990, division: "Bantamweight",     country: "USA",       titles: [], style: "Striker" },
-  { name: "Merab Dvalishvili", record: "17-4",  rank: 1,  elo: 2000, division: "Bantamweight",     country: "Georgia",   titles: ["UFC BW Champ"], style: "Wrestler" },
-  { name: "Cejudo",            record: "16-3",  rank: 3,  elo: 1890, division: "Bantamweight",     country: "USA",       titles: [], style: "Wrestler" },
-  { name: "Alexandre Pantoja",  record: "27-5", rank: 1,  elo: 1970, division: "Flyweight",        country: "Brazil",    titles: ["UFC FLW Champ"], style: "BJJ Specialist" },
-  { name: "Brandon Moreno",    record: "21-7-2",rank: 2,  elo: 1920, division: "Flyweight",        country: "Mexico",    titles: [], style: "BJJ Specialist" },
-  { name: "Zhang Weili",       record: "24-3",  rank: 1,  elo: 2000, division: "Strawweight (W)",  country: "China",     titles: ["UFC SW Champ"], style: "Striker" },
-  { name: "Rose Namajunas",    record: "12-7",  rank: 2,  elo: 1880, division: "Strawweight (W)",  country: "USA",       titles: [], style: "Counter Striker" },
-  { name: "Valentina Shevchenko", record: "23-4", rank: 1, elo: 2010, division: "Flyweight (W)",  country: "Kyrgyzstan",titles: [], style: "Complete Fighter" },
-  { name: "Alexa Grasso",      record: "16-3-1",rank: 1,  elo: 1970, division: "Flyweight (W)",   country: "Mexico",    titles: ["UFC FLW Champ"], style: "Striker" },
-]
 
 function generateMMAMatches() {
   const divisions = [...new Set(MMA_FIGHTERS.map(f => f.division))]
-  const matches = []
-  for (const div of divisions) {
+  return divisions.map(div => {
     const fighters = MMA_FIGHTERS.filter(f => f.division === div)
-    if (fighters.length < 2) continue
-    const daysOut = Math.floor(Math.random() * 21) + 1
-    const date = new Date(Date.now() + daysOut * 86400000)
-    const events = [
-      { name: "UFC 314", loc: "Miami, FL" },
-      { name: "UFC Fight Night", loc: "Las Vegas, NV" },
-      { name: "UFC 315", loc: "Montreal, Canada" },
-    ]
-    const ev = events[Math.floor(Math.random() * events.length)]
-    matches.push({
-      idEvent: `mma_${div.replace(/\s\(?\)?/g,"_")}_${Date.now() + matches.length}`,
-      strHomeTeam: fighters[0].name,
-      strAwayTeam: fighters[1].name,
-      strLeague: `UFC — ${ev.name}`,
-      strVenue: ev.loc,
-      strStatus: "Not Started",
-      dateEvent: date.toISOString().slice(0,10),
-      strTime: "01:00",
-      _f1: fighters[0],
-      _f2: fighters[1],
-      _division: div,
-    })
-  }
-  return matches
+    if (fighters.length < 2) return null
+    const d = new Date(Date.now() + (1+Math.floor(Math.random()*21))*86400000)
+    return { idEvent:`mma_${div.replace(/\s\(?\)?/g,'_')}_${Date.now()}`,
+      strHomeTeam:fighters[0].name, strAwayTeam:fighters[1].name,
+      strLeague:'UFC', strStatus:"Not Started",
+      dateEvent:d.toISOString().slice(0,10), strTime:"01:00",
+      strVenue:"Las Vegas, NV",
+      _f1:fighters[0], _f2:fighters[1], _division:div }
+  }).filter(Boolean)
 }
 
 function buildMMAPrediction(event) {
   if (!event) return null
   try {
-    const f1Name = event.strHomeTeam || (event.competitions?.[0]?.competitors?.[0]?.athlete?.displayName)
-    const f2Name = event.strAwayTeam || (event.competitions?.[0]?.competitors?.[1]?.athlete?.displayName)
-    if (!f1Name || !f2Name) return null
-    const isFinal = event.strStatus === "Match Finished" || event.competitions?.[0]?.status?.type?.completed
-    if (isFinal) return null
-
-    const f1Data = event._f1 || MMA_FIGHTERS.find(f => f.name === f1Name) || { elo: 1800, record: "?", country: "Unknown", division: "Unknown", titles: [], style: "Striker" }
-    const f2Data = event._f2 || MMA_FIGHTERS.find(f => f.name === f2Name) || { elo: 1750, record: "?", country: "Unknown", division: "Unknown", titles: [], style: "Striker" }
-    const div = event._division || f1Data.division || "MMA"
-
-    const eloDiff = f1Data.elo - f2Data.elo
-    const homeProb = Math.round(50 + eloDiff / 20)
+    const f1Name = event.strHomeTeam || event.competitions?.[0]?.competitors?.[0]?.athlete?.displayName
+    const f2Name = event.strAwayTeam || event.competitions?.[0]?.competitors?.[1]?.athlete?.displayName
+    if (!f1Name || !f2Name || event.strStatus === "Match Finished") return null
+    const f1 = event._f1 || enrichMMAFighter(f1Name)
+    const f2 = event._f2 || enrichMMAFighter(f2Name)
+    const eloDiff = f1.elo - f2.elo
+    const homeProb = Math.max(15, Math.min(85, Math.round(50 + eloDiff / 20)))
     const awayProb = 100 - homeProb
-    const homeOdds = parseFloat((100 / Math.max(1, homeProb) * 1.05).toFixed(2))
-    const awayOdds = parseFloat((100 / Math.max(1, awayProb) * 1.05).toFixed(2))
-
-    const f1Style = getPlaystyleForSport('mma', null, f1Name, f1Data.elo)
-    const f2Style = getPlaystyleForSport('mma', null, f2Name, f2Data.elo)
-
     let seed = 0; for (let i = 0; i < f1Name.length; i++) seed = seed * 31 + f1Name.charCodeAt(i)
-
     return {
-      id: `mma_${event.idEvent || Date.now()}`,
-      sport: 'mma',
-      home: f1Name, away: f2Name,
-      league: event.strLeague || "UFC",
-      flag: "🥋",
-      division: div,
-      venue: event.strVenue,
-      date: (event.dateEvent || new Date().toISOString().slice(0,10)) + "T" + (event.strTime || "01:00") + ":00",
-      isLive: event.strStatus === "In Progress",
-      homeElo: f1Data.elo, awayElo: f2Data.elo,
-      homeRecord: f1Data.record, awayRecord: f2Data.record,
-      homeCountry: f1Data.country, awayCountry: f2Data.country,
-      homeTitles: f1Data.titles || [], awayTitles: f2Data.titles || [],
-      homeStyle: f1Data.style, awayStyle: f2Data.style,
-      homeProb, drawProb: 0, awayProb,
-      homeOdds, drawOdds: null, awayOdds,
-      confidence: Math.max(homeProb, awayProb),
-      homeLineup: [{
-        name: f1Name, position: "Fighter", elo: f1Data.elo, isKey: true,
-        playstyle: f1Style, record: f1Data.record, country: f1Data.country,
-        titles: f1Data.titles, style: f1Data.style,
-        attack: clamp(50 + eloDiff/20 + Math.abs(seed%25)),
-        defense: clamp(50 + eloDiff/25 + Math.abs((seed>>1)%25)),
-        speed: clamp(50 + Math.abs((seed>>2)%25)),
-        bigMatch: clamp(50 + (f1Data.titles?.length||0)*5 + Math.abs((seed>>3)%25)),
-      }],
-      awayLineup: [{
-        name: f2Name, position: "Fighter", elo: f2Data.elo, isKey: true,
-        playstyle: f2Style, record: f2Data.record, country: f2Data.country,
-        titles: f2Data.titles, style: f2Data.style,
-        attack: clamp(50 - eloDiff/20 + Math.abs((seed>>4)%25)),
-        defense: clamp(50 - eloDiff/25 + Math.abs((seed>>5)%25)),
-        speed: clamp(50 + Math.abs((seed>>6)%25)),
-        bigMatch: clamp(50 + (f2Data.titles?.length||0)*5 + Math.abs((seed>>7)%25)),
-      }],
-      homeForm: ["W","W","L","W","W"].slice(0,5),
-      awayForm: ["L","W","W","L","W"].slice(0,5),
-      finishProb: Math.round(45 + Math.abs(eloDiff)/25 + Math.abs(seed%20)),
-      valueBet: Math.abs(eloDiff) > 100,
-      isUpsetWatch: awayProb > 38,
-      upsetProb: awayProb,
-      hasRealOdds: false,
-      factors: [
-        { name:"ELO RATING",   homeScore: Math.round(f1Data.elo/22), awayScore: Math.round(f2Data.elo/22), color:"#00d4ff" },
-        { name:"RECORD",       homeScore: 55+Math.abs(seed%20)-10,   awayScore: 50+Math.abs((seed>>1)%20)-10, color:"#ff8c42" },
-        { name:"STRIKING",     homeScore: 50+Math.abs((seed>>2)%25), awayScore: 50+Math.abs((seed>>3)%25), color:"#ff3b5c" },
-        { name:"GRAPPLING",    homeScore: 50+eloDiff/30,             awayScore: 50-eloDiff/30, color:"#00ff88" },
-        { name:"TITLES",       homeScore: Math.min(90, 50+(f1Data.titles?.length||0)*10), awayScore: Math.min(90, 50+(f2Data.titles?.length||0)*10), color:"#ffd700" },
+      id:`mma_${event.idEvent||Date.now()}`, sport:'mma',
+      home:f1Name, away:f2Name,
+      league:event.strLeague||"UFC", flag:"🥋",
+      division:event._division||f1.division, venue:event.strVenue,
+      date:(event.dateEvent||new Date().toISOString().slice(0,10))+"T"+(event.strTime||"01:00")+":00",
+      isLive:false,
+      homeElo:f1.elo, awayElo:f2.elo, homeRecord:f1.record, awayRecord:f2.record,
+      homeCountry:f1.country, awayCountry:f2.country, homeTitles:f1.titles, awayTitles:f2.titles,
+      homeStyle:f1.style, awayStyle:f2.style,
+      homeProb, drawProb:0, awayProb,
+      homeOdds:parseFloat((100/Math.max(1,homeProb)*1.05).toFixed(2)),
+      drawOdds:null,
+      awayOdds:parseFloat((100/Math.max(1,awayProb)*1.05).toFixed(2)),
+      confidence:Math.max(homeProb,awayProb),
+      homeLineup:[{name:f1Name,position:"Fighter",elo:f1.elo,isKey:true,playstyle:getPlaystyleForSport('mma',null,f1Name,f1.elo),record:f1.record,country:f1.country,titles:f1.titles,style:f1.style,attack:clamp(50+Math.round(eloDiff/20)+Math.abs(seed%25)),defense:clamp(50+Math.round(eloDiff/25)+Math.abs((seed>>1)%25)),speed:clamp(50+Math.abs((seed>>2)%25)),bigMatch:clamp(50+(f1.titles?.length||0)*5)}],
+      awayLineup:[{name:f2Name,position:"Fighter",elo:f2.elo,isKey:true,playstyle:getPlaystyleForSport('mma',null,f2Name,f2.elo),record:f2.record,country:f2.country,titles:f2.titles,style:f2.style,attack:clamp(50-Math.round(eloDiff/20)+Math.abs((seed>>4)%25)),defense:clamp(50-Math.round(eloDiff/25)+Math.abs((seed>>5)%25)),speed:clamp(50+Math.abs((seed>>6)%25)),bigMatch:clamp(50+(f2.titles?.length||0)*5)}],
+      homeForm:["W","W","L","W","W"], awayForm:["L","W","W","L","W"],
+      finishProb:Math.round(45+Math.abs(eloDiff)/25+Math.abs(seed%20)),
+      valueBet:Math.abs(eloDiff)>100, isUpsetWatch:awayProb>38, upsetProb:awayProb, hasRealOdds:false,
+      factors:[
+        {name:"ELO RATING",homeScore:Math.round(f1.elo/22),awayScore:Math.round(f2.elo/22),color:"#00d4ff"},
+        {name:"RECORD",homeScore:55+Math.abs(seed%20)-10,awayScore:50+Math.abs((seed>>1)%20)-10,color:"#ff8c42"},
+        {name:"STRIKING",homeScore:50+Math.abs((seed>>2)%25),awayScore:50+Math.abs((seed>>3)%25),color:"#ff3b5c"},
+        {name:"GRAPPLING",homeScore:50+Math.round(eloDiff/30),awayScore:50-Math.round(eloDiff/30),color:"#00ff88"},
+        {name:"TITLES",homeScore:Math.min(90,50+(f1.titles?.length||0)*10),awayScore:Math.min(90,50+(f2.titles?.length||0)*10),color:"#ffd700"},
       ],
-      h2h: [], bttsProb: null, ouProbs: {}, ouOdds: {},
-      bookmaker: "Model", mismatches: [],
+      h2h:[], bttsProb:null, ouProbs:{}, ouOdds:{}, bookmaker:"Model", mismatches:[]
     }
   } catch(e) { return null }
 }
 
 // ══════════════════════════════════════════════════════════
-//  FOOTBALL — SPORTMONKS (fully paid tier v3)
+//  FOOTBALL — SPORTMONKS
 // ══════════════════════════════════════════════════════════
-
-// SM include tiers — tried in order
 const SM_INCLUDE_TIERS = [
+  "participants;league;league.country;scores;state;odds;predictions;statistics",
   "participants;league;league.country;scores;state;odds;predictions",
+  "participants;league;league.country;scores;state;odds",
   "participants;league;league.country;scores;state",
   "participants;league;league.country;scores",
   "participants;league;league.country",
@@ -2384,7 +1380,6 @@ const SM_INCLUDE_TIERS = [
 async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
   const hit = cache.get(cacheKey)
   if (hit && Date.now() - hit.ts < (ttl || TTL.S)) return hit.data
-
   for (let ti = 0; ti < SM_INCLUDE_TIERS.length; ti++) {
     try {
       const all = []; let page = 1, hasMore = true
@@ -2396,20 +1391,13 @@ async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
         page++
         if (hasMore) await sleep(200)
       }
-      if (ti > 0) console.log(`  ✅ SM tier-${ti+1} fallback: ${all.length} fixtures`)
-      else console.log(`  ✅ SM: ${all.length} fixtures`)
+      console.log(`  ✅ SM tier-${ti+1}: ${all.length} fixtures`)
       cache.set(cacheKey, { data: all, ts: Date.now() })
       return all
     } catch(e) {
       const status = e.response?.status || e.code || "?"
-      if (ti < SM_INCLUDE_TIERS.length - 1) {
-        console.log(`  ⚠️  SM tier-${ti+1} (${status}) → trying simpler...`)
-        await sleep(500)
-      } else {
-        console.log(`  ❌ SM all tiers failed (last: ${status})`)
-        if (hit) return hit.data
-        return []
-      }
+      if (ti < SM_INCLUDE_TIERS.length - 1) { console.log(`  ⚠️  SM tier-${ti+1} (${status}) → fallback...`); await sleep(500) }
+      else { console.log(`  ❌ SM all tiers failed`); if (hit) return hit.data; return [] }
     }
   }
   return []
@@ -2418,11 +1406,8 @@ async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
 async function smFixtures(days) {
   days = Math.min(days || 14, 14)
   if (!SM_KEY) return []
-  const now    = new Date()
-  const end    = new Date(now.getTime() + days * 86400000)
-  // SM v3 full paid — correct endpoint format
-  const start  = now.toISOString().slice(0, 10)
-  const endStr = end.toISOString().slice(0, 10)
+  const start  = new Date().toISOString().slice(0, 10)
+  const endStr = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
   const url    = `${SM_BASE}/fixtures/between/${start}/${endStr}`
   console.log(`📡 SM fixtures ${start} → ${endStr}`)
   return smFetchWithFallback(url, {}, `sm_fix_${days}`, TTL.S)
@@ -2433,13 +1418,13 @@ async function smLive() {
   return cached("sm_live", async () => {
     for (const inc of SM_INCLUDE_TIERS) {
       try {
-        const r    = await http(`${SM_BASE}/livescores`, { api_token: SM_KEY, include: inc })
+        const r = await http(`${SM_BASE}/livescores`, { api_token: SM_KEY, include: inc })
         const data = r.data?.data || []
         console.log(`✅ SM Live: ${data.length}`); return data
       } catch(e) {
         const status = e.response?.status
         if (status === 403 || status === 401 || status === 422) { await sleep(300); continue }
-        console.log("⚠️  smLive:", e.message); return []
+        return []
       }
     }
     return []
@@ -2457,17 +1442,36 @@ async function smTeamForm(teamId) {
         "filters[participants]": String(teamId), order: "desc", per_page: 10
       })
       return (r.data?.data || []).slice(0, 8).map(f => {
-        const hP     = (f.participants || []).find(p => p.meta?.location === "home")
-        const aP     = (f.participants || []).find(p => p.meta?.location === "away")
+        const hP = (f.participants || []).find(p => p.meta?.location === "home")
+        const aP = (f.participants || []).find(p => p.meta?.location === "away")
         const isHome = hP?.id === teamId
-        const cH     = (f.scores || []).find(s => s.participant_id === hP?.id && s.description === "CURRENT")
-        const cA     = (f.scores || []).find(s => s.participant_id === aP?.id && s.description === "CURRENT")
+        const cH = (f.scores || []).find(s => s.participant_id === hP?.id && s.description === "CURRENT")
+        const cA = (f.scores || []).find(s => s.participant_id === aP?.id && s.description === "CURRENT")
         const hg = cH?.score?.goals || 0, ag = cA?.score?.goals || 0
         const scored = isHome ? hg : ag, conc = isHome ? ag : hg
         return { result: scored > conc ? "W" : scored < conc ? "L" : "D", scored, conceded: conc }
       })
     } catch(e) { return [] }
   }, TTL.M)
+}
+
+async function smTeamStatistics(teamId, seasonId) {
+  if (!SM_KEY || !teamId) return null
+  return cached(`sm_teamstats_${teamId}_${seasonId||'cur'}`, async () => {
+    try {
+      const endpoints = []
+      if (seasonId) endpoints.push(`${SM_BASE}/statistics/seasons/${seasonId}/teams/${teamId}`)
+      endpoints.push(`${SM_BASE}/teams/${teamId}`)
+      for (const url of endpoints) {
+        try {
+          const r = await http(url, { api_token: SM_KEY, include: "statistics" })
+          const stats = r.data?.data?.statistics || r.data?.data?.stat || null
+          if (stats) return stats
+        } catch(e2) { continue }
+      }
+      return null
+    } catch(e) { return null }
+  }, TTL.L)
 }
 
 async function smH2H(homeId, awayId) {
@@ -2493,7 +1497,7 @@ async function smPreMatchNews() {
     try {
       const r = await http(`${SM_BASE}/news/pre-match/upcoming`, { api_token: SM_KEY, include: "fixture;league", per_page: 30, order: "desc" })
       return (r.data?.data || []).map(a => ({ title: a.title, body: a.body?.slice(0, 600) || "", fixtureId: a.fixture_id, leagueName: a.league?.name, publishedAt: a.created_at }))
-    } catch(e) { console.log("⚠️  SM News:", e.message); return [] }
+    } catch(e) { return [] }
   }, TTL.M)
 }
 
@@ -2504,23 +1508,23 @@ async function smSquad(teamId, teamName, seasonId) {
   if (hit && Date.now() - hit.ts < TTL.L) return hit.data
   try {
     const endpoints = []
-    if (seasonId) endpoints.push({ url: `${SM_BASE}/squads/seasons/${seasonId}/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position" } })
+    if (seasonId) endpoints.push({ url: `${SM_BASE}/squads/seasons/${seasonId}/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position;player.statistics" } })
+    endpoints.push({ url: `${SM_BASE}/squads/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position;player.statistics" } })
     endpoints.push({ url: `${SM_BASE}/squads/teams/${teamId}`, params: { api_token: SM_KEY, include: "player;player.position" } })
     endpoints.push({ url: `${SM_BASE}/teams/${teamId}`, params: { api_token: SM_KEY, include: "players;players.position" } })
-    endpoints.push({ url: `${SM_BASE}/players/teams/${teamId}`, params: { api_token: SM_KEY, include: "position" } })
 
     let entries = null
     for (const ep of endpoints) {
       try {
-        const r   = await http(ep.url, ep.params)
+        const r = await http(ep.url, ep.params)
         const raw = r.data?.data
         if (!raw) continue
         if (Array.isArray(raw)) entries = raw
         else if (raw.squad?.data || raw.squad) entries = raw.squad?.data || raw.squad || []
         else if (raw.players?.data || raw.players) entries = raw.players?.data || raw.players || []
         else entries = []
-        if (entries.length > 0) { console.log(`  👥 ${teamName}: ${entries.length} players`); break }
-      } catch(e2) { if ([404,403,422].includes(e2.response?.status)) continue; break }
+        if (entries.length > 0) break
+      } catch(e2) { continue }
     }
     if (!entries?.length) { cache.set(cacheKey, { data: [], ts: Date.now() }); return [] }
 
@@ -2530,23 +1534,29 @@ async function smSquad(teamId, teamName, seasonId) {
       const posId  = p.position_id || sq.position_id
       const pos    = posId ? mapPosId(posId) : "CM"
       const pName  = p.display_name || p.common_name || p.name || "Unknown"
-      const pElo   = buildPlayerElo(pName, pos, tElo, null, 0, 0)
-      const attrs  = buildPlayerAttrs(pName, pos, pElo, tElo, null)
+      const stats  = p.statistics?.data?.[0] || p.statistics?.[0] || {}
+      const goals   = parseInt(stats.goals?.scored   || stats.goals    || 0)
+      const assists = parseInt(stats.goals?.assists  || stats.assists  || 0)
+      const apps    = parseInt(stats.appearances?.total || stats.appearences?.total || 0)
+      const rating  = parseFloat(stats.rating) || 0
+      const pElo  = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
+      const attrs = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
       const row = {
-        player_name: pName, team_name: teamName, sm_player_id: p.id, position: pos,
-        elo: pElo, speed: attrs.speed, attack: attrs.attack, defense: attrs.defense,
-        big_match: attrs.bigMatch, is_key: attrs.isKey,
+        player_name: pName, team_name: teamName, sm_player_id: p.id,
+        position: pos, elo: pElo, speed: attrs.speed, attack: attrs.attack,
+        defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
         playstyle_name: attrs.playstyle.name,
-        goals_this_season: 0, assists_this_season: 0, appearances: 0,
+        goals_this_season: goals, assists_this_season: assists,
+        appearances: apps, real_rating: rating || null,
         updated_at: new Date().toISOString()
       }
       playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle })
       if (!squadDB.has(teamName)) squadDB.set(teamName, [])
-      const ex = squadDB.get(teamName)
-      const idx = ex.findIndex(x => x.player_name === pName)
-      if (idx >= 0) ex[idx] = { ...row, playstyle: attrs.playstyle }
-      else ex.push({ ...row, playstyle: attrs.playstyle })
-      sbSave("player_ratings", row, "player_name,team_name")
+      const sq2 = squadDB.get(teamName)
+      const idx = sq2.findIndex(x => x.player_name === pName)
+      if (idx >= 0) sq2[idx] = { ...row, playstyle: attrs.playstyle }
+      else sq2.push({ ...row, playstyle: attrs.playstyle })
+      if (sb) sbSave('player_ratings', row, 'player_name,team_name')
       return { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses }
     })
     cache.set(cacheKey, { data: built, ts: Date.now() })
@@ -2561,11 +1571,22 @@ function formScore(f) {
   return f.slice(0, 5).reduce((s, r, i) => s + (r === "W" ? 1 : r === "D" ? 0.4 : 0) * (w[i] || 0.05), 0)
 }
 
-function calcXG(tElo, oElo, form, isHome, realXg) {
+function calcXG(tElo, oElo, form, isHome, realXg, teamName) {
   if (realXg && realXg > 0) return realXg
+  const w = teamName ? getTeamWeights(teamName) : DEFAULT_TEAM_WEIGHTS()
   const ed = (tElo - oElo) / 400
   const fb = (formScore(form) - 0.5) * 0.1
-  return Math.max(0.3, (isHome ? 1.45 : 1.10) + ed * 0.9 + fb + (isHome ? 0.18 : -0.05))
+  const base = isHome ? 1.45 : 1.10
+  // Apply per-team learned adjustments
+  const homeAwayMult = isHome ? (w.homeGoalsScoredAvg > 0 ? Math.min(1.4, w.homeGoalsScoredAvg / 1.45) : 1.0)
+                               : (w.awayGoalsScoredAvg > 0 ? Math.min(1.3, w.awayGoalsScoredAvg / 1.10) : 1.0)
+  const xgFactor = w.xgFactor || 0.55
+  const possessionBonus = w.avgPossession > 0 ? (w.avgPossession - 0.5) * 0.2 : 0
+  const pressBonus = w.pressingIntensity > 0.5 ? (w.pressingIntensity - 0.5) * 0.1 : 0
+  const setpieceBonus = w.goalsFromSetPiece > 0.2 ? (w.goalsFromSetPiece - 0.2) * 0.3 : 0
+  const homeAdj = isHome ? 0.18 : -0.05
+  const xg = Math.max(0.3, (base + ed * 0.9 + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus) * homeAwayMult)
+  return parseFloat(xg.toFixed(2))
 }
 
 function poisson(lambda) { let L = Math.exp(-lambda), p = 1, k = 0; do { k++; p *= Math.random() } while (p > L); return k - 1 }
@@ -2594,15 +1615,43 @@ function extractSMPreds(preds) {
   return r
 }
 
-function buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league) {
-  const LEAGUE_ELO_BANDS_LOCAL = LEAGUE_ELO_BANDS
-  const band     = LEAGUE_ELO_BANDS_LOCAL[league]
-  const leagueAvg = band ? (band.top + band.bot) / 2 : 1650
-  const hStyle = hElo > 1850 && formScore(hForm) > 0.65 ? "High Press" : hElo > 1700 && hxg > 1.5 ? "Attack-minded" : hxg < 1.0 ? "Defensive" : "Balanced"
-  const aStyle = aElo > 1850 && formScore(aForm) > 0.65 ? "High Press" : aElo > 1700 && axg > 1.5 ? "Attack-minded" : axg < 1.0 ? "Defensive" : "Balanced"
+function extractSMStats(stats) {
+  // Parse Sportmonks statistics array into a usable object
+  if (!Array.isArray(stats)) return {}
+  const out = {}
+  for (const s of stats) {
+    const type = s.type?.developer_name || s.type_id || s.type
+    if (type) out[type] = s.value?.total ?? s.value?.average ?? s.value ?? 0
+  }
+  return out
+}
+
+function applyStatsToTeamWeights(teamName, statsMap) {
+  if (!teamName || !statsMap) return
+  const w = getTeamWeights(teamName)
+  const lr = 0.05 // faster update since stats are ground truth
+  if (statsMap['ball-possession'] !== undefined) w.avgPossession = Math.min(1, statsMap['ball-possession'] / 100)
+  if (statsMap['shots-on-target'] !== undefined) w.shotsOnTargetRatio = Math.min(1, statsMap['shots-on-target'] / 8)
+  if (statsMap['corners'] !== undefined) w.cornersWon = Math.min(1, statsMap['corners'] / 10)
+  if (statsMap['yellow-cards'] !== undefined) w.yellowCardRisk = Math.min(1, statsMap['yellow-cards'] / 4)
+  if (statsMap['goals-scored'] !== undefined) {
+    w.homeGoalsScoredAvg = w.homeGoalsScoredAvg * 0.7 + (statsMap['goals-scored'] || 0) * 0.3
+  }
+  if (statsMap['goals-conceded'] !== undefined) {
+    w.homeGoalsConcededAvg = w.homeGoalsConcededAvg * 0.7 + (statsMap['goals-conceded'] || 0) * 0.3
+  }
+  if (statsMap['clean-sheets'] !== undefined) w.cleanSheetRate = Math.min(0.9, statsMap['clean-sheets'] / 20)
+  if (statsMap['attacking-set-plays-goals'] !== undefined) w.goalsFromSetPiece = Math.min(1, statsMap['attacking-set-plays-goals'] / 5)
+  w.lastUpdated = Date.now()
+  teamWeights.set(teamName, w)
+}
+
+function buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league, hW, aW) {
+  const hStyle = hElo > 1850 && formScore(hForm) > 0.65 ? "High Press" : hxg > 1.5 ? "Attack-minded" : hxg < 1.0 ? "Defensive" : "Balanced"
+  const aStyle = aElo > 1850 && formScore(aForm) > 0.65 ? "High Press" : axg > 1.5 ? "Attack-minded" : axg < 1.0 ? "Defensive" : "Balanced"
   return {
-    home: { style: hStyle, descriptors: [], formScore: Math.round(formScore(hForm) * 100), xgFor: parseFloat(hxg.toFixed(2)), xgAg: parseFloat((axg * 0.9).toFixed(2)) },
-    away: { style: aStyle, descriptors: [], formScore: Math.round(formScore(aForm) * 100), xgFor: parseFloat(axg.toFixed(2)), xgAg: parseFloat((hxg * 0.9).toFixed(2)) },
+    home: { style: hStyle, formScore: Math.round(formScore(hForm) * 100), xgFor: hxg, cleanSheetRate: Math.round((hW?.cleanSheetRate||0.3)*100), avgPossession: Math.round((hW?.avgPossession||0.5)*100) },
+    away: { style: aStyle, formScore: Math.round(formScore(aForm) * 100), xgFor: axg, cleanSheetRate: Math.round((aW?.cleanSheetRate||0.3)*100), avgPossession: Math.round((aW?.avgPossession||0.5)*100) },
   }
 }
 
@@ -2635,10 +1684,16 @@ function buildAllMarkets(hxg, axg, smOdds, smPred, realOdds) {
   return { homeProb, drawProb, awayProb, ouProbs, ouOdds, bttsYesPct: Math.round(Number(bttsFin)), bttsNoPct: 100 - Math.round(Number(bttsFin)), bttsOdds, over25Prob: Math.round(Number(over25)), correctScores: cs.slice(0, 9), hxg: parseFloat(hxg.toFixed(2)), axg: parseFloat(axg.toFixed(2)) }
 }
 
-function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred) {
+function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW) {
   const hfs = formScore(hForm) * 100, afs = formScore(aForm) * 100, ed = hElo - aElo
   const smH = smPred?.FULLTIME_RESULT_PROBABILITY?.home, smA = smPred?.FULLTIME_RESULT_PROBABILITY?.away
   const n   = v => Math.min(99, Math.max(1, Math.round(v)))
+  // Per-team deep factors from Sportmonks stats
+  const hPoss = Math.round((hW?.avgPossession||0.5)*100), aPoss = Math.round((aW?.avgPossession||0.5)*100)
+  const hCS   = Math.round((hW?.cleanSheetRate||0.3)*100), aCS = Math.round((aW?.cleanSheetRate||0.3)*100)
+  const hSoT  = Math.round((hW?.shotsOnTargetRatio||0.5)*100), aSoT = Math.round((aW?.shotsOnTargetRatio||0.5)*100)
+  const hSP   = Math.round((hW?.goalsFromSetPiece||0.3)*100), aSP = Math.round((aW?.goalsFromSetPiece||0.3)*100)
+  const hYC   = Math.round((1-(hW?.yellowCardRisk||0.5))*100), aYC = Math.round((1-(aW?.yellowCardRisk||0.5))*100)
   return [
     { name:"ELO RATING",       homeScore:n(hElo/20),    awayScore:n(aElo/20),              color:"#00d4ff" },
     { name:"RECENT FORM",      homeScore:n(hfs),        awayScore:n(afs),                  color:"#00ff88" },
@@ -2646,38 +1701,34 @@ function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred) {
     { name:"DEFENSIVE SHAPE",  homeScore:n(50+ed/40),   awayScore:n(50-ed/40),             color:"#ffd700" },
     { name:"HOME ADVANTAGE",   homeScore:65,            awayScore:35,                       color:"#ff8c42" },
     { name:"SM AI PREDICTION", homeScore:smH?n(parseFloat(smH)):n(50+ed/30), awayScore:smA?n(parseFloat(smA)):n(50-ed/30), color:"#cc88ff" },
-    { name:"PRESS INTENSITY",  homeScore:n(45+ed/50+Math.random()*12), awayScore:n(45-ed/50+Math.random()*12), color:"#44ddaa" },
-    { name:"SQUAD DEPTH",      homeScore:n(50+ed/60+Math.random()*10), awayScore:n(50-ed/60+Math.random()*10), color:"#ffaa44" },
-    { name:"MOMENTUM",         homeScore:n(hfs*1.1),   awayScore:n(afs*1.1),               color:"#ff6688" },
-    { name:"TACTICAL FIT",     homeScore:n(50+ed/45+Math.random()*15), awayScore:n(50-ed/45+Math.random()*15), color:"#4488ff" },
+    { name:"POSSESSION",       homeScore:n(hPoss),      awayScore:n(aPoss),                color:"#44ddaa" },
+    { name:"SHOTS ON TARGET",  homeScore:n(hSoT),       awayScore:n(aSoT),                 color:"#ffaa44" },
+    { name:"CLEAN SHEET RATE", homeScore:n(hCS),        awayScore:n(aCS),                  color:"#4488ff" },
+    { name:"SET PIECES",       homeScore:n(hSP),        awayScore:n(aSP),                  color:"#ff6688" },
+    { name:"DISCIPLINE",       homeScore:n(hYC),        awayScore:n(aYC),                  color:"#88ff88" },
+    { name:"MOMENTUM",         homeScore:n(hfs*1.1),    awayScore:n(afs*1.1),              color:"#a855f7" },
   ]
 }
 
 function detectMismatches(homeLineup, awayLineup, homeName, awayName) {
   const mismatches = []
   if (!homeLineup?.length || !awayLineup?.length) return mismatches
-  const checkMismatch = (atk, def, atkTeam, defTeam) => {
+  const checkMismatch = (atk, def, atkTeam) => {
     const isPositional = (atk.position==="LW"&&def.position==="RB")||(atk.position==="RW"&&def.position==="LB")||(atk.position==="ST"&&def.position==="CB")||(atk.position==="CAM"&&def.position==="CDM")
     if (!isPositional) return
     const atkAdv = (atk.attack||60) - (def.defense||50)
     const spdAdv = (atk.speed||60)  - (def.speed||50)
     if (atkAdv > 20 || spdAdv > 25) {
       const weight = Math.min(0.95, 0.5 + (atkAdv + spdAdv) / 200)
-      mismatches.push({
-        attacker: { name: atk.name, pos: atk.position, elo: atk.elo, attack: atk.attack, speed: atk.speed },
-        defender: { name: def.name, pos: def.position, elo: def.elo, defense: def.defense, speed: def.speed },
-        atkAdvantage: Math.round(atkAdv), speedAdvantage: Math.round(spdAdv),
-        favor: atkTeam, weight: parseFloat(weight.toFixed(2)),
-        description: `${atk.name} (${atk.position}, atk:${atk.attack||60}) vs ${def.name} (${def.position}, def:${def.defense||50})`,
-      })
+      mismatches.push({ attacker:{name:atk.name,pos:atk.position,elo:atk.elo,attack:atk.attack,speed:atk.speed}, defender:{name:def.name,pos:def.position,elo:def.elo,defense:def.defense,speed:def.speed}, atkAdvantage:Math.round(atkAdv), speedAdvantage:Math.round(spdAdv), favor:atkTeam, weight:parseFloat(weight.toFixed(2)) })
     }
   }
   const homeAtk = homeLineup.filter(p => ["ST","LW","RW","CAM"].includes(p.position))
   const awayAtk = awayLineup.filter(p => ["ST","LW","RW","CAM"].includes(p.position))
   const homeDef = homeLineup.filter(p => ["CB","LB","RB","CDM"].includes(p.position))
   const awayDef = awayLineup.filter(p => ["CB","LB","RB","CDM"].includes(p.position))
-  for (const atk of homeAtk) for (const def of awayDef) checkMismatch(atk, def, homeName, awayName)
-  for (const atk of awayAtk) for (const def of homeDef) checkMismatch(atk, def, awayName, homeName)
+  for (const atk of homeAtk) for (const def of awayDef) checkMismatch(atk, def, homeName)
+  for (const atk of awayAtk) for (const def of homeDef) checkMismatch(atk, def, awayName)
   return mismatches.sort((a, b) => b.atkAdvantage - a.atkAdvantage).slice(0, 6)
 }
 
@@ -2687,42 +1738,39 @@ function normLeague(raw) {
   const clean = raw.replace(/\s*\d{4}[/-]\d{2,4}$/,"").replace(/\s*\d{4}$/,"").trim()
   const map = {
     "Premier League":"Premier League","English Premier League":"Premier League","EPL":"Premier League",
-    "La Liga":"La Liga","LaLiga":"La Liga","Spanish La Liga":"La Liga","Primera Division":"La Liga","La Liga EA Sports":"La Liga",
+    "La Liga":"La Liga","LaLiga":"La Liga","Primera Division":"La Liga","La Liga EA Sports":"La Liga",
     "Serie A":"Serie A","Italian Serie A":"Serie A",
     "Bundesliga":"Bundesliga","German Bundesliga":"Bundesliga","1. Bundesliga":"Bundesliga",
     "Ligue 1":"Ligue 1","French Ligue 1":"Ligue 1",
     "UEFA Champions League":"Champions League","Champions League":"Champions League","UCL":"Champions League",
     "UEFA Europa League":"Europa League","Europa League":"Europa League",
-    "UEFA Conference League":"Conference League","Conference League":"Conference League","UEFA Europa Conference League":"Conference League",
+    "UEFA Conference League":"Conference League","UEFA Europa Conference League":"Conference League",
     "EFL Championship":"Championship","Championship":"Championship",
     "Scottish Premiership":"Scottish Premiership","Scottish Premier League":"Scottish Premiership",
     "Primeira Liga":"Primeira Liga","Liga Portugal":"Primeira Liga","Liga Portugal Betclic":"Primeira Liga",
     "Eredivisie":"Eredivisie","Dutch Eredivisie":"Eredivisie",
-    "Süper Lig":"Süper Lig","Super Lig":"Süper Lig","Turkish Super Lig":"Süper Lig","Trendyol Süper Lig":"Süper Lig",
+    "Süper Lig":"Süper Lig","Super Lig":"Süper Lig","Trendyol Süper Lig":"Süper Lig",
     "Belgian First Division A":"Belgian Pro League","Jupiler Pro League":"Belgian Pro League","Belgian Pro League":"Belgian Pro League",
-    "Argentine Primera División":"Argentine Primera","Liga Profesional Argentina":"Argentine Primera","Argentine Primera":"Argentine Primera",
-    "Brasileirao Serie A":"Brasileirão","Brazilian Serie A":"Brasileirão","Brasileirão":"Brasileirão",
+    "Argentine Primera División":"Argentine Primera","Liga Profesional Argentina":"Argentine Primera",
+    "Brasileirao Serie A":"Brasileirão","Brasileirão":"Brasileirão",
     "Major League Soccer":"MLS","MLS":"MLS",
-    "Saudi Professional League":"Saudi Pro League","Saudi Pro League":"Saudi Pro League","Roshn Saudi League":"Saudi Pro League",
+    "Saudi Professional League":"Saudi Pro League","Roshn Saudi League":"Saudi Pro League","Saudi Pro League":"Saudi Pro League",
     "FA Cup":"FA Cup","English FA Cup":"FA Cup",
     "EFL Cup":"Carabao Cup","Carabao Cup":"Carabao Cup","League Cup":"Carabao Cup",
-    "2. Bundesliga":"Bundesliga 2","Bundesliga 2":"Bundesliga 2",
-    "LaLiga2":"La Liga 2","La Liga 2":"La Liga 2","Segunda Division":"La Liga 2",
-    "Danish Superliga":"Danish Superliga","Denmark Superliga":"Danish Superliga",
+    "2. Bundesliga":"Bundesliga 2",
+    "Danish Superliga":"Danish Superliga",
     "Greek Super League":"Greek Super League","Super League Greece":"Greek Super League",
-    "Czech First League":"Czech Liga","Fortuna Liga":"Czech Liga","Czech Liga":"Czech Liga",
-    "Zambia Super League":"Zambian Super League","FAZ Super League":"Zambian Super League","Zambian Super League":"Zambian Super League",
-    "Premier Soccer League":"South African PSL","DStv Premiership":"South African PSL","South African PSL":"South African PSL",
-    "Meistriliiga":"Estonian Meistriliiga","Estonian Meistriliiga":"Estonian Meistriliiga",
-    "Copa del Rey":"Copa del Rey","Coppa Italia":"Coppa Italia","DFB Pokal":"DFB Pokal","Coupe de France":"Coupe de France",
+    "Czech First League":"Czech Liga","Fortuna Liga":"Czech Liga",
+    "Zambia Super League":"Zambian Super League","FAZ Super League":"Zambian Super League",
+    "Premier Soccer League":"South African PSL","DStv Premiership":"South African PSL",
+    "Meistriliiga":"Estonian Meistriliiga",
+    "Copa del Rey":"Copa del Rey","Coppa Italia":"Coppa Italia","DFB Pokal":"DFB Pokal",
   }
   if (map[clean]) return map[clean]
   if (map[raw]) return map[raw]
   const cleanLo = clean.toLowerCase()
   for (const [k, v] of Object.entries(map)) {
     if (k.toLowerCase() === cleanLo) return v
-  }
-  for (const [k, v] of Object.entries(map)) {
     if (cleanLo.includes(k.toLowerCase()) || k.toLowerCase().includes(cleanLo)) return v
   }
   return null
@@ -2743,68 +1791,47 @@ function inferTactics(elo, form) {
 
 // ── THE ODDS API ──────────────────────────────────────────
 const ODDS_SPORTS = [
-  { key: "soccer_epl",                          name: "Premier League" },
-  { key: "soccer_spain_la_liga",                name: "La Liga" },
-  { key: "soccer_italy_serie_a",                name: "Serie A" },
-  { key: "soccer_germany_bundesliga",           name: "Bundesliga" },
-  { key: "soccer_france_ligue_one",             name: "Ligue 1" },
-  { key: "soccer_uefa_champs_league",           name: "Champions League" },
-  { key: "soccer_uefa_europa_league",           name: "Europa League" },
-  { key: "soccer_england_efl_cup",              name: "Carabao Cup" },
-  { key: "soccer_fa_cup",                       name: "FA Cup" },
-  { key: "soccer_efl_champ",                    name: "Championship" },
-  { key: "soccer_turkey_super_league",          name: "Süper Lig" },
-  { key: "soccer_belgium_first_div",            name: "Belgian Pro League" },
-  { key: "soccer_portugal_primeira_liga",       name: "Primeira Liga" },
-  { key: "soccer_netherlands_eredivisie",       name: "Eredivisie" },
-  { key: "basketball_nba",                      name: "NBA" },
-  { key: "americanfootball_nfl",                name: "NFL" },
+  { key:"soccer_epl",name:"Premier League" },
+  { key:"soccer_spain_la_liga",name:"La Liga" },
+  { key:"soccer_italy_serie_a",name:"Serie A" },
+  { key:"soccer_germany_bundesliga",name:"Bundesliga" },
+  { key:"soccer_france_ligue_one",name:"Ligue 1" },
+  { key:"soccer_uefa_champs_league",name:"Champions League" },
+  { key:"soccer_uefa_europa_league",name:"Europa League" },
+  { key:"basketball_nba",name:"NBA" },
+  { key:"americanfootball_nfl",name:"NFL" },
 ]
-const prevOddsStore = new Map()
 
 async function fetchOddsAPI() {
   if (!ODDS_KEY) return {}
   return cached("odds_api", async () => {
     const map = {}
     for (const sport of ODDS_SPORTS) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          // NO httpsAgent — causes ERR_BAD_REQUEST
-          const r = await axios.get(`https://api.the-odds-api.com/v4/sports/${sport.key}/odds`, {
-            params: { apiKey: ODDS_KEY, regions: "eu", markets: "h2h", oddsFormat: "decimal" },
-            timeout: 20000,
-            headers: { "Accept": "application/json", "User-Agent": "SlipIQ/1.0" }
-          })
-          const rem = r.headers?.["x-requests-remaining"]
-          if (rem !== undefined && parseInt(rem) < 3) { console.log("⚠️  Odds quota low"); return map }
-          for (const g of (r.data || [])) {
-            const key   = `${g.home_team}||${g.away_team}`
-            const entry = { home: null, draw: null, away: null, ou: {}, btts: {} }
-            for (const book of (g.bookmakers || []).slice(0, 2)) {
-              for (const mkt of (book.markets || [])) {
-                if (mkt.key === "h2h" && !entry.home) {
-                  const out = {}
-                  for (const o of mkt.outcomes) out[o.name] = o.price
-                  entry.home = out[g.home_team]
-                  entry.draw = out["Draw"]
-                  entry.away = out[g.away_team]
-                }
+      try {
+        const r = await axios.get(`https://api.the-odds-api.com/v4/sports/${sport.key}/odds`, {
+          params: { apiKey: ODDS_KEY, regions: "eu", markets: "h2h", oddsFormat: "decimal" },
+          timeout: 20000, headers: { "Accept": "application/json", "User-Agent": "SlipIQ/1.0" }
+        })
+        const rem = r.headers?.["x-requests-remaining"]
+        if (rem !== undefined && parseInt(rem) < 3) { console.log("⚠️  Odds quota low"); return map }
+        for (const g of (r.data || [])) {
+          const key   = `${g.home_team}||${g.away_team}`
+          const entry = { home: null, draw: null, away: null, ou: {}, btts: {} }
+          for (const book of (g.bookmakers || []).slice(0, 2)) {
+            for (const mkt of (book.markets || [])) {
+              if (mkt.key === "h2h" && !entry.home) {
+                const out = {}
+                for (const o of mkt.outcomes) out[o.name] = o.price
+                entry.home = out[g.home_team]; entry.draw = out["Draw"]; entry.away = out[g.away_team]
               }
-              if (entry.home) break
             }
-            if (entry.home || entry.away) map[key] = entry
+            if (entry.home) break
           }
-          console.log(`  ✅ Odds ${sport.name}: ${r.data?.length || 0}`)
-          await sleep(300); break
-        } catch(e) {
-          const code = e.code || "", status = e.response?.status || 0
-          if (status === 401 || status === 422) { console.log(`  ⚠️  Odds ${sport.name}: ${status} (skipping)`); break }
-          if (["ECONNRESET","ETIMEDOUT"].includes(code) && attempt < 2) { await sleep(2000) }
-          else { console.log(`  ⚠️  Odds ${sport.name}: ${code||status}`); break }
+          if (entry.home || entry.away) map[key] = entry
         }
-      }
+        await sleep(300)
+      } catch(e) { console.log(`  ⚠️  Odds ${sport.name}: ${e.code||e.response?.status||'err'}`) }
     }
-    console.log(`✅ Odds API: ${Object.keys(map).length} matches total`)
     return map
   }, TTL.S)
 }
@@ -2833,7 +1860,7 @@ async function buildPrediction(smFix, oddsMap) {
 
     const rawLeague = (smFix.league && smFix.league.name) || "Football"
     const country   = (smFix.league && smFix.league.country && smFix.league.country.name) || ""
-    let league = normLeague(rawLeague)
+    const league = normLeague(rawLeague)
     if (!league) return null
 
     const kickMs = smFix.starting_at_timestamp ? smFix.starting_at_timestamp * 1000 : new Date(smFix.starting_at || 0).getTime()
@@ -2852,22 +1879,26 @@ async function buildPrediction(smFix, oddsMap) {
     const hasRealOdds = !!(smOdds.home && smOdds.draw && smOdds.away)
     const smPred = smFix.predictions ? extractSMPreds(smFix.predictions) : {}
 
+    // Extract Sportmonks match statistics and apply to team weights
+    if (smFix.statistics && Array.isArray(smFix.statistics)) {
+      const homeStats = smFix.statistics.filter(s => s.participant_id === homeId)
+      const awayStats = smFix.statistics.filter(s => s.participant_id === awayId)
+      if (homeStats.length) applyStatsToTeamWeights(home, extractSMStats(homeStats))
+      if (awayStats.length) applyStatsToTeamWeights(away, extractSMStats(awayStats))
+    }
+
     let hForm = [], aForm = []
     if (homeId) hForm = await smTeamForm(homeId).then(f => f.map(x => x.result)).catch(() => [])
     if (awayId) aForm = await smTeamForm(awayId).then(f => f.map(x => x.result)).catch(() => [])
 
     const hElo = getElo(home, league, 0.5)
     const aElo = getElo(away, league, 0.5)
-    // Get per-team adaptive weights
-const hW = getTeamWeights(home)
-const aW = getTeamWeights(away)
+    const hW = getTeamWeights(home)
+    const aW = getTeamWeights(away)
 
-// Apply team-specific home/away multipliers to xG calculation
-const hHomeAdj = hW.homeWin / 0.62   // ratio vs baseline
-const aAwayAdj = aW.awayWin / 0.38
+    const hxg = calcXG(hElo, aElo, hForm, true,  null, home)
+    const axg = calcXG(aElo, hElo, aForm, false, null, away)
 
-const hxg  = calcXG(hElo, aElo, hForm, true,  null) * hHomeAdj
-const axg  = calcXG(aElo, hElo, aForm, false, null) * aAwayAdj
     const markets = buildAllMarkets(hxg, axg, smOdds, smPred, realOddsEntry)
     const { homeProb, drawProb, awayProb } = markets
 
@@ -2878,10 +1909,8 @@ const axg  = calcXG(aElo, hElo, aForm, false, null) * aAwayAdj
 
     const hVal = detectValue(homeProb, homeOdds)
     const aVal = detectValue(awayProb, awayOdds)
-
     const h2h = await smH2H(homeId, awayId).catch(() => [])
 
-    // Lineups from SM fixture
     const lus = smFix.lineups || []
     const buildLu = (tId, tName, tElo) => lus.filter(l => l.team_id === tId).slice(0, 11).map((l, idx) => {
       const pos   = mapPosId(l.position_id) || "CM"
@@ -2889,19 +1918,12 @@ const axg  = calcXG(aElo, hElo, aForm, false, null) * aAwayAdj
       const db    = playerDB.get(`${pName}__${tName}`)
       const pElo  = (db && db.elo) || buildPlayerElo(pName, pos, tElo, null, 0, 0)
       const attrs = db || buildPlayerAttrs(pName, pos, pElo, tElo, null)
-      return {
-        number: l.jersey_number || idx + 1, name: pName, position: pos, elo: pElo,
-        isKey: attrs?.is_key || false, speed: attrs?.speed || 60, attack: attrs?.attack || 60,
-        defense: attrs?.defense || 60, bigMatch: attrs?.bigMatch || attrs?.big_match || 60,
-        playstyle: attrs?.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM,
-        goals_this_season: attrs?.goals_this_season || null,
-        real_rating: attrs?.real_rating || null,
-      }
+      return { number: l.jersey_number || idx + 1, name: pName, position: pos, elo: pElo, isKey: attrs?.is_key || false, speed: attrs?.speed || 60, attack: attrs?.attack || 60, defense: attrs?.defense || 60, bigMatch: attrs?.bigMatch || attrs?.big_match || 60, playstyle: attrs?.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM, goals_this_season: attrs?.goals_this_season || null, real_rating: attrs?.real_rating || null }
     })
     const homeLineup = buildLu(homeId, home, hElo)
     const awayLineup = buildLu(awayId, away, aElo)
     const mismatches = detectMismatches(homeLineup, awayLineup, home, away)
-    const gameApproach = buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league)
+    const gameApproach = buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league, hW, aW)
 
     let score = null
     if (smFix.scores?.length) {
@@ -2916,12 +1938,10 @@ const axg  = calcXG(aElo, hElo, aForm, false, null) * aAwayAdj
       leagueId: smFix.league_id, seasonId: smFix.season_id,
       home, away, league, leagueName: league, flag: leagueFlag(country), country,
       date: smFix.starting_at, isLive, isFinished: smFix.state_id === 5, score, minute: null,
-      homeProb, drawProb, awayProb,
-      gameApproach,
+      homeProb, drawProb, awayProb, gameApproach,
       homeOdds: parseFloat(homeOdds.toFixed(2)),
       drawOdds: parseFloat(drawOdds.toFixed(2)),
       awayOdds: parseFloat(awayOdds.toFixed(2)),
-      homeMovement: 0, drawMovement: 0, awayMovement: 0,
       hasRealOdds, confidence,
       upsetProb:    Math.min(95, Math.round(awayProb * 0.8 + (homeOdds < 1.6 ? 15 : 5))),
       isUpsetWatch: awayProb > 28 && homeOdds > 1.5,
@@ -2930,11 +1950,10 @@ const axg  = calcXG(aElo, hElo, aForm, false, null) * aAwayAdj
       homeElo: hElo, awayElo: aElo,
       homeForm: hForm.slice(0, 5), awayForm: aForm.slice(0, 5),
       homeXg: parseFloat(hxg.toFixed(2)), awayXg: parseFloat(axg.toFixed(2)),
-      hasRealXG: false,
       homeTactics: inferTactics(hElo, hForm), awayTactics: inferTactics(aElo, aForm),
       homeFormation: "4-3-3", awayFormation: "4-3-3",
       homeLineup, awayLineup, mismatches, h2h,
-      factors: buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred),
+      factors: buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW),
       markets, bttsProb: markets.bttsYesPct, over25Prob: markets.over25Prob,
       ouProbs: markets.ouProbs, ouOdds: markets.ouOdds, bttsOdds: markets.bttsOdds, correctScores: markets.correctScores,
       smPredictions: smPred,
@@ -2951,7 +1970,6 @@ const LEAGUE_RANK = {
   "Championship":11,"Primeira Liga":12,"Eredivisie":13,"Süper Lig":14,
   "Belgian Pro League":15,"Scottish Premiership":16,"Argentine Primera":17,
   "Brasileirão":20,"MLS":21,"Saudi Pro League":22,
-  "Danish Superliga":23,"Greek Super League":24,"Czech Liga":25,
 }
 
 // ── AI ─────────────────────────────────────────────────────
@@ -2969,13 +1987,16 @@ async function callAI(prompt, maxTokens) {
     return JSON.parse(raw)
   } catch(e) { console.log("❌ AI:", e.message?.slice(0, 80)); return { error: "AI failed" } }
 }
-// ── AUTO-POPULATE SQUADS ──────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════
+//  AUTO-POPULATE SQUADS
+// ══════════════════════════════════════════════════════════
 async function autoPopulateSquads() {
   if (!SM_KEY) return
   console.log('🔄 Auto-populating real squad data from Sportmonks...')
   try {
     const fixtures = cache.get('sm_fix_14')?.data || await smFixtures(14).catch(() => [])
-    const teamMap = new Map()  // id → name
+    const teamMap = new Map()
     for (const f of fixtures) {
       for (const p of (f.participants || [])) {
         if (p.id && p.name) teamMap.set(p.id, p.name)
@@ -2989,15 +2010,12 @@ async function autoPopulateSquads() {
       if (hit && Date.now() - hit.ts < TTL.XL) continue
       try {
         let entries = []
-        for (const inc of ['player;player.position;player.statistics.data', 'player;player.position', 'player']) {
+        for (const inc of ['player;player.position;player.statistics.data','player;player.position','player']) {
           try {
             const r = await http(`${SM_BASE}/squads/teams/${teamId}`, { api_token: SM_KEY, include: inc, per_page: 50 })
             entries = r.data?.data || []
             if (entries.length > 0) break
-          } catch(e2) {
-            if ([403, 401, 422].includes(e2.response?.status)) break
-            await sleep(500)
-          }
+          } catch(e2) { if ([403,401,422].includes(e2.response?.status)) break; await sleep(500) }
         }
         if (!entries.length) continue
         const tElo = getElo(teamName)
@@ -3015,15 +2033,7 @@ async function autoPopulateSquads() {
           const rating  = parseFloat(stats.rating) || 0
           const pElo  = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
           const attrs = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
-          const row = {
-            player_name: pName, team_name: teamName, sm_player_id: p.id,
-            position: pos, elo: pElo, speed: attrs.speed, attack: attrs.attack,
-            defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
-            playstyle_name: attrs.playstyle.name,
-            goals_this_season: goals, assists_this_season: assists,
-            appearances: apps, real_rating: rating || null,
-            updated_at: new Date().toISOString()
-          }
+          const row = { player_name:pName, team_name:teamName, sm_player_id:p.id, position:pos, elo:pElo, speed:attrs.speed, attack:attrs.attack, defense:attrs.defense, big_match:attrs.bigMatch, is_key:attrs.isKey, playstyle_name:attrs.playstyle.name, goals_this_season:goals, assists_this_season:assists, appearances:apps, real_rating:rating||null, updated_at:new Date().toISOString() }
           playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle })
           if (!squadDB.has(teamName)) squadDB.set(teamName, [])
           const sq2 = squadDB.get(teamName)
@@ -3033,24 +2043,15 @@ async function autoPopulateSquads() {
           if (sb) sbSave('player_ratings', row, 'player_name,team_name')
           teamPulled++; pulled++
         }
-        if (teamPulled > 0) {
-          console.log(`  ✅ ${teamName}: ${teamPulled} real players`)
-          teams++
-        }
+        if (teamPulled > 0) { console.log(`  ✅ ${teamName}: ${teamPulled} real players`); teams++ }
         cache.set(cacheKey, { data: entries, ts: Date.now() })
         await sleep(350)
-      } catch(e) {
-        if (e.response?.status === 429) { await sleep(8000) }
-      }
+      } catch(e) { if (e.response?.status === 429) { await sleep(8000) } }
     }
     console.log(`✅ Squads complete: ${teams} teams, ${pulled} real players`)
   } catch(e) { console.log('⚠️  autoPopulateSquads:', e.message) }
 }
 
-app.post('/admin/pull-squads', async (req, res) => {
-  autoPopulateSquads().catch(() => {})
-  res.json({ ok: true, message: 'Squad pull started in background', playerCount: playerDB.size })
-})
 // ══════════════════════════════════════════════════════════
 //  ROUTES
 // ══════════════════════════════════════════════════════════
@@ -3067,11 +2068,7 @@ app.get("/predictions", async (req, res) => {
     ])
     const all = new Map()
     for (const f of [...smList, ...liveList]) all.set(f.id, f)
-    const filtered = [...all.values()].filter(f => {
-      const norm = normLeague((f.league && f.league.name) || "")
-      return !!norm
-    })
-    const fixtures = filtered.slice(0, 400)
+    const fixtures = [...all.values()].filter(f => !!normLeague((f.league && f.league.name) || "")).slice(0, 400)
     console.log(`⚙️  Building ${fixtures.length} football predictions...`)
     const results = []
     const BATCH = 20
@@ -3087,143 +2084,57 @@ app.get("/predictions", async (req, res) => {
     }))
   } catch(e) { console.error("❌ /predictions:", e.message); res.status(500).json({ error: e.message }) }
 })
-// GET user's own referral code
-app.get("/referral/my/:userId", async (req, res) => {
-  if (!sb) return res.json({ code: 'SLIP' + req.params.userId.slice(0,8).toUpperCase() })
-  const { data } = await sb.from('subscriptions')
-    .select('referral_code, referral_count, referral_rewards_claimed, plan')
-    .eq('user_id', req.params.userId).single().catch(() => ({data:null}))
-  if (!data) return res.json({ code: null })
-  const made = data.referral_count || 0
-  res.json({
-    code: data.referral_code,
-    referral_count: made,
-    referral_rewards_claimed: data.referral_rewards_claimed || 0,
-    next_reward_at: made < 3 ? 3 : made < 5 ? 5 : made < 8 ? 8 : 'maxed',
-    plan: data.plan
-  })
-})
 
-// Validate a referral code
-app.get("/referral/validate/:code", async (req, res) => {
-  if (!sb) return res.json({ valid: false })
-  const code = req.params.code.toUpperCase().trim()
-  const { data } = await sb.from('subscriptions')
-    .select('user_id, plan, referral_code, referral_count')
-    .eq('referral_code', code).single().catch(() => ({data:null}))
-  if (!data) return res.json({ valid: false, message: 'Code not found' })
-  res.json({ valid: true, code, referrer_plan: data.plan, referrer_user_id: data.user_id })
-})
-
-// Apply before Stripe checkout
-app.post("/referral/apply", async (req, res) => {
-  if (!sb) return res.json({ ok: true, discount: 25 })
-  const { code, user_email, user_id, plan } = req.body
-  const ELIGIBLE = ['pro', 'elite', 'platinum', 'plus']
-  if (plan && !ELIGIBLE.includes(plan)) {
-    return res.json({ ok: false, reason: 'plan_not_eligible',
-      message: 'Referral codes can only be used on Pro plan and above.' })
-  }
-  const { data: referrer } = await sb.from('subscriptions')
-    .select('user_id, referral_code, plan').eq('referral_code', code.toUpperCase()).single().catch(() => ({data:null}))
-  if (!referrer) return res.json({ ok: false, message: 'Code not found' })
-  if (user_id && referrer.user_id === user_id) return res.json({ ok: false, message: 'Cannot use your own code' })
-  if (user_id) {
-    const { data: me } = await sb.from('subscriptions')
-      .select('referral_used').eq('user_id', user_id).single().catch(() => ({data:null}))
-    if (me?.referral_used) return res.json({ ok: false, message: 'You have already used a referral code' })
-  }
-  res.json({ ok: true, discount: 25, referrer_user_id: referrer.user_id,
-    message: '✓ Code applied! 25% off your first month.' })
-})
-
-// Confirm after payment
-app.post("/referral/confirm", async (req, res) => {
-  if (!sb) return res.json({ ok: true })
-  const { code, referred_user_id, referrer_user_id } = req.body
-  if (!referrer_user_id) return res.json({ ok: false })
-  // Mark referred user
-  if (referred_user_id) {
-    await sb.from('subscriptions').update({
-      referral_code_used: code, referral_used: true, updated_at: new Date().toISOString()
-    }).eq('user_id', referred_user_id).catch(() => {})
-  }
-  // Increment referrer count
-  const { data: ref } = await sb.from('subscriptions')
-    .select('referral_count, plan').eq('user_id', referrer_user_id).single().catch(() => ({data:null}))
-  const newCount = (ref?.referral_count || 0) + 1
-  let rewardPlan = null
-  if (newCount >= 8 && newCount % 8 === 0) rewardPlan = 'platinum'
-  else if (newCount >= 5 && newCount % 5 === 0) rewardPlan = 'elite'
-  else if (newCount % 3 === 0) rewardPlan = 'pro'
-  const updateData = { referral_count: newCount, updated_at: new Date().toISOString() }
-  if (rewardPlan) {
-    updateData.plan = rewardPlan
-    updateData.credits_total = PLAN_CREDITS[rewardPlan] || 265
-    updateData.credits_reset_at = new Date(Date.now() + 30*86400000).toISOString()
-  }
-  await sb.from('subscriptions').update(updateData).eq('user_id', referrer_user_id).catch(() => {})
-  res.json({ ok: true, referral_count: newCount, reward_plan: rewardPlan })
-})
 // ── SPORT-SPECIFIC ROUTES ─────────────────────────────────
-app.get("/predictions/nba", async (req, res) => {
+app.get("/predictions/nba", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const games = await fetchNBAGames()
     const preds = games.map(buildNBAPrediction).filter(Boolean)
-    console.log(`✅ NBA response: ${preds.length} predictions`)
+    console.log(`✅ NBA: ${preds.length}`)
     res.json(preds)
-  } catch(e) { console.log("❌ /predictions/nba:", e.message); res.json([]) }
+  } catch(e) { res.json([]) }
 })
 
-app.get("/predictions/nfl", async (req, res) => {
+app.get("/predictions/nfl", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const events = await fetchNFLGames()
     const preds  = events.map(buildNFLPrediction).filter(Boolean)
-    console.log(`✅ NFL response: ${preds.length} predictions`)
+    console.log(`✅ NFL: ${preds.length}`)
     res.json(preds)
-  } catch(e) { console.log("❌ /predictions/nfl:", e.message); res.json([]) }
+  } catch(e) { res.json([]) }
 })
 
-app.get("/predictions/tennis", async (req, res) => {
+app.get("/predictions/tennis", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const events = await fetchTennisTournaments()
     const preds  = events.map(buildTennisPrediction).filter(Boolean)
     const { surface, tour } = req.query
-    const filtered = preds.filter(p =>
-      (!surface || (p.surface||"").toLowerCase() === surface.toLowerCase()) &&
-      (!tour    || (p.tour||"").toLowerCase() === tour.toLowerCase())
-    )
-    console.log(`✅ Tennis response: ${filtered.length} predictions`)
-    res.json(filtered)
-  } catch(e) { console.log("❌ /predictions/tennis:", e.message); res.json([]) }
+    res.json(preds.filter(p => (!surface || (p.surface||"").toLowerCase() === surface.toLowerCase()) && (!tour || (p.tour||"").toLowerCase() === tour.toLowerCase())))
+  } catch(e) { res.json([]) }
 })
 
-app.get("/predictions/f1", async (req, res) => {
+app.get("/predictions/f1", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const data = await fetchF1NextRace()
-    console.log(`✅ F1 response: ${data.predictions?.length||0} predictions`)
     res.json({ predictions: data.predictions || [], standings: data.standings || [] })
-  } catch(e) { console.log("❌ /predictions/f1:", e.message); res.json({ predictions: [], standings: [] }) }
+  } catch(e) { res.json({ predictions: [], standings: [] }) }
 })
 
-app.get("/predictions/boxing", async (req, res) => {
+app.get("/predictions/boxing", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const events = await fetchBoxingEvents()
     const preds  = events.map(buildBoxingPrediction).filter(Boolean)
     const { weightClass } = req.query
-    const filtered = weightClass ? preds.filter(p => (p.weightClass||"").toLowerCase().includes(weightClass.toLowerCase())) : preds
-    console.log(`✅ Boxing response: ${filtered.length} predictions`)
-    res.json(filtered)
-  } catch(e) { console.log("❌ /predictions/boxing:", e.message); res.json([]) }
+    res.json(weightClass ? preds.filter(p => (p.weightClass||"").toLowerCase().includes(weightClass.toLowerCase())) : preds)
+  } catch(e) { res.json([]) }
 })
 
-app.get("/predictions/mma", async (req, res) => {
+app.get("/predictions/mma", requireAccess('sport_analysis'), async (req, res) => {
   try {
     const events = await fetchMMAEvents()
     const preds  = events.map(buildMMAPrediction).filter(Boolean)
-    console.log(`✅ MMA response: ${preds.length} predictions`)
     res.json(preds)
-  } catch(e) { console.log("❌ /predictions/mma:", e.message); res.json([]) }
+  } catch(e) { res.json([]) }
 })
 
 // ── NEWS ──────────────────────────────────────────────────
@@ -3247,8 +2158,7 @@ app.get("/news", async (req, res) => {
 })
 
 app.post("/news/analyze", requireAccess('news_analysis'), async (req, res) => {
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId
-  const { article, predictions } = req.body
+  const { article } = req.body
   if (!article) return res.json({ error: "No article" })
   try {
     const prompt = `Football betting analyst. Analyze this news for betting impact.\nTitle: ${article.title||""}\nBody: ${(article.body||article.description||"").slice(0,600)}\nReturn JSON: {"summary":"2 sentences","impactLevel":"HIGH|MEDIUM|LOW|NONE","marketImpact":"odds insight","recommendation":"betting action","keyInsight":"most important insight","impactTeams":["team1"]}`
@@ -3257,8 +2167,7 @@ app.post("/news/analyze", requireAccess('news_analysis'), async (req, res) => {
 })
 
 // ── ANALYZE ───────────────────────────────────────────────
-app.post("/analyze", async (req, res) => {
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId
+app.post("/analyze", requireAccess('match_analysis'), async (req, res) => {
   const { match, type } = req.body
   try {
     let prompt = ""
@@ -3267,7 +2176,9 @@ app.post("/analyze", async (req, res) => {
       const hKeys = (squadDB.get(m.home)||[]).filter(p=>p.is_key).map(p=>`${p.player_name}(${p.position},ELO${p.elo})`).slice(0,5).join(",") || "SM data loading"
       const aKeys = (squadDB.get(m.away)||[]).filter(p=>p.is_key).map(p=>`${p.player_name}(${p.position},ELO${p.elo})`).slice(0,5).join(",") || "SM data loading"
       const sport = m.sport || 'football'
-      prompt = `${sport.toUpperCase()} Match: ${m.home} vs ${m.away} | ${m.league}\nELO: H${m.homeElo} A${m.awayElo}\nProbs: H${m.homeProb}% D${m.drawProb||0}% A${m.awayProb}%\nKey players H: ${hKeys}\nKey players A: ${aKeys}\nReturn JSON: {"mainAnalysis":"3-4 sentences with specific player names","recommendation":"${sport==='football'?'Home Win|Draw|Away Win':'Home Win|Away Win'}","oneLineSummary":"sharp one-liner","keyFactors":["5 factors"],"mismatchImpact":"key matchup","confidenceRating":${m.confidence}}`
+      const hW = getTeamWeights(m.home)
+      const aW = getTeamWeights(m.away)
+      prompt = `${sport.toUpperCase()} Match: ${m.home} vs ${m.away} | ${m.league}\nELO: H${m.homeElo} A${m.awayElo}\nProbs: H${m.homeProb}% D${m.drawProb||0}% A${m.awayProb}%\nKey players H: ${hKeys}\nKey players A: ${aKeys}\nHome possession avg: ${Math.round((hW.avgPossession||0.5)*100)}%\nAway possession avg: ${Math.round((aW.avgPossession||0.5)*100)}%\nHome clean sheet rate: ${Math.round((hW.cleanSheetRate||0.3)*100)}%\nAway clean sheet rate: ${Math.round((aW.cleanSheetRate||0.3)*100)}%\nReturn JSON: {"mainAnalysis":"3-4 sentences with specific player names","recommendation":"${sport==='football'?'Home Win|Draw|Away Win':'Home Win|Away Win'}","oneLineSummary":"sharp one-liner","keyFactors":["5 factors"],"mismatchImpact":"key matchup","confidenceRating":${m.confidence}}`
     } else if (type === "upset") {
       const m = match
       prompt = `Upset pick: ${m.home}(ELO${m.homeElo}) vs ${m.away}(ELO${m.awayElo},odds:${m.awayOdds})\nReturn JSON: {"upsetReasons":["4 reasons"],"upsetTrigger":"scenario","worthBacking":true,"upsetConfidence":${m.awayProb}}`
@@ -3278,63 +2189,123 @@ app.post("/analyze", async (req, res) => {
     } else if (type === "player") {
       const { player: pl, team: tn } = match
       prompt = `Scout: ${pl.player_name||pl.name}(${pl.position}) at ${tn}. ELO:${pl.elo}\nReturn JSON: {"profile":"2-3 sentences","strengths":["3"],"weaknesses":["2"],"similarTo":"real comparable player"}`
+    } else if (type === "team") {
+      const { team: tn, sport: sp } = match
+      const w = getTeamWeights(tn)
+      prompt = `Scout report for ${tn} (${sp||'football'}). Match count: ${w.matchCount}. Home win rate: ${Math.round(w.homeWin*100)}%. Away win rate: ${Math.round(w.awayWin*100)}%. Possession: ${Math.round((w.avgPossession||0.5)*100)}%. Clean sheet rate: ${Math.round((w.cleanSheetRate||0.3)*100)}%.\nReturn JSON: {"profile":"2-3 sentences","strengths":["3 tactical strengths"],"weaknesses":["2 weaknesses"]}`
     }
     res.json(await callAI(prompt))
   } catch(e) { res.json({ error: "Analysis failed" }) }
 })
+
+// ── TEAMS ─────────────────────────────────────────────────
 app.get('/teams', async (req, res) => {
   try {
-    const r = await httpExt(
-      'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams',
-      { limit: 100 }
-    )
+    const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams', { limit: 100 })
     const teams = (r.data?.sports?.[0]?.leagues?.[0]?.teams || []).map(t => ({
       name: t.team?.displayName || t.team?.name,
       elo: getElo(t.team?.displayName || ''),
-      country: 'England',
-      league: 'Premier League',
+      country: 'England', league: 'Premier League',
     }))
     res.json(teams)
   } catch(e) { res.json([]) }
 })
+
+app.get('/teams/:sport', async (req, res) => {
+  res.json([])
+})
+
+// ── SQUAD BY NAME ────────────────────────────────────────
+app.get('/squad/byname/:teamName', async (req, res) => {
+  const teamName = decodeURIComponent(req.params.teamName)
+  const cached = squadDB.get(teamName)
+  if (cached && cached.length) return res.json(cached)
+  res.json([])
+})
+
 // ── PARLAY AUTO-BUILD ─────────────────────────────────────
-app.post("/parlay/auto", async (req, res) => {
-  const { predictions=[], targetOdds=4.0, riskLevel=5, minLegs=2, maxLegs=8, preferredMarkets=["auto"] } = req.body
-  if (!predictions.length) return res.json({ parlay: [], combinedOdds: 1, error: "No predictions" })
+app.post("/parlay/auto", requireAccess('auto_parlay'), async (req, res) => {
+  const { predictions=[], targetOdds=4.0, riskLevel=5, minLegs=2, maxLegs=8,
+          preferredMarkets=["h2h"], enabledSports=["football"], timeframeDays=7 } = req.body
+
+  if (!predictions.length) return res.json({ parlay: [], notEnoughMatches: "No predictions provided" })
+
   const now = Date.now()
-  const pool = predictions.filter(m => !m.isLive && !m.isFinished && (!m.date || new Date(m.date).getTime() - now <= 14 * 86400000))
-  if (!pool.length) return res.json({ parlay: [], combinedOdds: 1, notEnoughMatches: "No upcoming matches" })
+  const maxMs = timeframeDays * 86400000
+  const pool = predictions.filter(m =>
+    !m.isLive && !m.isFinished &&
+    (!m.date || (new Date(m.date).getTime() >= now - 3600000 && new Date(m.date).getTime() <= now + maxMs))
+  )
+
+  if (!pool.length) return res.json({ parlay: [], notEnoughMatches: "No upcoming matches in timeframe" })
+
   const candidates = []
-  const mkts = Array.isArray(preferredMarkets) ? preferredMarkets : ["auto"]
+  const mkts = Array.isArray(preferredMarkets) ? preferredMarkets : ["h2h"]
+
   for (const m of pool) {
-    const addPick = (pick, label, odds, prob) => {
-      if (!odds || odds < 1.04 || !prob || prob < 1) return
-      const edge  = prob - 100 / odds
-      const score = (prob*0.55) + (edge*2.5) + ((10-riskLevel)*0.8) + (m.hasRealOdds?6:0)
-      candidates.push({ matchId: m.id, pick, label, odds: parseFloat(odds.toFixed(2)), prob: Math.round(prob), matchName: `${m.home} vs ${m.away}`, league: m.league, confidence: m.confidence, hasRealOdds: m.hasRealOdds, sport: m.sport || 'football', score, edge: parseFloat(edge.toFixed(2)) })
+    const sport = m.sport || 'football'
+    const addLeg = (pick, label, odds, prob) => {
+      if (!odds || odds < 1.04 || !prob || prob < 5) return
+      const impliedProb = 100 / odds
+      const edge = prob - impliedProb
+      const leagueBonus = (m.league && ['Premier League','La Liga','Champions League','Serie A','Bundesliga','NBA','NFL'].includes(m.league)) ? 4 : 0
+      const realOddsBonus = m.hasRealOdds ? 8 : 0
+      const score = (prob * 0.45) + (edge * 3) + (m.confidence||0) * 0.15 + leagueBonus + realOddsBonus + (10-riskLevel)*0.5
+      candidates.push({ matchId:m.id, pick, label, odds:parseFloat(parseFloat(odds).toFixed(2)), prob:Math.round(prob), matchName:(m.home||'?')+' vs '+(m.away||'?'), league:m.league, confidence:m.confidence||prob, hasRealOdds:m.hasRealOdds, sport, score, edge:parseFloat(edge.toFixed(2)), date:m.date })
     }
-    for (const mkt of mkts) {
-      if (["1x2","auto","h2h"].includes(mkt)) {
-        addPick("home",`${m.home} Win`,m.homeOdds,m.homeProb)
-        if (m.drawOdds) addPick("draw","Draw",m.drawOdds,m.drawProb)
-        addPick("away",`${m.away} Win`,m.awayOdds,m.awayProb)
+
+    if (mkts.some(k => ['h2h','1x2','auto'].includes(k))) {
+      addLeg('home', (m.home||'?')+' Win', m.homeOdds, m.homeProb)
+      if (m.drawOdds && m.drawProb) addLeg('draw', 'Draw', m.drawOdds, m.drawProb)
+      addLeg('away', (m.away||'?')+' Win', m.awayOdds, m.awayProb)
+    }
+    if (mkts.some(k => ['btts','auto'].includes(k)) && m.bttsOdds?.yes && m.bttsProb) {
+      addLeg('btts_yes', 'Both Teams Score', m.bttsOdds.yes, m.bttsProb)
+    }
+    const ouLines = { 'ou_1.5':1.5,'ou_2.5':2.5,'ou_3.5':3.5,'ou_4.5':4.5 }
+    for (const [mktKey, pts] of Object.entries(ouLines)) {
+      if (mkts.some(k => [mktKey,'auto'].includes(k)) && m.ouOdds?.[pts]) {
+        const ou = m.ouOdds[pts], op = m.ouProbs?.[pts]
+        if (ou.over && op?.overPct) addLeg('over_'+pts, 'Over '+pts, ou.over, op.overPct)
+        if (ou.under && op?.underPct) addLeg('under_'+pts, 'Under '+pts, ou.under, op.underPct)
       }
-      if (["btts","auto"].includes(mkt) && m.bttsOdds?.yes) addPick("btts_yes","Both Teams Score",m.bttsOdds.yes,m.bttsProb)
-      if (["ou_2.5","auto"].includes(mkt) && m.ouOdds?.[2.5]?.over) addPick("over_2.5","Over 2.5 Goals",m.ouOdds[2.5].over,m.ouProbs?.[2.5]?.overPct)
     }
   }
+
+  if (!candidates.length) return res.json({ parlay: [], notEnoughMatches: "No valid legs" })
+
   candidates.sort((a, b) => b.score - a.score)
-  const used = new Set(), selected = []
-  let co = 1.0
+
+  const used = new Set()
+  const selected = []
+  let combinedOdds = 1.0
+
   for (const c of candidates) {
-    if (used.has(c.matchId) || c.prob < 30) continue
-    if (selected.length >= maxLegs || (co >= targetOdds && selected.length >= minLegs)) break
-    selected.push(c); used.add(c.matchId); co *= c.odds
+    if (selected.length >= maxLegs) break
+    if (used.has(c.matchId)) continue
+    if (c.prob < Math.max(15, 55 - riskLevel * 4)) continue
+    selected.push(c); used.add(c.matchId); combinedOdds *= c.odds
+    if (combinedOdds >= targetOdds && selected.length >= minLegs) break
   }
-  if (!selected.length) return res.json({ parlay: [], combinedOdds: 1, notEnoughMatches: "No picks meet criteria" })
+
+  if (selected.length > minLegs && combinedOdds > targetOdds * 2.5) {
+    let bestRemoveIdx = -1, bestDiff = Infinity
+    for (let i = 0; i < selected.length; i++) {
+      const newOdds = combinedOdds / selected[i].odds
+      const diff = Math.abs(newOdds - targetOdds)
+      if (diff < bestDiff && selected.length - 1 >= minLegs) { bestDiff = diff; bestRemoveIdx = i }
+    }
+    if (bestRemoveIdx >= 0) { combinedOdds /= selected[bestRemoveIdx].odds; selected.splice(bestRemoveIdx, 1) }
+  }
+
+  if (!selected.length || selected.length < minLegs) {
+    return res.json({ parlay: [], notEnoughMatches: "Could not build parlay — try lower target odds" })
+  }
+
   const avgConf = selected.reduce((s, c) => s + c.prob, 0) / selected.length
-  const score   = Math.max(10, Math.min(99, Math.round(avgConf - Math.max(0,(selected.length-3)*5) + (10-riskLevel)*2)))
-  res.json({ parlay: selected, combinedOdds: parseFloat(co.toFixed(2)), score })
+  const score = Math.max(10, Math.min(99, Math.round(avgConf - Math.max(0,(selected.length-3)*5) + (10-riskLevel)*2)))
+
+  res.json({ parlay:selected, combinedOdds:parseFloat(combinedOdds.toFixed(2)), targetOdds, score, legCount:selected.length, markets:[...new Set(selected.map(s=>s.pick.split('_')[0]))], sports:[...new Set(selected.map(s=>s.sport))] })
 })
 
 // ── PARLAYS ───────────────────────────────────────────────
@@ -3354,13 +2325,22 @@ app.get("/parlays/:userId", async (req, res) => {
 })
 
 // ── USER & CREDITS ────────────────────────────────────────
+// Looks up by user_id (Supabase auth uid) — matches your schema
 app.get("/user/:userId", async (req, res) => {
-  if (!sb) return res.status(503).json({ error: "Supabase not configured" })
+  if (!sb) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_available:25 })
   try {
-    const { data, error } = await sb.from("subscriptions").select("*").eq("id", req.params.userId).single()
+    const uid = req.params.userId
+    // Try by user_id first (preferred), then by id column as fallback
+    let { data, error } = await sb.from("subscriptions").select("*").eq("user_id", uid).single()
+    if (error || !data) {
+      const r2 = await sb.from("subscriptions").select("*").eq("id", uid).single()
+      data = r2.data; error = r2.error
+    }
     if (error || !data) return res.status(404).json({ error: "User not found" })
-    const available = data.plan === "platinum" ? 999999 : Math.max(0, (data.credits_total||0) - (data.credits_used||0))
-    res.json({ ...data, credits_available: available })
+    const plan = data.plan || 'free'
+    const unlimited = plan === 'platinum'
+    const available = unlimited ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
+    res.json({ ...data, credits_available: available, unlimited })
   } catch(e) { res.status(500).json({ error: e.message }) }
 })
 
@@ -3368,12 +2348,132 @@ app.post("/credits/use", async (req, res) => {
   if (!sb) return res.status(503).json({ error: "Supabase not configured" })
   const { user_id, action } = req.body
   if (!user_id || !action) return res.status(400).json({ error: "Missing fields" })
-  const cost = ACTION_COSTS[action]
-  if (cost === undefined) return res.status(400).json({ error: "Unknown action" })
   const access = await checkAccess(user_id, action)
   if (!access.ok) return res.status(402).json({ ok: false, ...access })
   const result = await useCredits(user_id, action)
   res.json(result)
+})
+
+app.get("/credits/:userId", async (req, res) => {
+  if (!sb) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
+  const uid = req.params.userId
+  let { data } = await sb.from('subscriptions')
+    .select('plan, credits_total, credits_used, credits_reset_at, referral_code, referral_count')
+    .eq('user_id', uid).single().catch(() => ({ data: null }))
+  if (!data) {
+    // fallback to id
+    const r2 = await sb.from('subscriptions').select('plan, credits_total, credits_used, credits_reset_at, referral_code, referral_count').eq('id', uid).single().catch(() => ({ data: null }))
+    data = r2.data
+  }
+  if (!data) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
+  const plan = data.plan || 'free'
+  const unlimited = plan === 'platinum'
+  const remaining = unlimited ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
+  res.json({ plan, credits_total:data.credits_total, credits_used:data.credits_used, credits_remaining:remaining, unlimited, reset_at:data.credits_reset_at, referral_code:data.referral_code, referral_count:data.referral_count })
+})
+
+app.post('/credits/check', async (req, res) => {
+  const userId = req.headers['x-user-id'] || req.body?.userId
+  const { action } = req.body
+  if (!userId || !action) return res.json({ ok: true })
+  const access = await checkAccess(userId, action)
+  res.json(access)
+})
+
+// ── REFERRALS ─────────────────────────────────────────────
+app.get("/referral/my/:userId", async (req, res) => {
+  if (!sb) return res.json({ code: 'SLIP' + req.params.userId.slice(0,8).toUpperCase() })
+  const uid = req.params.userId
+  // Try user_id, then id
+  let { data } = await sb.from('subscriptions')
+    .select('referral_code, referral_count, referral_rewards_claimed, plan')
+    .eq('user_id', uid).single().catch(() => ({data:null}))
+  if (!data) {
+    const r2 = await sb.from('subscriptions').select('referral_code, referral_count, referral_rewards_claimed, plan').eq('id', uid).single().catch(() => ({data:null}))
+    data = r2?.data
+  }
+  if (!data) {
+    // Create a deterministic code from userId
+    return res.json({ code: 'SLIP' + uid.replace(/-/g,'').slice(0,8).toUpperCase(), referral_count: 0, referral_rewards_claimed: 0 })
+  }
+  const made = data.referral_count || 0
+  // Ensure referral_code is set in DB
+  if (!data.referral_code) {
+    const code = 'SLIP' + uid.replace(/-/g,'').slice(0,8).toUpperCase()
+    await sb.from('subscriptions').update({ referral_code: code, updated_at: new Date().toISOString() }).eq('user_id', uid).catch(()=>{})
+    data.referral_code = code
+  }
+  res.json({
+    code: data.referral_code,
+    referral_count: made,
+    referral_rewards_claimed: data.referral_rewards_claimed || 0,
+    next_reward_at: made < 3 ? 3 : made < 5 ? 5 : made < 8 ? 8 : 'maxed',
+    plan: data.plan
+  })
+})
+
+app.get("/referral/validate/:code", async (req, res) => {
+  if (!sb) return res.json({ valid: false })
+  const code = req.params.code.toUpperCase().trim()
+  const { data } = await sb.from('subscriptions')
+    .select('user_id, plan, referral_code, referral_count')
+    .eq('referral_code', code).single().catch(() => ({data:null}))
+  if (!data) return res.json({ valid: false, message: 'Code not found' })
+  res.json({ valid: true, code, referrer_plan: data.plan, referrer_user_id: data.user_id })
+})
+
+app.post("/referral/apply", async (req, res) => {
+  if (!sb) return res.json({ ok: true, discount: 25 })
+  const { code, user_email, user_id, plan } = req.body
+  const ELIGIBLE = ['pro', 'elite', 'platinum', 'plus']
+  if (plan && !ELIGIBLE.includes(plan)) {
+    return res.json({ ok: false, reason: 'plan_not_eligible', message: 'Referral codes can only be used on Pro plan and above.' })
+  }
+  const { data: referrer } = await sb.from('subscriptions')
+    .select('user_id, referral_code, plan').eq('referral_code', code.toUpperCase()).single().catch(() => ({data:null}))
+  if (!referrer) return res.json({ ok: false, message: 'Code not found' })
+  if (user_id && referrer.user_id === user_id) return res.json({ ok: false, message: 'Cannot use your own code' })
+  if (user_id) {
+    const { data: me } = await sb.from('subscriptions').select('referral_used').eq('user_id', user_id).single().catch(() => ({data:null}))
+    if (me?.referral_used) return res.json({ ok: false, message: 'You have already used a referral code' })
+  }
+  res.json({ ok: true, discount: 25, referrer_user_id: referrer.user_id, message: '✓ Code applied! 25% off your first month.' })
+})
+
+app.post("/referral/confirm", async (req, res) => {
+  if (!sb) return res.json({ ok: true })
+  const { code, referred_user_id, referrer_user_id } = req.body
+  if (!referrer_user_id) return res.json({ ok: false })
+
+  // Mark referred user as having used a code
+  if (referred_user_id) {
+    await sb.from('subscriptions').update({
+      referral_code_used: code, referral_used: true, updated_at: new Date().toISOString()
+    }).eq('user_id', referred_user_id).catch(() => {})
+  }
+
+  // Increment referrer's count and potentially upgrade plan
+  const { data: ref } = await sb.from('subscriptions')
+    .select('referral_count, plan, referral_rewards_claimed').eq('user_id', referrer_user_id).single().catch(() => ({data:null}))
+  const newCount = (ref?.referral_count || 0) + 1
+
+  // Tiered rewards: 3 refs = pro month, 5 refs = elite month, 8 refs = platinum
+  let rewardPlan = null
+  const claimed = ref?.referral_rewards_claimed || 0
+  if (newCount >= 8 && claimed < 3) rewardPlan = 'platinum'
+  else if (newCount >= 5 && claimed < 2) rewardPlan = 'elite'
+  else if (newCount >= 3 && claimed < 1) rewardPlan = 'pro'
+
+  const updateData = { referral_count: newCount, updated_at: new Date().toISOString() }
+  if (rewardPlan) {
+    updateData.plan = rewardPlan
+    updateData.credits_total = PLAN_CREDITS[rewardPlan] || 265
+    updateData.credits_used = 0
+    updateData.credits_reset_at = new Date(Date.now() + 30*86400000).toISOString()
+    updateData.referral_rewards_claimed = claimed + 1
+  }
+  await sb.from('subscriptions').update(updateData).eq('user_id', referrer_user_id).catch(() => {})
+  res.json({ ok: true, referral_count: newCount, reward_plan: rewardPlan })
 })
 
 // ── ELO RANKINGS ─────────────────────────────────────────
@@ -3393,16 +2493,156 @@ app.get("/elo/rankings", (req, res) => {
   for (const t of teams) prevEloSnap.set(t.name, t.elo)
   res.json(teams.slice(0, limit).map((t, i) => ({ ...t, rank: i + 1 })))
 })
+
+app.get('/elo/sport/:sport', (req, res) => {
+  const sport = req.params.sport
+  const limit = parseInt(req.query.limit||'50')
+  const posFilter = req.query.position
+  let results = []
+  if (sport === 'football') {
+    const all = []
+    for (const [k, v] of playerDB) {
+      const p = typeof v === 'object' ? v : {}
+      if (posFilter && p.position !== posFilter) continue
+      all.push({ name:p.player_name||k.split('__')[0], team:p.team_name||k.split('__')[1], elo:p.elo||1500, position:p.position, playstyle:p.playstyle?.name||p.playstyle_name, sport:'football' })
+    }
+    results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
+  } else if (sport === 'basketball') {
+    results = Object.entries(NBA_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'basketball', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
+  } else if (sport === 'american_football') {
+    results = Object.entries(NFL_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'nfl', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
+  } else if (sport === 'tennis') {
+    const all = [...TENNIS_PLAYERS.ATP, ...TENNIS_PLAYERS.WTA]
+    results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(p=>({...p,sport:'tennis',type:'player',playstyle:getPlaystyleForSport('tennis',null,p.name,p.elo)}))
+  } else if (sport === 'f1') {
+    results = F1_DRIVERS_2025.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(d=>({...d,sport:'f1',type:'driver',playstyle:getPlaystyleForSport('f1',null,d.name,d.elo)}))
+  } else if (sport === 'boxing') {
+    results = BOXING_FIGHTERS.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(f=>({...f,sport:'boxing',type:'fighter',playstyle:getPlaystyleForSport('boxing',null,f.name,f.elo)}))
+  } else if (sport === 'mma') {
+    results = MMA_FIGHTERS.sort((a,b)=>b.elo-a.elo).slice(0,limit).map(f=>({...f,sport:'mma',type:'fighter',playstyle:getPlaystyleForSport('mma',null,f.name,f.elo)}))
+  }
+  res.json({ sport, results, count: results.length })
+})
+
+// ── STANDINGS ─────────────────────────────────────────────
+app.get('/standings/nba', async (req, res) => {
+  try {
+    if (process.env.SPORTSDATAIO_KEY) {
+      const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
+      const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Standings/${season}`,
+        {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+      const teams = r.data || []
+      if (teams.length) {
+        const east = teams.filter(t => t.Conference === 'Eastern').sort((a,b) => (b.Wins||0)-(a.Wins||0))
+        const west = teams.filter(t => t.Conference === 'Western').sort((a,b) => (b.Wins||0)-(a.Wins||0))
+        return res.json({ source:'sportsdata.io', east, west, season })
+      }
+    }
+    const r = await httpExt('https://site.api.espn.com/apis/v2/sports/basketball/nba/standings', { limit:100 })
+    res.json({ source:'espn', data:r.data })
+  } catch(e) { res.json({ east:[], west:[] }) }
+})
+
+app.get('/standings/nfl', async (req, res) => {
+  try {
+    if (process.env.SPORTSDATAIO_KEY) {
+      const season = new Date().getFullYear()
+      const r = await httpExt(`https://api.sportsdata.io/v3/nfl/scores/json/Standings/${season}`,
+        {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+      if (r.data?.length) return res.json({ source:'sportsdata.io', data:r.data, season })
+    }
+    const r = await httpExt('https://site.api.espn.com/apis/v2/sports/football/nfl/standings', { limit:100 })
+    res.json({ source:'espn', data:r.data })
+  } catch(e) { res.json({ data:[] }) }
+})
+
+app.get('/standings/tennis', async (req, res) => {
+  const tour = req.query.tour || 'ATP'
+  const pool = tour === 'WTA' ? TENNIS_PLAYERS.WTA : TENNIS_PLAYERS.ATP
+  res.json({ source:'internal', tour, players: pool.map(p => ({ ...p, playstyle:getPlaystyleForSport('tennis',null,p.name,p.elo) })) })
+})
+
+app.get('/standings/f1', async (req, res) => {
+  try {
+    const r = await httpExt(`${OPEN_F1_BASE}/drivers?session_key=latest`)
+    const drivers = r.data || []
+    res.json({ source:'openf1', drivers:drivers.map(d=>({ name:d.full_name||d.broadcast_name, number:d.driver_number, team:d.team_name, country:d.country_code, headshot:d.headshot_url, elo:F1_DRIVERS_2025.find(fd=>fd.name===d.full_name)?.elo||1800, playstyle:getPlaystyleForSport('f1',null,d.full_name||'',1800) })), constructors:Object.entries(F1_CONSTRUCTOR_ELO).map(([t,e])=>({team:t,elo:e})) })
+  } catch(e) {
+    res.json({ source:'static', drivers:F1_DRIVERS_2025.map(d=>({...d,playstyle:getPlaystyleForSport('f1',null,d.name,d.elo)})), constructors:Object.entries(F1_CONSTRUCTOR_ELO).map(([t,e])=>({team:t,elo:e})) })
+  }
+})
+
+app.get('/standings/boxing', async (req, res) => {
+  const wc = req.query.weightClass
+  const fighters = wc ? BOXING_FIGHTERS.filter(f=>f.weightClass===wc) : BOXING_FIGHTERS
+  res.json({ source:'internal', fighters:fighters.map(f=>({...f,playstyle:getPlaystyleForSport('boxing',null,f.name,f.elo)})) })
+})
+
+app.get('/standings/mma', async (req, res) => {
+  const div = req.query.division
+  const fighters = div ? MMA_FIGHTERS.filter(f=>f.division===div) : MMA_FIGHTERS
+  res.json({ source:'internal', fighters:fighters.map(f=>({...f,playstyle:getPlaystyleForSport('mma',null,f.name,f.elo)})) })
+})
+
+app.get('/standings/football', async (req, res) => {
+  try {
+    const leagues = [
+      { espnSlug:'eng.1',name:'Premier League' },
+      { espnSlug:'esp.1',name:'La Liga' },
+      { espnSlug:'ger.1',name:'Bundesliga' },
+      { espnSlug:'ita.1',name:'Serie A' },
+      { espnSlug:'fra.1',name:'Ligue 1' },
+    ]
+    const results = []
+    for (const lg of leagues) {
+      try {
+        const r = await httpExt(`https://site.api.espn.com/apis/v2/sports/soccer/${lg.espnSlug}/standings`, { limit:30 })
+        const entries = r.data?.standings?.entries || r.data?.children?.[0]?.standings?.entries || []
+        if (entries.length) {
+          const table = entries.map(e => {
+            const stats = {}
+            for (const s of (e.stats || [])) stats[s.abbreviation || s.name] = s.value || s.displayValue
+            return {
+              position: e.note?.rank || parseInt(stats.rank) || 0,
+              name: e.team?.displayName || e.team?.name || '?',
+              played: parseInt(stats.GP || stats.gp || 0),
+              won: parseInt(stats.W || stats.w || 0),
+              drawn: parseInt(stats.T || stats.t || stats.D || 0),
+              lost: parseInt(stats.L || stats.l || 0),
+              goalsFor: parseInt(stats.GF || stats.gf || 0),
+              goalsAgainst: parseInt(stats.GA || stats.ga || 0),
+              goalDifference: parseInt(stats.GD || stats.gd || 0),
+              points: parseInt(stats.PTS || stats.pts || stats.Pts || 0),
+              form: (stats.FORM || stats.form || '').replace(/[^WDL]/gi, '').slice(-5).split(''),
+            }
+          }).sort((a,b) => a.position - b.position || b.points - a.points)
+          results.push({ name:lg.name, season:new Date().getFullYear(), table })
+        }
+      } catch(e2) {}
+      await sleep(150)
+    }
+    res.json(results.length ? results : [])
+  } catch(e) { res.status(500).json({ error:e.message }) }
+})
+
+// ── OUTCOMES & WEIGHTS ────────────────────────────────────
+app.post('/outcomes/record', async (req, res) => {
+  const { matchId, actualWinner, homeScore, awayScore, sport } = req.body
+  if (!matchId) return res.status(400).json({ error: 'matchId required' })
+  await recordOutcome(matchId, actualWinner, homeScore, awayScore)
+  res.json({ ok: true, weights: sportWeights[sport] })
+})
+
 app.post('/outcomes/record/team', async (req, res) => {
-  const { homeTeam, awayTeam, homeScore, awayScore, homeXg, awayXg, league, isEuropean } = req.body
+  const { homeTeam, awayTeam, homeScore, awayScore, homeXg, awayXg, league, isEuropean, possession, shotsOnTarget, corners, yellowCards, setpieceGoals, avgRating } = req.body
   if (!homeTeam || !awayTeam) return res.status(400).json({ error: 'Missing teams' })
-  await updateTeamWeights(homeTeam, awayTeam, homeScore, awayScore, true, { homeXg, awayXg, league, isEuropean })
+  await updateTeamWeights(homeTeam, awayTeam, homeScore, awayScore, true, { homeXg, awayXg, league, isEuropean, possession, shotsOnTarget, corners, yellowCards, setpieceGoals, avgRating })
   await recordOutcome(`${homeTeam}_${awayTeam}_${Date.now()}`, homeScore > awayScore ? homeTeam : awayScore > homeScore ? awayTeam : 'Draw', homeScore, awayScore)
   res.json({ ok: true, homeWeights: getTeamWeights(homeTeam), awayWeights: getTeamWeights(awayTeam) })
 })
 
 app.get('/weights/team/:teamName', (req, res) => {
-  res.json(getTeamWeights(req.params.teamName))
+  res.json(getTeamWeights(decodeURIComponent(req.params.teamName)))
 })
 
 app.get('/weights/all', (req, res) => {
@@ -3410,46 +2650,49 @@ app.get('/weights/all', (req, res) => {
   for (const [k, v] of teamWeights) result[k] = v
   res.json({ count: teamWeights.size, teams: result })
 })
+
+app.get('/ai/weights', (req, res) => {
+  res.json({ weights: sportWeights, recentUpdates: weightUpdateLog.slice(-20), totalPredictions: predictionLog.size })
+})
+
+// ── ADMIN ─────────────────────────────────────────────────
+app.post('/admin/pull-squads', async (req, res) => {
+  autoPopulateSquads().catch(() => {})
+  res.json({ ok: true, message: 'Squad pull started', playerCount: playerDB.size })
+})
+
+app.post("/admin/refresh", (req, res) => { cache.clear(); res.json({ ok: true, message: "Cache cleared" }) })
+
+// ── ROSTER ────────────────────────────────────────────────
+app.get('/roster/:sport/:teamId', async (req, res) => {
+  res.json([])
+})
+
 // ── HEALTH ────────────────────────────────────────────────
 app.get("/health", async (req, res) => {
   res.json({
-    status: "ok", version: "v14.0",
+    status: "ok", version: "v14.1",
     github_ai: aiClient ? "✅" : "❌ add GITHUB_TOKEN",
     sportmonks: SM_KEY ? "✅ FULL PAID TIER" : "❌ add SPORTMONKS_API_KEY",
     odds_api: ODDS_KEY ? "✅" : "⚠️ optional",
     news_api: NEWS_KEY ? "✅" : "⚠️ optional",
     supabase: sb ? "✅" : "⚠️ optional",
     clubelo: clubEloMap.size > 0 ? `✅ ${clubEloMap.size} teams` : "⚠️ loading...",
+    team_weights: teamWeights.size + " teams tracked",
     sports: ["football","basketball (NBA)","american_football (NFL)","tennis","f1","boxing","mma"],
     port: PORT,
   })
 })
-app.get("/credits/:userId", async (req, res) => {
-  if (!sb) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
-  const { data } = await sb.from('subscriptions')
-    .select('plan, credits_total, credits_used, credits_reset_at, referral_code, referral_count')
-    .eq('user_id', req.params.userId).single().catch(() => ({ data: null }))
-  if (!data) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
-  const plan = data.plan || 'free'
-  const unlimited = plan === 'platinum'
-  const remaining = unlimited ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
-  res.json({ plan, credits_total: data.credits_total, credits_used: data.credits_used,
-    credits_remaining: remaining, unlimited, reset_at: data.credits_reset_at,
-    referral_code: data.referral_code, referral_count: data.referral_count })
-})
+
 app.get("/debug/sm", async (req, res) => {
   if (!SM_KEY) return res.json({ error: "No SM key" })
-  const results = {}
   const today = new Date().toISOString().slice(0, 10)
   const week  = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
   try {
     const r = await http(`${SM_BASE}/fixtures/between/${today}/${week}`, { api_token: SM_KEY, per_page: 3, include: "participants;league" })
-    results.fixtures = { count: r.data?.data?.length || 0, sample: r.data?.data?.slice(0,2).map(f => ({ id: f.id, name: f.name, league: f.league?.name })) }
-  } catch(e) { results.fixtures_error = `${e.response?.status||e.code} ${e.message?.slice(0,50)}` }
-  res.json(results)
+    res.json({ fixtures: { count: r.data?.data?.length || 0, sample: r.data?.data?.slice(0,2).map(f=>({id:f.id,name:f.name,league:f.league?.name})) } })
+  } catch(e) { res.json({ error: `${e.response?.status||e.code} ${e.message?.slice(0,50)}` }) }
 })
-
-app.post("/admin/refresh", (req, res) => { cache.clear(); res.json({ ok: true, message: "Cache cleared" }) })
 
 app.get("/config.js", (req, res) => {
   res.setHeader("Content-Type", "application/javascript")
@@ -3464,39 +2707,49 @@ app.post("/webhook/stripe", async (req, res) => {
     const stripe = require("stripe")(STRIPE_SECRET_KEY)
     event = stripe.webhooks.constructEvent(req.body, req.headers["stripe-signature"], STRIPE_WEBHOOK_SECRET)
   } catch(e) { return res.status(400).json({ error: "Webhook signature failed" }) }
+
   try {
-    // FIND in webhook handler, the checkout.session.completed block:
-// REPLACE with:
-if (event.type === "checkout.session.completed") {
-  const session = event.data.object, meta = session.metadata || {}
-  const email = session.customer_email || session.customer_details?.email
-  const custId = session.customer, subId = session.subscription
-  if (meta.plan && sb) {
-    const newPlan = meta.plan
-    const newCredits = PLAN_CREDITS[newPlan] || 25
-    // Upsert into subscriptions by email
-    const { data: existing } = await sb.from('subscriptions')
-      .select('id, user_id').eq('email', email).single().catch(() => ({data:null}))
-    if (existing) {
-      await sb.from('subscriptions').update({
-        plan: newPlan, status: 'active',
-        stripe_customer_id: custId, stripe_subscription_id: subId,
-        credits_total: newCredits, credits_used: 0,
-        credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
-        updated_at: new Date().toISOString()
-      }).eq('id', existing.id)
-      // Process referral if used
-      if (meta.referral_code && meta.referrer_user_id) {
-        await fetch(`http://localhost:${PORT}/referral/confirm`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ code: meta.referral_code, referred_user_id: existing.user_id,
-            referrer_user_id: meta.referrer_user_id })
-        }).catch(() => {})
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object, meta = session.metadata || {}
+      const email = session.customer_email || session.customer_details?.email
+      const custId = session.customer, subId = session.subscription
+      if (meta.plan && sb) {
+        const newPlan = meta.plan
+        const newCredits = PLAN_CREDITS[newPlan] || 25
+        // Find subscription by email
+        const { data: existing } = await sb.from('subscriptions')
+          .select('id, user_id').eq('email', email).single().catch(() => ({data:null}))
+        if (existing) {
+          await sb.from('subscriptions').update({
+            plan: newPlan, status: 'active',
+            stripe_customer_id: custId, stripe_subscription_id: subId,
+            credits_total: newCredits, credits_used: 0,
+            credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', existing.id)
+          // Process referral if used
+          if (meta.referral_code && meta.referrer_user_id) {
+            try {
+              await axios.post(`http://localhost:${PORT}/referral/confirm`, {
+                code: meta.referral_code, referred_user_id: existing.user_id,
+                referrer_user_id: meta.referrer_user_id
+              })
+            } catch(e2) {}
+          }
+          console.log(`✅ Plan upgraded: ${email} → ${newPlan}`)
+        }
       }
-      console.log(`✅ Plan upgraded: ${email} → ${newPlan}`)
     }
-  }
-}
+
+    if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
+      const sub = event.data.object
+      const custId = sub.customer
+      const status = sub.status === 'active' ? 'active' : 'cancelled'
+      if (sb) {
+        await sb.from('subscriptions').update({ status, updated_at: new Date().toISOString() }).eq('stripe_customer_id', custId).catch(()=>{})
+      }
+    }
+
     res.json({ received: true })
   } catch(e) { res.status(500).json({ error: e.message }) }
 })
@@ -3504,7 +2757,7 @@ if (event.type === "checkout.session.completed") {
 // ── STARTUP ───────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`\n╔═══════════════════════════════════════════════╗`)
-  console.log(`║  ⚡  SLIP IQ  v14.0  ALL SPORTS               ║`)
+  console.log(`║  ⚡  SLIP IQ  v14.1  ALL SPORTS               ║`)
   console.log(`║  Port ${PORT}  |  AI: ${AI_MODEL.split("/").pop().slice(0,18).padEnd(18)}   ║`)
   console.log(`╚═══════════════════════════════════════════════╝\n`)
   console.log(`GitHub AI:    ${aiClient ? "✅ " + AI_MODEL : "❌ Add GITHUB_TOKEN"}`)
@@ -3512,38 +2765,38 @@ app.listen(PORT, async () => {
   console.log(`Odds API:     ${ODDS_KEY ? "✅" : "⚠️  Optional"}`)
   console.log(`News API:     ${NEWS_KEY ? "✅" : "⚠️  Optional"}`)
   console.log(`Supabase:     ${sb       ? "✅" : "⚠️  Optional"}\n`)
-  console.log(`🏅 SPORTS: Football(SM) NBA(BallDontLie) NFL(ESPN) Tennis(TSDB) F1(OpenF1) Boxing(TSDB) MMA(ESPN/TSDB)`)
-  console.log(`🎨 PLAYSTYLES: Football(position-based) NBA(PG/SG/SF/PF/C) NFL(QB/RB/WR/TE/DEF) Tennis(10 styles) F1(8 styles) Boxing(8 styles) MMA(8 styles)\n`)
+
   await loadSupabase().catch(() => {})
   loadClubElo().catch(() => {})
+
   console.log("🔄 Pre-warming caches...")
   smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))
-  // Pre-load sports in background
+
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
   setTimeout(() => fetchF1NextRace().catch(() => {}), 9000)
   setTimeout(() => { fetchOddsAPI().then(o => console.log(`✅ Odds API: ${Object.keys(o).length} matches`)).catch(() => {}) }, 11000)
   setTimeout(() => smPreMatchNews().catch(() => {}), 13000)
-  console.log(`✅ Ready → http://localhost:${PORT}`)
-  console.log(`🔬 Debug: GET /debug/sm | GET /health\n`)
+  setTimeout(() => autoPopulateSquads().catch(() => {}), 20000)
+
   await loadSportWeights().catch(() => {})
   await loadTeamWeights().catch(() => {})
 
-// ELO decay timer — small adjustments every 3 days to reflect current form
-setInterval(async () => {
-  const now = Date.now()
-  if (now - lastWeightUpdate < 3 * 86400000) return
-  lastWeightUpdate = now
-  // Slight mean reversion on all weights
-  for (const [sport, w] of Object.entries(sportWeights)) {
-    const keys = Object.keys(w)
-    const even = 1 / keys.length
-    for (const k of keys) {
-      w[k] = w[k] * 0.97 + even * 0.03  // drift toward equal weighting slowly
+  // ELO decay timer — mean reversion every 3 days
+  setInterval(async () => {
+    const now = Date.now()
+    if (now - lastWeightUpdate < 3 * 86400000) return
+    lastWeightUpdate = now
+    for (const [sport, w] of Object.entries(sportWeights)) {
+      const keys = Object.keys(w)
+      const even = 1 / keys.length
+      for (const k of keys) w[k] = w[k] * 0.97 + even * 0.03
+      await persistWeights(sport, w).catch(() => {})
     }
-    await persistWeights(sport, w).catch(() => {})
-  }
-  console.log('✅ ELO weights recalibrated')
-}, 6 * 3600000)  // check every 6 hours
+    console.log('✅ ELO weights recalibrated')
+  }, 6 * 3600000)
+
+  console.log(`\n✅ Ready → http://localhost:${PORT}`)
+  console.log(`🔬 Debug: GET /debug/sm | GET /health\n`)
 })
