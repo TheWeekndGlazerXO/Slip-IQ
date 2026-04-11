@@ -161,10 +161,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="gate-error" id="gateError"></div>
     <div class="gate-locked" id="gateLocked">🔒 Too many failed attempts. Please wait 60 seconds.</div>
     <div>
-      <div class="gate-label">Email</div>
-      <input type="email" class="gate-input" id="gateEmail" placeholder="admin@yourdomain.com" onkeydown="if(event.key==='Enter')checkGate()">
-    </div>
-    <div>
       <div class="gate-label">Password</div>
       <input type="password" class="gate-input" id="gatePassword" placeholder="••••••" onkeydown="if(event.key==='Enter')checkGate()">
     </div>
@@ -353,424 +349,494 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────
-// ⚠️ NOTE: password stored client-side = visible in source.
-// Fine for internal use; don't rely on this for sensitive financial ops.
-const ADMIN_EMAIL    = 'zioncmulangala@gmail.com'
-const ADMIN_PASS     = 'marsai'            // 6-char password
-const SUPABASE_URL   = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL'
-const SUPABASE_ANON  = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
-const API_COSTS_FIXED = 175
-const PLAN_PRICES = { free:0, starter:2.99, basic:4.99, pro:14.99, elite:49.99 }
+var ADMIN_PASS       = 'marsai';
+var SUPABASE_URL     = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL';
+var SUPABASE_ANON    = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+var API_COSTS_FIXED  = 175;
+var PLAN_PRICES      = { free:0, starter:2.99, basic:4.99, pro:14.99, elite:49.99 };
 
-const { createClient } = supabase
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ── MODE TOGGLE ───────────────────────────────────────────
-let demoMode = false
-let gateAttempts = 0
-const MAX_ATTEMPTS = 5
-let lockoutUntil = 0
+var demoMode    = false;
+var gateAttempts = 0;
+var MAX_ATTEMPTS = 5;
+var lockoutUntil = 0;
 
 function toggleMode() {
-  demoMode = !demoMode
-  const btn = document.getElementById('toggleBtn')
-  const badge = document.getElementById('demoBadge')
-  const liveLabel = document.getElementById('liveLabel')
+  demoMode = !demoMode;
+  var btn      = document.getElementById('toggleBtn');
+  var badge    = document.getElementById('demoBadge');
+  var liveLabel = document.getElementById('liveLabel');
+  var livePill  = document.querySelector('.tb-live');
   if (demoMode) {
-    btn.textContent = '📡 LIVE DATA'
-    btn.style.color = 'var(--gold)'
-    badge.style.display = 'block'
-    liveLabel.textContent = 'DEMO'
-    document.querySelector('.tb-live').style.borderColor = 'rgba(255,204,0,.2)'
-    document.querySelector('.tb-live').style.color = 'var(--gold)'
-    renderDemo()
+    btn.textContent          = '📡 LIVE DATA';
+    btn.style.color          = 'var(--gold)';
+    badge.style.display      = 'block';
+    liveLabel.textContent    = 'DEMO';
+    livePill.style.borderColor = 'rgba(255,204,0,.2)';
+    livePill.style.color       = 'var(--gold)';
+    renderDemo();
   } else {
-    btn.textContent = '📊 DEMO MODE'
-    btn.style.color = ''
-    badge.style.display = 'none'
-    liveLabel.textContent = 'LIVE'
-    document.querySelector('.tb-live').style.borderColor = ''
-    document.querySelector('.tb-live').style.color = 'var(--green)'
-    loadAll()
+    btn.textContent          = '📊 DEMO MODE';
+    btn.style.color          = '';
+    badge.style.display      = 'none';
+    liveLabel.textContent    = 'LIVE';
+    livePill.style.borderColor = '';
+    livePill.style.color       = 'var(--green)';
+    loadAll();
   }
 }
 
 // ── GATE ──────────────────────────────────────────────────
 function checkGate() {
-  const now = Date.now()
+  var now = Date.now();
   if (now < lockoutUntil) {
-    const secs = Math.ceil((lockoutUntil - now) / 1000)
-    showGateErr(`Locked out. Try again in ${secs}s.`)
-    return
+    var secs = Math.ceil((lockoutUntil - now) / 1000);
+    showGateErr('Locked out. Try again in ' + secs + 's.');
+    return;
   }
 
-  const email = document.getElementById('gateEmail').value.trim().toLowerCase()
-  const pass  = document.getElementById('gatePassword').value
+  var pass = document.getElementById('gatePassword').value;
 
-  if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
-    sessionStorage.setItem('slip_admin_auth', '1')
-    document.getElementById('gateOverlay').style.display = 'none'
-    document.getElementById('mainShell').style.display = 'block'
-    document.getElementById('loadOverlay').classList.remove('hidden')
-    loadAll()
-    subscribeRealtime()
+  if (pass === ADMIN_PASS) {
+    sessionStorage.setItem('slip_admin_auth', '1');
+    document.getElementById('gateOverlay').style.display  = 'none';
+    document.getElementById('mainShell').style.display    = 'block';
+    document.getElementById('loadOverlay').classList.remove('hidden');
+    loadAll();
+    subscribeRealtime();
   } else {
-    gateAttempts++
+    gateAttempts++;
     if (gateAttempts >= MAX_ATTEMPTS) {
-      lockoutUntil = Date.now() + 60000 // 60 second lockout
-      document.getElementById('gateLocked').classList.add('show')
-      document.getElementById('gateBtn').disabled = true
-      setTimeout(() => {
-        document.getElementById('gateLocked').classList.remove('show')
-        document.getElementById('gateBtn').disabled = false
-        gateAttempts = 0
-      }, 60000)
+      lockoutUntil = Date.now() + 60000;
+      document.getElementById('gateLocked').classList.add('show');
+      document.getElementById('gateBtn').disabled = true;
+      setTimeout(function() {
+        document.getElementById('gateLocked').classList.remove('show');
+        document.getElementById('gateBtn').disabled = false;
+        gateAttempts = 0;
+      }, 60000);
     }
-    const remaining = MAX_ATTEMPTS - gateAttempts
-    showGateErr(`Incorrect credentials.${remaining > 0 ? ` ${remaining} attempt${remaining!==1?'s':''} remaining.` : ''}`)
-    document.getElementById('gateAttempts').textContent = `Attempt ${gateAttempts} of ${MAX_ATTEMPTS}`
-    document.getElementById('gatePassword').value = ''
+    var remaining = MAX_ATTEMPTS - gateAttempts;
+    showGateErr('Incorrect password.' + (remaining > 0 ? ' ' + remaining + ' attempt' + (remaining !== 1 ? 's' : '') + ' remaining.' : ''));
+    document.getElementById('gateAttempts').textContent = 'Attempt ' + gateAttempts + ' of ' + MAX_ATTEMPTS;
+    document.getElementById('gatePassword').value = '';
   }
 }
 
 function showGateErr(msg) {
-  const el = document.getElementById('gateError')
-  el.textContent = msg
-  el.classList.add('show')
+  var el = document.getElementById('gateError');
+  el.textContent = msg;
+  el.classList.add('show');
 }
 
-async function signOut() {
-  sessionStorage.removeItem('slip_admin_auth')
-  await sb.auth.signOut().catch(()=>{})
-  location.reload()
+function signOut() {
+  sessionStorage.removeItem('slip_admin_auth');
+  sb.auth.signOut().catch(function(){});
+  location.reload();
 }
 
 // ── DATA FETCH ────────────────────────────────────────────
 async function loadAll() {
-  document.getElementById('tbDate').textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
-  document.getElementById('errBanner').classList.remove('show')
-  if (demoMode) { renderDemo(); return }
-  document.getElementById('loadOverlay').classList.remove('hidden')
+  document.getElementById('tbDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('errBanner').classList.remove('show');
+  if (demoMode) { renderDemo(); return; }
+  document.getElementById('loadOverlay').classList.remove('hidden');
   try {
-    const [subs, revenue, daily] = await Promise.all([fetchSubs(), fetchRevenue(), fetchDaily()])
-    render(subs, revenue, daily)
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString()
+    var results = await Promise.all([fetchSubs(), fetchRevenue(), fetchDaily()]);
+    render(results[0], results[1], results[2]);
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
   } catch(err) {
-    showErr(err.message)
+    showErr(err.message);
   } finally {
-    document.getElementById('loadOverlay').classList.add('hidden')
+    document.getElementById('loadOverlay').classList.add('hidden');
   }
 }
 
 async function fetchSubs() {
-  const { data, error } = await sb.from('subscriptions').select('*').order('created_at', { ascending: false })
-  if (error) throw new Error('subscriptions: ' + error.message)
-  return data || []
+  var res = await sb.from('subscriptions').select('*').order('created_at', { ascending: false });
+  if (res.error) throw new Error('subscriptions: ' + res.error.message);
+  return res.data || [];
 }
 
 async function fetchRevenue() {
-  const { data, error } = await sb.from('revenue_history').select('*').order('month', { ascending: true }).limit(24)
-  if (error) {
-    // Table may not exist yet — return empty so dashboard still renders
-    console.warn('revenue_history table missing or error:', error.message)
-    return []
+  var res = await sb.from('revenue_history').select('*').order('month', { ascending: true }).limit(24);
+  if (res.error) {
+    console.warn('revenue_history table missing or error:', res.error.message);
+    return [];
   }
-  return data || []
+  return res.data || [];
 }
 
 async function fetchDaily() {
-  const since = new Date(); since.setDate(since.getDate()-7)
-  const { data, error } = await sb.from('subscriptions').select('created_at,plan').gte('created_at', since.toISOString())
-  if (error) throw new Error('daily: ' + error.message)
-  return data || []
+  var since = new Date(); since.setDate(since.getDate()-7);
+  var res = await sb.from('subscriptions').select('created_at,plan').gte('created_at', since.toISOString());
+  if (res.error) throw new Error('daily: ' + res.error.message);
+  return res.data || [];
 }
 
 // ── RENDER LIVE ───────────────────────────────────────────
 function render(subs, revenue, daily) {
-  const now = new Date()
-  const thisMonth = now.toISOString().slice(0,7)
-  const thisYear  = now.getFullYear()
+  var now = new Date();
+  var thisMonth = now.toISOString().slice(0,7);
+  var thisYear  = now.getFullYear();
 
-  const active  = subs.filter(s => s.status === 'active')
-  const paid    = active.filter(s => s.plan !== 'free')
-  const free    = active.filter(s => s.plan === 'free')
-  const churned = subs.filter(s => s.status === 'cancelled' || s.status === 'churned')
-  const total   = active.length
+  var active  = subs.filter(function(s){ return s.status === 'active'; });
+  var paid    = active.filter(function(s){ return s.plan !== 'free'; });
+  var free    = active.filter(function(s){ return s.plan === 'free'; });
+  var churned = subs.filter(function(s){ return s.status === 'cancelled' || s.status === 'churned'; });
+  var total   = active.length;
 
-  const mrr       = paid.reduce((s,x) => s + (PLAN_PRICES[x.plan]||0), 0)
-  const stripeFee = mrr * 0.029 + paid.length * 0.30
-  const totalCost = API_COSTS_FIXED + stripeFee
-  const net       = mrr - totalCost
+  var mrr       = paid.reduce(function(acc,x){ return acc + (PLAN_PRICES[x.plan]||0); }, 0);
+  var stripeFee = mrr * 0.029 + paid.length * 0.30;
+  var totalCost = API_COSTS_FIXED + stripeFee;
+  var net       = mrr - totalCost;
 
-  const tierCounts = {}, tierRev = {}
-  Object.keys(PLAN_PRICES).forEach(p => { tierCounts[p]=0; tierRev[p]=0 })
-  active.forEach(s => {
-    tierCounts[s.plan] = (tierCounts[s.plan]||0) + 1
-    tierRev[s.plan]    = (tierRev[s.plan]||0) + (PLAN_PRICES[s.plan]||0)
-  })
+  var tierCounts = {}, tierRev = {};
+  Object.keys(PLAN_PRICES).forEach(function(p){ tierCounts[p]=0; tierRev[p]=0; });
+  active.forEach(function(s){
+    tierCounts[s.plan] = (tierCounts[s.plan]||0) + 1;
+    tierRev[s.plan]    = (tierRev[s.plan]||0) + (PLAN_PRICES[s.plan]||0);
+  });
 
-  const last2 = revenue.slice(-2)
-  const mom = last2.length>=2 && last2[0].subscribers>0
-    ? ((last2[1].subscribers-last2[0].subscribers)/last2[0].subscribers*100) : 0
-  const churnRate = total>0 ? (churned.length/(total+churned.length)*100).toFixed(1) : 0
-  const convRate  = total>0 ? (paid.length/total*100).toFixed(0) : 0
-  const ltv       = mom>0 ? Math.round((mrr/Math.max(total,1))/(mom/100)) : 0
+  var last2 = revenue.slice(-2);
+  var mom = last2.length>=2 && last2[0].subscribers>0
+    ? ((last2[1].subscribers - last2[0].subscribers) / last2[0].subscribers * 100) : 0;
+  var churnRate = total>0 ? (churned.length/(total+churned.length)*100).toFixed(1) : 0;
+  var convRate  = total>0 ? (paid.length/total*100).toFixed(0) : 0;
+  var ltv       = mom>0 ? Math.round((mrr/Math.max(total,1))/(mom/100)) : 0;
 
-  const yearRevRows = revenue.filter(r => r.month?.startsWith(String(thisYear)))
-  const yearRev     = yearRevRows.length ? yearRevRows.reduce((s,r)=>s+(r.gross||0),0) : mrr
-  const allTimeRev  = revenue.length ? revenue.reduce((s,r)=>s+(r.gross||0),0) : mrr
-  const yearProfit  = yearRevRows.length ? yearRevRows.reduce((s,r)=>s+(r.net||0),0) : net*(now.getMonth()+1)
-  const alltimeProfit = revenue.length ? revenue.reduce((s,r)=>s+(r.net||0),0) : net
-  const arpu = paid.length > 0 ? (mrr/paid.length).toFixed(2) : '0'
+  var yearRevRows  = revenue.filter(function(r){ return r.month && r.month.startsWith(String(thisYear)); });
+  var yearRev      = yearRevRows.length ? yearRevRows.reduce(function(a,r){ return a+(r.gross||0); },0) : mrr;
+  var allTimeRev   = revenue.length ? revenue.reduce(function(a,r){ return a+(r.gross||0); },0) : mrr;
+  var yearProfit   = yearRevRows.length ? yearRevRows.reduce(function(a,r){ return a+(r.net||0); },0) : net*(now.getMonth()+1);
+  var alltimeProfit = revenue.length ? revenue.reduce(function(a,r){ return a+(r.net||0); },0) : net;
+  var arpu = paid.length > 0 ? (mrr/paid.length).toFixed(2) : '0';
 
   // KPIs
-  s('kpi-subs', fm(total))
-  s('kpi-mrr', '$'+fmo(mrr))
-  s('kpi-profit', '$'+fmo(net))
-  s('kpi-growth', Math.round(mom)+'%')
-  s('kpi-subs-sub', `<span class="kpi-delta delta-${mom>=0?'up':'down'}">${mom>=0?'+':''}${Math.round(mom)}%</span> vs last month`)
-  s('kpi-mrr-sub', `$${arpu} ARPU · ${paid.length} paid`)
-  s('kpi-profit-sub', `After $${Math.round(totalCost)} costs`)
-  s('kpi-growth-sub', `${convRate}% free→paid conv`)
+  s('kpi-subs', fm(total));
+  s('kpi-mrr', '$'+fmo(mrr));
+  s('kpi-profit', '$'+fmo(net));
+  s('kpi-growth', Math.round(mom)+'%');
+  s('kpi-subs-sub', '<span class="kpi-delta delta-'+(mom>=0?'up':'down')+'">'+(mom>=0?'+':'')+Math.round(mom)+'%</span> vs last month');
+  s('kpi-mrr-sub', '$'+arpu+' ARPU · '+paid.length+' paid');
+  s('kpi-profit-sub', 'After $'+Math.round(totalCost)+' costs');
+  s('kpi-growth-sub', convRate+'% free→paid conv');
 
   // Live counter ring
-  s('liveRingNum', fm(total))
-  ring('liveRing', total, Math.max(total+50,200))
-  bar('bar-paid','val-paid',paid.length,total)
-  bar('bar-free','val-free',free.length,total)
-  bar('bar-churned','val-churned',churned.length,total+churned.length)
+  s('liveRingNum', fm(total));
+  ring('liveRing', total, Math.max(total+50,200));
+  bar('bar-paid','val-paid',paid.length,total);
+  bar('bar-free','val-free',free.length,total);
+  bar('bar-churned','val-churned',churned.length,total+churned.length);
 
   // Today subs
-  const tod = new Date().toDateString(), ysd = new Date(Date.now()-86400000).toDateString()
-  const tc = daily.filter(d=>new Date(d.created_at).toDateString()===tod).length
-  const yc = daily.filter(d=>new Date(d.created_at).toDateString()===ysd).length
-  s('todaySubs', fm(tc))
-  s('todayBadge', tc>=yc ? `↑ +${tc-yc} vs yesterday` : `↓ ${yc-tc} vs yesterday`)
-  renderWeekBars(daily)
+  var tod = new Date().toDateString();
+  var ysd = new Date(Date.now()-86400000).toDateString();
+  var tc  = daily.filter(function(d){ return new Date(d.created_at).toDateString()===tod; }).length;
+  var yc  = daily.filter(function(d){ return new Date(d.created_at).toDateString()===ysd; }).length;
+  s('todaySubs', fm(tc));
+  s('todayBadge', tc>=yc ? '↑ +' + (tc-yc) + ' vs yesterday' : '↓ ' + (yc-tc) + ' vs yesterday');
+  renderWeekBars(daily);
 
   // Revenue
-  const thisMonthRevRow = revenue.find(r=>r.month?.slice(0,7)===thisMonth)
-  s('rev-month', '$'+fmo(thisMonthRevRow?.gross || mrr))
-  s('rev-month-sub', now.toLocaleDateString('en-GB',{month:'long',year:'numeric'}))
-  s('rev-year', '$'+fmo(yearRev))
-  s('rev-year-sub', `Jan–${now.toLocaleDateString('en-GB',{month:'short'})} ${thisYear}`)
-  s('rev-alltime', '$'+fmo(allTimeRev))
-  s('rev-arpu', '$'+arpu)
-  renderRevTable(revenue, totalCost)
+  var thisMonthRevRow = revenue.find(function(r){ return r.month && r.month.slice(0,7)===thisMonth; });
+  s('rev-month', '$'+fmo(thisMonthRevRow ? thisMonthRevRow.gross : mrr));
+  s('rev-month-sub', now.toLocaleDateString('en-GB',{month:'long',year:'numeric'}));
+  s('rev-year', '$'+fmo(yearRev));
+  s('rev-year-sub', 'Jan–'+now.toLocaleDateString('en-GB',{month:'short'})+' '+thisYear);
+  s('rev-alltime', '$'+fmo(allTimeRev));
+  s('rev-arpu', '$'+arpu);
+  renderRevTable(revenue, totalCost);
 
   // Tiers
-  renderTiers(tierCounts, tierRev, paid.length, free.length)
-  s('tier-paid-total', `${paid.length} Paid`)
-  s('tier-free-note', `+${free.length} Free tier`)
-  s('donut-total', '$'+fmo(mrr))
-  drawDonut(tierRev, mrr)
+  renderTiers(tierCounts, tierRev, paid.length, free.length);
+  s('tier-paid-total', paid.length+' Paid');
+  s('tier-free-note', '+'+free.length+' Free tier');
+  s('donut-total', '$'+fmo(mrr));
+  drawDonut(tierRev, mrr);
 
   // Growth
-  const revD = revenue.slice(-6).map(r=>r.subscribers||0)
-  const revL = revenue.slice(-6).map(r=>r.month?.slice(0,7)||'')
-  s('grow-mom', Math.round(mom)+'%')
-  s('grow-churn', churnRate+'%')
-  s('grow-ltv', ltv>0?'$'+ltv:'—')
-  s('grow-conv', convRate+'%')
-  if(revD.length>=2){s('grow-chart-label',`${revD[0]} → ${revD[revD.length-1]}`);const pct=revD[0]>0?Math.round((revD[revD.length-1]-revD[0])/revD[0]*100):0;s('grow-pct',`+${pct}%`)}
-  drawGrowthChart(revD, revL)
+  var revD = revenue.slice(-6).map(function(r){ return r.subscribers||0; });
+  var revL = revenue.slice(-6).map(function(r){ return r.month ? r.month.slice(0,7) : ''; });
+  s('grow-mom', Math.round(mom)+'%');
+  s('grow-churn', churnRate+'%');
+  s('grow-ltv', ltv>0 ? '$'+ltv : '—');
+  s('grow-conv', convRate+'%');
+  if (revD.length>=2) {
+    s('grow-chart-label', revD[0]+' → '+revD[revD.length-1]);
+    var pct = revD[0]>0 ? Math.round((revD[revD.length-1]-revD[0])/revD[0]*100) : 0;
+    s('grow-pct', '+'+pct+'%');
+  }
+  drawGrowthChart(revD, revL);
 
   // Projections
-  const mLeft = 12 - now.getMonth()
-  const rate  = 1 + Math.max(0.01, mom/100)
-  const pSubs = Math.round(total * Math.pow(rate, mLeft))
-  const pMrr  = Math.round(mrr * Math.pow(rate, mLeft))
-  const pArr  = Math.round(pMrr * 12)
-  const pProfit = Math.round((pMrr - totalCost) * 12)
-  const mToGoal = mrr>0&&mrr<10000 ? Math.ceil(Math.log(10000/mrr)/Math.log(rate)) : mrr>=10000?0:'—'
-  s('proj-subs',fm(pSubs)); s('proj-mrr','$'+fmo(pMrr)); s('proj-arr','$'+fmo(pArr))
-  s('proj-profit','$'+fmo(pProfit)); s('proj-founder','$'+fmo(pProfit/2))
-  s('proj-months', typeof mToGoal==='number'?mToGoal+' mo':mToGoal)
-  const pData = Array.from({length:mLeft+1},(_,i)=>Math.round(mrr*Math.pow(rate,i)))
-  const pLabels = Array.from({length:mLeft+1},(_,i)=>{const d=new Date(now);d.setMonth(d.getMonth()+i);return d.toLocaleDateString('en-GB',{month:'short'})})
-  drawProjChart(pData, pLabels)
+  var mLeft  = 12 - now.getMonth();
+  var rate   = 1 + Math.max(0.01, mom/100);
+  var pSubs  = Math.round(total * Math.pow(rate, mLeft));
+  var pMrr   = Math.round(mrr * Math.pow(rate, mLeft));
+  var pArr   = Math.round(pMrr * 12);
+  var pProfit = Math.round((pMrr - totalCost) * 12);
+  var mToGoal = mrr>0 && mrr<10000 ? Math.ceil(Math.log(10000/mrr)/Math.log(rate)) : (mrr>=10000 ? 0 : '—');
+  s('proj-subs', fm(pSubs));
+  s('proj-mrr', '$'+fmo(pMrr));
+  s('proj-arr', '$'+fmo(pArr));
+  s('proj-profit', '$'+fmo(pProfit));
+  s('proj-founder', '$'+fmo(pProfit/2));
+  s('proj-months', typeof mToGoal==='number' ? mToGoal+' mo' : mToGoal);
+  var pData   = Array.from({length:mLeft+1}, function(_,i){ return Math.round(mrr*Math.pow(rate,i)); });
+  var pLabels = Array.from({length:mLeft+1}, function(_,i){ var d=new Date(now); d.setMonth(d.getMonth()+i); return d.toLocaleDateString('en-GB',{month:'short'}); });
+  drawProjChart(pData, pLabels);
 
   // Costs
-  s('cost-pct-label', mrr>0 ? (totalCost/mrr*100).toFixed(1)+'% of revenue' : '—')
-  s('cost-stripe', '$'+Math.round(stripeFee)+'/mo')
-  s('cost-total', '$'+Math.round(totalCost)+'/mo')
-  s('cost-profit-note', 'Net profit: $'+fmo(net)+'/mo')
+  s('cost-pct-label', mrr>0 ? (totalCost/mrr*100).toFixed(1)+'% of revenue' : '—');
+  s('cost-stripe', '$'+Math.round(stripeFee)+'/mo');
+  s('cost-total', '$'+Math.round(totalCost)+'/mo');
+  s('cost-profit-note', 'Net profit: $'+fmo(net)+'/mo');
 
   // Founders
-  s('f-month','$'+fmo(net/2)); s('f-month-sub','This month · After costs')
-  s('f-year','$'+fmo(yearProfit/2)); s('f-year-sub',`Jan–${now.toLocaleDateString('en-GB',{month:'short'})} ${thisYear}`)
-  s('f-alltime','$'+fmo(alltimeProfit/2)); s('f-projected','$'+fmo(pProfit/2))
-  ;['z','r'].forEach(p=>{s(p+'-month','$'+fmo(net/2));s(p+'-year','$'+fmo(yearProfit/2));s(p+'-alltime','$'+fmo(alltimeProfit/2));s(p+'-proj','$'+fmo(pMrr/2)+'/mo')})
+  s('f-month', '$'+fmo(net/2));
+  s('f-month-sub', 'This month · After costs');
+  s('f-year', '$'+fmo(yearProfit/2));
+  s('f-year-sub', 'Jan–'+now.toLocaleDateString('en-GB',{month:'short'})+' '+thisYear);
+  s('f-alltime', '$'+fmo(alltimeProfit/2));
+  s('f-projected', '$'+fmo(pProfit/2));
+  ['z','r'].forEach(function(p){
+    s(p+'-month',   '$'+fmo(net/2));
+    s(p+'-year',    '$'+fmo(yearProfit/2));
+    s(p+'-alltime', '$'+fmo(alltimeProfit/2));
+    s(p+'-proj',    '$'+fmo(pMrr/2)+'/mo');
+  });
 
   // Sparklines
-  buildSparkline('spark-subs', revenue.slice(-8).map(r=>r.subscribers||0).concat(total), 'var(--accent)')
-  buildSparkline('spark-mrr', revenue.slice(-8).map(r=>r.gross||0).concat(mrr), 'var(--green)')
-  buildSparkline('spark-profit', revenue.slice(-8).map(r=>r.net||0).concat(net), 'var(--gold)')
-  buildSparkline('spark-growth', revenue.slice(-8).map((_,i,a)=>i>0&&a[i-1].subscribers>0?Math.round((a[i].subscribers-a[i-1].subscribers)/a[i-1].subscribers*100):0), 'var(--purple)')
+  buildSparkline('spark-subs',   revenue.slice(-8).map(function(r){ return r.subscribers||0; }).concat(total), 'var(--accent)');
+  buildSparkline('spark-mrr',    revenue.slice(-8).map(function(r){ return r.gross||0; }).concat(mrr),         'var(--green)');
+  buildSparkline('spark-profit', revenue.slice(-8).map(function(r){ return r.net||0; }).concat(net),           'var(--gold)');
+  buildSparkline('spark-growth', revenue.slice(-8).map(function(r,i,a){ return i>0 && a[i-1].subscribers>0 ? Math.round((a[i].subscribers-a[i-1].subscribers)/a[i-1].subscribers*100) : 0; }), 'var(--purple)');
 }
 
 // ── RENDER DEMO ───────────────────────────────────────────
 function renderDemo() {
-  document.getElementById('loadOverlay').classList.add('hidden')
-  const DEMO = {
-    subs: [
-      ...Array(62).fill(null).map((_,i)=>({ status:'active', plan:'free', created_at: new Date(Date.now()-i*86400000*2).toISOString() })),
-      ...Array(18).fill(null).map((_,i)=>({ status:'active', plan:'starter', created_at: new Date(Date.now()-i*86400000*3).toISOString() })),
-      ...Array(11).fill(null).map((_,i)=>({ status:'active', plan:'basic', created_at: new Date(Date.now()-i*86400000*4).toISOString() })),
-      ...Array(7).fill(null).map((_,i)=>({ status:'active', plan:'pro', created_at: new Date(Date.now()-i*86400000*5).toISOString() })),
-      ...Array(2).fill(null).map((_,i)=>({ status:'active', plan:'elite', created_at: new Date(Date.now()-i*86400000*10).toISOString() })),
-      ...Array(5).fill(null).map((_,i)=>({ status:'cancelled', plan:'starter', created_at: new Date(Date.now()-i*86400000*7).toISOString() })),
-    ],
+  document.getElementById('loadOverlay').classList.add('hidden');
+  var now = Date.now();
+  var DEMO = {
+    subs: [].concat(
+      Array.from({length:62}, function(_,i){ return { status:'active', plan:'free',    created_at: new Date(now-i*86400000*2).toISOString() }; }),
+      Array.from({length:18}, function(_,i){ return { status:'active', plan:'starter', created_at: new Date(now-i*86400000*3).toISOString() }; }),
+      Array.from({length:11}, function(_,i){ return { status:'active', plan:'basic',   created_at: new Date(now-i*86400000*4).toISOString() }; }),
+      Array.from({length:7},  function(_,i){ return { status:'active', plan:'pro',     created_at: new Date(now-i*86400000*5).toISOString() }; }),
+      Array.from({length:2},  function(_,i){ return { status:'active', plan:'elite',   created_at: new Date(now-i*86400000*10).toISOString() }; }),
+      Array.from({length:5},  function(_,i){ return { status:'cancelled', plan:'starter', created_at: new Date(now-i*86400000*7).toISOString() }; })
+    ),
     revenue: [
-      { month:'2025-10', subscribers:12, gross:89, costs:185, net:-96 },
-      { month:'2025-11', subscribers:25, gross:198, costs:190, net:8 },
-      { month:'2025-12', subscribers:41, gross:312, costs:195, net:117 },
-      { month:'2026-01', subscribers:67, gross:498, costs:202, net:296 },
-      { month:'2026-02', subscribers:88, gross:641, costs:208, net:433 },
-      { month:'2026-03', subscribers:100, gross:728, costs:212, net:516 },
+      { month:'2025-10', subscribers:12,  gross:89,  costs:185, net:-96  },
+      { month:'2025-11', subscribers:25,  gross:198, costs:190, net:8    },
+      { month:'2025-12', subscribers:41,  gross:312, costs:195, net:117  },
+      { month:'2026-01', subscribers:67,  gross:498, costs:202, net:296  },
+      { month:'2026-02', subscribers:88,  gross:641, costs:208, net:433  },
+      { month:'2026-03', subscribers:100, gross:728, costs:212, net:516  }
     ],
-    daily: Array(7).fill(null).flatMap((_,i)=>
-      Array(Math.max(0,3-i)).fill(null).map(()=>({ created_at: new Date(Date.now()-i*86400000).toISOString(), plan:'free' }))
-    )
-  }
-  render(DEMO.subs, DEMO.revenue, DEMO.daily)
+    daily: Array.from({length:7}, function(_,i){
+      return Array.from({length: Math.max(0,3-i)}, function(){
+        return { created_at: new Date(now-i*86400000).toISOString(), plan:'free' };
+      });
+    }).reduce(function(a,b){ return a.concat(b); }, [])
+  };
+  render(DEMO.subs, DEMO.revenue, DEMO.daily);
 }
 
 // ── UI HELPERS ────────────────────────────────────────────
 function renderRevTable(revenue, costs) {
-  const rows = revenue.slice(-12)
+  var rows = revenue.slice(-12);
   if (!rows.length) {
-    s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — create a <code>revenue_history</code> table in Supabase with columns: month (text), subscribers (int), gross (numeric), costs (numeric), net (numeric)</td></tr>')
-    return
+    s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — create a <code>revenue_history</code> table in Supabase with columns: month (text), subscribers (int), gross (numeric), costs (numeric), net (numeric)</td></tr>');
+    return;
   }
-  s('revBody', rows.map((r,i,arr)=>{
-    const growth = i>0&&arr[i-1].subscribers>0 ? Math.round((r.subscribers-arr[i-1].subscribers)/arr[i-1].subscribers*100) : null
-    const rnet = (r.gross||0)-(r.costs||costs)
-    const isCur = r.month?.slice(0,7)===new Date().toISOString().slice(0,7)
-    return `<tr${isCur?' style="background:rgba(0,232,122,.03)"':''}>
-      <td class="col-month"${isCur?' style="color:var(--green)"'}>${fmMonth(r.month)}${isCur?' ●':''}</td>
-      <td class="mono"${isCur?' style="color:var(--green)"'}>${fm(r.subscribers||0)}</td>
-      <td class="mono positive">$${fmo(r.gross||0)}</td>
-      <td class="mono" style="color:var(--red)">$${fmo(r.costs||Math.round(costs))}</td>
-      <td class="mono positive">$${fmo(rnet)}</td>
-      <td class="mono">${growth!==null?`<span class="kpi-delta delta-${growth>=0?'up':'down'}">${growth>=0?'+':''}${growth}%</span>`:'—'}</td>
-      <td class="mono positive">$${fmo(rnet/2)}</td>
-    </tr>`
-  }).join(''))
+  s('revBody', rows.map(function(r,i,arr){
+    var growth = i>0 && arr[i-1].subscribers>0 ? Math.round((r.subscribers-arr[i-1].subscribers)/arr[i-1].subscribers*100) : null;
+    var rnet   = (r.gross||0) - (r.costs||costs);
+    var isCur  = r.month && r.month.slice(0,7) === new Date().toISOString().slice(0,7);
+    return '<tr'+(isCur?' style="background:rgba(0,232,122,.03)"':'')+'>'
+      +'<td class="col-month"'+(isCur?' style="color:var(--green)"':'')+'>'+fmMonth(r.month)+(isCur?' ●':'')+'</td>'
+      +'<td class="mono"'+(isCur?' style="color:var(--green)"':'')+'>'+fm(r.subscribers||0)+'</td>'
+      +'<td class="mono positive">$'+fmo(r.gross||0)+'</td>'
+      +'<td class="mono" style="color:var(--red)">$'+fmo(r.costs||Math.round(costs))+'</td>'
+      +'<td class="mono positive">$'+fmo(rnet)+'</td>'
+      +'<td class="mono">'+(growth!==null?'<span class="kpi-delta delta-'+(growth>=0?'up':'down')+'">'+(growth>=0?'+':'')+growth+'%</span>':'—')+'</td>'
+      +'<td class="mono positive">$'+fmo(rnet/2)+'</td>'
+      +'</tr>';
+  }).join(''));
 }
 
 function renderTiers(counts, revenues, paidN, freeN) {
-  const total = Object.values(counts).reduce((s,v)=>s+v,0)||1
-  const maxC  = Math.max(...Object.values(counts),1)
-  const tiers = [{key:'free',label:'Free',color:'var(--text3)'},{key:'starter',label:'Starter',color:'var(--accent)'},{key:'basic',label:'Basic',color:'var(--green)'},{key:'pro',label:'Pro',color:'var(--purple)'},{key:'elite',label:'Elite',color:'var(--gold)'}]
-  s('tierGrid', tiers.map(t=>`<div class="tier-row">
-    <div class="tier-dot" style="background:${t.color}"></div>
-    <div class="tier-name">${t.label}</div>
-    <div class="tier-bar-track"><div class="tier-bar-fill" style="width:${(counts[t.key]||0)/maxC*100}%;background:${t.color}"></div></div>
-    <div class="tier-count">${counts[t.key]||0}</div>
-    <div class="tier-pct">${((counts[t.key]||0)/total*100).toFixed(0)}%</div>
-    <div class="tier-rev" style="color:${t.color}">$${fmo(revenues[t.key]||0)}</div>
-  </div>`).join(''))
+  var total = Object.values(counts).reduce(function(a,v){ return a+v; },0) || 1;
+  var maxC  = Math.max.apply(null, Object.values(counts).concat(1));
+  var tiers = [
+    {key:'free',    label:'Free',    color:'var(--text3)'},
+    {key:'starter', label:'Starter', color:'var(--accent)'},
+    {key:'basic',   label:'Basic',   color:'var(--green)'},
+    {key:'pro',     label:'Pro',     color:'var(--purple)'},
+    {key:'elite',   label:'Elite',   color:'var(--gold)'}
+  ];
+  s('tierGrid', tiers.map(function(t){
+    return '<div class="tier-row">'
+      +'<div class="tier-dot" style="background:'+t.color+'"></div>'
+      +'<div class="tier-name">'+t.label+'</div>'
+      +'<div class="tier-bar-track"><div class="tier-bar-fill" style="width:'+((counts[t.key]||0)/maxC*100)+'%;background:'+t.color+'"></div></div>'
+      +'<div class="tier-count">'+(counts[t.key]||0)+'</div>'
+      +'<div class="tier-pct">'+((counts[t.key]||0)/total*100).toFixed(0)+'%</div>'
+      +'<div class="tier-rev" style="color:'+t.color+'">$'+fmo(revenues[t.key]||0)+'</div>'
+      +'</div>';
+  }).join(''));
 }
 
 function renderWeekBars(daily) {
-  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], now=new Date()
-  const counts=Array(7).fill(0)
-  for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const ds=d.toDateString();counts[6-i]=daily.filter(x=>new Date(x.created_at).toDateString()===ds).length}
-  const labels=Array(7).fill(0).map((_,i)=>{const d=new Date(now);d.setDate(now.getDate()-(6-i));const dw=d.getDay();return days[dw===0?6:dw-1]})
-  const maxV=Math.max(...counts,1)
-  s('weekBars',counts.map((v,i)=>`<div class="growth-bar-wrap"><div class="growth-val" style="color:${i===6?'var(--green)':'var(--accent)'};font-size:10px">${v}</div><div class="growth-bar-outer"><div class="growth-bar-fill" style="height:${(v/maxV)*80}px;background:${i===6?'var(--green)':'var(--accent)'}"></div></div><div class="growth-lbl">${labels[i]}</div></div>`).join(''))
+  var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var now  = new Date();
+  var counts = Array(7).fill(0);
+  for (var i=6; i>=0; i--) {
+    var d  = new Date(now); d.setDate(now.getDate()-i);
+    var ds = d.toDateString();
+    counts[6-i] = daily.filter(function(x){ return new Date(x.created_at).toDateString()===ds; }).length;
+  }
+  var labels = Array.from({length:7}, function(_,i){
+    var d = new Date(now); d.setDate(now.getDate()-(6-i));
+    var dw = d.getDay(); return days[dw===0?6:dw-1];
+  });
+  var maxV = Math.max.apply(null, counts.concat(1));
+  s('weekBars', counts.map(function(v,i){
+    return '<div class="growth-bar-wrap">'
+      +'<div class="growth-val" style="color:'+(i===6?'var(--green)':'var(--accent)')+';font-size:10px">'+v+'</div>'
+      +'<div class="growth-bar-outer"><div class="growth-bar-fill" style="height:'+((v/maxV)*80)+'px;background:'+(i===6?'var(--green)':'var(--accent)')+'"></div></div>'
+      +'<div class="growth-lbl">'+labels[i]+'</div>'
+      +'</div>';
+  }).join(''));
 }
 
 function drawDonut(tierRev, totalMrr) {
-  const c=document.getElementById('donutChart'); if(!c)return
-  const ctx=c.getContext('2d'); c.width=c.offsetWidth||200; c.height=180
-  const cx=c.width/2,cy=90,r=65,inner=42
-  const tiers=[{key:'free',color:'#384d60'},{key:'starter',color:'#00d4ff'},{key:'basic',color:'#00e87a'},{key:'pro',color:'#9b6dff'},{key:'elite',color:'#ffcc00'}]
-  const tot=Object.values(tierRev).reduce((s,v)=>s+v,0)||1
-  let angle=-Math.PI/2
-  tiers.forEach(t=>{const v=tierRev[t.key]||0;if(!v)return;const sw=(v/tot)*Math.PI*2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sw);ctx.closePath();ctx.fillStyle=t.color;ctx.fill();angle+=sw})
-  ctx.beginPath();ctx.arc(cx,cy,inner,0,Math.PI*2);ctx.fillStyle='#0b1118';ctx.fill()
-  ctx.fillStyle='#ddeeff';ctx.font='bold 16px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$'+fmo(totalMrr),cx,cy-7)
-  ctx.fillStyle='#6a8aa8';ctx.font='10px DM Mono';ctx.fillText('MRR',cx,cy+10)
+  var c = document.getElementById('donutChart'); if (!c) return;
+  var ctx = c.getContext('2d'); c.width = c.offsetWidth||200; c.height = 180;
+  var cx=c.width/2, cy=90, r=65, inner=42;
+  var tiers = [{key:'free',color:'#384d60'},{key:'starter',color:'#00d4ff'},{key:'basic',color:'#00e87a'},{key:'pro',color:'#9b6dff'},{key:'elite',color:'#ffcc00'}];
+  var tot = Object.values(tierRev).reduce(function(a,v){ return a+v; },0) || 1;
+  var angle = -Math.PI/2;
+  tiers.forEach(function(t){
+    var v = tierRev[t.key]||0; if (!v) return;
+    var sw = (v/tot)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+sw); ctx.closePath();
+    ctx.fillStyle = t.color; ctx.fill(); angle += sw;
+  });
+  ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fillStyle='#0b1118'; ctx.fill();
+  ctx.fillStyle='#ddeeff'; ctx.font='bold 16px Outfit'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('$'+fmo(totalMrr),cx,cy-7);
+  ctx.fillStyle='#6a8aa8'; ctx.font='10px DM Mono'; ctx.fillText('MRR',cx,cy+10);
 }
 
 function drawGrowthChart(data, labels) {
-  const c=document.getElementById('growthChart'); if(!c||!data.length)return
-  const ctx=c.getContext('2d'); c.width=c.offsetWidth||600; c.height=150
-  const pad={left:40,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom
-  const maxV=Math.max(...data)*1.1||10
-  ctx.strokeStyle='#16222e'; ctx.lineWidth=1
-  for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke()}
-  if(data.length>1){
-    const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+h); grad.addColorStop(0,'rgba(0,232,122,.3)'); grad.addColorStop(1,'rgba(0,232,122,0)')
-    ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=grad; ctx.fill()
-    ctx.beginPath(); ctx.strokeStyle='#00e87a'; ctx.lineWidth=2.5; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke()
+  var c = document.getElementById('growthChart'); if (!c||!data.length) return;
+  var ctx = c.getContext('2d'); c.width = c.offsetWidth||600; c.height = 150;
+  var pad = {left:40,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom;
+  var maxV = Math.max.apply(null,data)*1.1||10;
+  ctx.strokeStyle='#16222e'; ctx.lineWidth=1;
+  for (var i=0; i<=4; i++) {
+    var y = pad.top+(h/4)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+w,y); ctx.stroke();
   }
-  data.forEach((v,i)=>{const x=pad.left+(data.length>1?(i/(data.length-1))*w:w/2),y=pad.top+h-((v/maxV)*h);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#00e87a';ctx.fill();ctx.fillStyle='#6a8aa8';ctx.font='9px DM Mono';ctx.textAlign='center';ctx.fillText(labels[i]||'',x,c.height-6);ctx.fillStyle='#ddeeff';ctx.font='bold 10px Outfit';ctx.fillText(v,x,y-10)})
+  if (data.length>1) {
+    var grad = ctx.createLinearGradient(0,pad.top,0,pad.top+h);
+    grad.addColorStop(0,'rgba(0,232,122,.3)'); grad.addColorStop(1,'rgba(0,232,122,0)');
+    ctx.beginPath();
+    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
+    ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle='#00e87a'; ctx.lineWidth=2.5;
+    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
+    ctx.stroke();
+  }
+  data.forEach(function(v,i){
+    var x = pad.left+(data.length>1?(i/(data.length-1))*w:w/2), yy=pad.top+h-((v/maxV)*h);
+    ctx.beginPath(); ctx.arc(x,yy,4,0,Math.PI*2); ctx.fillStyle='#00e87a'; ctx.fill();
+    ctx.fillStyle='#6a8aa8'; ctx.font='9px DM Mono'; ctx.textAlign='center'; ctx.fillText(labels[i]||'',x,c.height-6);
+    ctx.fillStyle='#ddeeff'; ctx.font='bold 10px Outfit'; ctx.fillText(v,x,yy-10);
+  });
 }
 
 function drawProjChart(data, labels) {
-  const c=document.getElementById('projChart'); if(!c||!data.length)return
-  const ctx=c.getContext('2d'); c.width=c.offsetWidth||600; c.height=150
-  const pad={left:50,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom
-  const maxV=Math.max(...data)*1.1||100
-  ctx.strokeStyle='#16222e'; ctx.lineWidth=1
-  for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke();ctx.fillStyle='#384d60';ctx.font='9px DM Mono';ctx.textAlign='right';ctx.fillText('$'+Math.round((maxV-(maxV/4)*i)/1000)+'k',pad.left-6,y+3)}
-  if(data.length>1){
-    const gradP=ctx.createLinearGradient(0,pad.top,0,pad.top+h); gradP.addColorStop(0,'rgba(255,204,0,.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)')
-    ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=gradP; ctx.fill()
-    ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle='#ffcc00'; ctx.lineWidth=2; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke(); ctx.setLineDash([])
+  var c = document.getElementById('projChart'); if (!c||!data.length) return;
+  var ctx = c.getContext('2d'); c.width = c.offsetWidth||600; c.height = 150;
+  var pad = {left:50,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom;
+  var maxV = Math.max.apply(null,data)*1.1||100;
+  ctx.strokeStyle='#16222e'; ctx.lineWidth=1;
+  for (var i=0; i<=4; i++) {
+    var y = pad.top+(h/4)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+w,y); ctx.stroke();
+    ctx.fillStyle='#384d60'; ctx.font='9px DM Mono'; ctx.textAlign='right';
+    ctx.fillText('$'+Math.round((maxV-(maxV/4)*i)/1000)+'k', pad.left-6, y+3);
   }
-  data.forEach((v,i)=>{const x=pad.left+(data.length>1?(i/(data.length-1))*w:w/2);ctx.fillStyle='#6a8aa8';ctx.font='9px DM Mono';ctx.textAlign='center';ctx.fillText(labels[i]||'',x,c.height-6)})
+  if (data.length>1) {
+    var gradP = ctx.createLinearGradient(0,pad.top,0,pad.top+h);
+    gradP.addColorStop(0,'rgba(255,204,0,.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)');
+    ctx.beginPath();
+    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
+    ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath();
+    ctx.fillStyle=gradP; ctx.fill();
+    ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle='#ffcc00'; ctx.lineWidth=2;
+    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  data.forEach(function(v,i){
+    var x = pad.left+(data.length>1?(i/(data.length-1))*w:w/2);
+    ctx.fillStyle='#6a8aa8'; ctx.font='9px DM Mono'; ctx.textAlign='center'; ctx.fillText(labels[i]||'',x,c.height-6);
+  });
 }
 
-function s(id, html) { const el=document.getElementById(id); if(el) el.innerHTML=html }
-function fm(n) { return Number(n).toLocaleString() }
-function fmo(n) { n=Math.round(n); if(n>=10000)return(n/1000).toFixed(1)+'k'; return n.toLocaleString() }
-function fmMonth(m) { if(!m)return'—'; const d=new Date(m+'T00:00:00'); return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) }
+function s(id, html) { var el=document.getElementById(id); if(el) el.innerHTML=html; }
+function fm(n) { return Number(n).toLocaleString(); }
+function fmo(n) { n=Math.round(n); if(n>=10000) return (n/1000).toFixed(1)+'k'; return n.toLocaleString(); }
+function fmMonth(m) { if(!m) return '—'; var d=new Date(m+'T00:00:00'); return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}); }
 function buildSparkline(id, data, color) {
-  const el=document.getElementById(id); if(!el)return
-  const max=Math.max(...data.filter(v=>v>0),1)
-  el.innerHTML=data.map((v,i)=>`<div class="spark-bar" style="height:${Math.max(4,(v/max)*28)}px;background:${color};opacity:${.3+(i/data.length)*.7}"></div>`).join('')
+  var el = document.getElementById(id); if(!el) return;
+  var max = Math.max.apply(null, data.filter(function(v){ return v>0; }).concat(1));
+  el.innerHTML = data.map(function(v,i){
+    return '<div class="spark-bar" style="height:'+Math.max(4,(v/max)*28)+'px;background:'+color+';opacity:'+(0.3+(i/data.length)*0.7)+'"></div>';
+  }).join('');
 }
-function ring(id, val, max) { const el=document.getElementById(id); if(!el)return; const c=175.9; el.style.strokeDashoffset=c-(c*Math.min(val/max,1)) }
+function ring(id, val, max) { var el=document.getElementById(id); if(!el) return; var c=175.9; el.style.strokeDashoffset=c-(c*Math.min(val/max,1)); }
 function bar(barId, valId, count, total) {
-  const b=document.getElementById(barId),v=document.getElementById(valId)
-  if(b) b.style.width=(total>0?(count/total*100).toFixed(0):'0')+'%'
-  if(v) v.textContent=fm(count)
+  var b=document.getElementById(barId), v=document.getElementById(valId);
+  if(b) b.style.width=(total>0?(count/total*100).toFixed(0):'0')+'%';
+  if(v) v.textContent=fm(count);
 }
 function showErr(msg) {
-  const el=document.getElementById('errBanner')
-  document.getElementById('errText').textContent=msg
-  el.classList.add('show')
+  var el=document.getElementById('errBanner');
+  document.getElementById('errText').textContent=msg;
+  el.classList.add('show');
 }
 
-// Realtime Supabase subscription
 function subscribeRealtime() {
   sb.channel('admin-rt')
-    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, () => {
-      if (!demoMode) { console.log('🔄 Supabase change → refreshing'); loadAll() }
+    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, function(){
+      if (!demoMode) { console.log('Supabase change → refreshing'); loadAll(); }
     })
-    .subscribe()
+    .subscribe();
 }
 
-window.addEventListener('resize', () => {
-  setTimeout(() => { if (!demoMode) return; renderDemo() }, 100)
-})
+window.addEventListener('resize', function(){
+  setTimeout(function(){ if (demoMode) renderDemo(); }, 100);
+});
 
 // ── INIT ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('tbDate').textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
-  // Check if already authenticated this session
+window.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('tbDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
   if (sessionStorage.getItem('slip_admin_auth') === '1') {
-    document.getElementById('gateOverlay').style.display = 'none'
-    document.getElementById('mainShell').style.display = 'block'
-    document.getElementById('loadOverlay').classList.remove('hidden')
-    loadAll()
-    subscribeRealtime()
+    document.getElementById('gateOverlay').style.display = 'none';
+    document.getElementById('mainShell').style.display   = 'block';
+    document.getElementById('loadOverlay').classList.remove('hidden');
+    loadAll();
+    subscribeRealtime();
   }
-})
+});
 </script>
 </body>
 </html>
