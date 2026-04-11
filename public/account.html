@@ -70,6 +70,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .plan-plus,.plan-starter{background:rgba(255,140,66,.1);border:1px solid rgba(255,140,66,.3);color:var(--orange)}
 .plan-pro{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:var(--purple)}
 .plan-elite{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold)}
+.plan-platinum{background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.5);color:var(--gold)}
 .sign-out-btn{margin-left:auto;background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:9px;padding:6px 14px;border-radius:5px;cursor:pointer;letter-spacing:1px;flex-shrink:0}
 .sign-out-btn:hover{background:rgba(255,59,92,.15)}
 
@@ -108,6 +109,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .un-text{font-size:13px;color:var(--text2);flex:1}
 .un-title{font-weight:700;color:var(--text);margin-bottom:2px}
 .un-btn{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:10px;font-weight:700;padding:8px 18px;border-radius:6px;border:none;cursor:pointer;text-decoration:none;white-space:nowrap;flex-shrink:0}
+
+/* UNLIMITED BADGE */
+.unlimited-badge{font-family:'Bebas Neue';font-size:36px;color:var(--gold);line-height:1;margin:8px 0 4px;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -136,7 +140,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div id="topbar-status" style="font-family:'JetBrains Mono';font-size:10px;color:var(--text3)"></div>
   </div>
   <div class="content" id="mainContent">
-    <!-- Loading -->
     <div class="loading-wrap" id="loadingState">
       <div class="spinner"></div>Checking authentication...
     </div>
@@ -150,6 +153,9 @@ let sbClient = null
 let sbCol = false
 let currentUser = null
 let currentSub = null
+
+// Plan credit limits — must match server PLAN_CREDITS
+const PLAN_CREDITS = { free:25, starter:55, basic:55, plus:115, pro:265, elite:900, platinum:Infinity }
 
 function toggleSB(){
   sbCol=!sbCol
@@ -167,43 +173,26 @@ function showToast(msg, color){
 }
 
 // ── INIT ─────────────────────────────────────────────────
-window.addEventListener("load", () => {
-  setTimeout(initApp, 80)
-})
+window.addEventListener("load", () => { setTimeout(initApp, 80) })
 
 function initApp(){
-  // Support both your NEXUS_CONFIG pattern and the server's window vars
   const cfg = window.NEXUS_CONFIG || {}
   const supabaseUrl = cfg.SUPABASE_URL || window.SUPABASE_URL || ""
   const supabaseKey = cfg.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ""
 
-  if(!supabaseUrl || !supabaseKey){
-    // Try fetching from /config.js directly as a fallback
-    showLocked("config_missing")
-    return
-  }
+  if(!supabaseUrl || !supabaseKey){ showLocked("config_missing"); return }
 
   const { createClient } = supabase
   sbClient = createClient(supabaseUrl, supabaseKey)
 
-  // Check session
-  sbClient.auth.getSession().then(({ data, error }) => {
-    if(data?.session?.user){
-      loadProfile(data.session.user)
-    } else {
-      showLocked()
-    }
+  sbClient.auth.getSession().then(({ data }) => {
+    if(data?.session?.user) loadProfile(data.session.user)
+    else showLocked()
   }).catch(() => showLocked())
 
-  // Listen for auth changes
   sbClient.auth.onAuthStateChange((event, session) => {
-    if(event === "SIGNED_IN" && session?.user){
-      loadProfile(session.user)
-    } else if(event === "SIGNED_OUT"){
-      currentUser = null
-      currentSub = null
-      showLocked()
-    }
+    if(event === "SIGNED_IN" && session?.user) loadProfile(session.user)
+    else if(event === "SIGNED_OUT"){ currentUser=null; currentSub=null; showLocked() }
   })
 }
 
@@ -212,25 +201,16 @@ async function loadProfile(user){
   currentUser = user
   document.getElementById("loadingState").style.display = "flex"
 
-  // Fetch subscription from Supabase
+  // Fetch user row directly from Supabase (client-side, uses anon key + RLS)
   let sub = null
   try {
     const { data, error } = await sbClient
-      .from("subscriptions")
+      .from("users")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .maybeSingle()
     if(!error && data) sub = data
-    else if(error) {
-      // Try by email as fallback
-      const { data: d2 } = await sbClient
-        .from("subscriptions")
-        .select("*")
-        .eq("email", user.email)
-        .maybeSingle()
-      if(d2) sub = d2
-    }
-  } catch(e){ console.log("Sub fetch:", e.message) }
+  } catch(e){ console.warn("Sub fetch:", e.message) }
 
   currentSub = sub
   renderProfile(user, sub)
@@ -238,28 +218,50 @@ async function loadProfile(user){
 
 // ── RENDER PROFILE ────────────────────────────────────────
 function renderProfile(user, sub){
-  const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "User"
+  const name = user.user_metadata?.full_name || sub?.full_name || user.email?.split("@")[0] || "User"
   const email = user.email || ""
   const plan = sub?.plan || "free"
-  const status = sub?.status || "active"
+  const status = sub?.plan_status || "active"
   const avatarLetter = name.charAt(0).toUpperCase()
 
-  // Credits: map plan to max (matching server PLAN_CREDITS)
-  const PLAN_CREDITS = { free:25, starter:55, basic:55, plus:115, pro:265, elite:900 }
-  const maxCredits = PLAN_CREDITS[plan] || 25
-  // Referral code: generate from user id
-  const refCode = "SLIP" + user.id.slice(0,6).toUpperCase()
-  const joinDate = user.created_at ? new Date(user.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "—"
-  const renewDate = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "—"
+  // ── CREDITS: read directly from the sub row ──
+  // This avoids the server /user/:id endpoint which may return a different row
+  const isUnlimited = plan === "platinum"
+  const creditsTotal = isUnlimited ? Infinity : (sub?.credits_total ?? PLAN_CREDITS[plan] ?? 25)
+  const creditsUsed  = sub?.credits_used ?? 0
+  const creditsBonus = sub?.credits_bonus ?? 0
+  // Effective remaining = (total + bonus) - used, floored at 0
+  const creditsRemaining = isUnlimited
+    ? Infinity
+    : Math.max(0, (creditsTotal + creditsBonus) - creditsUsed)
+  const creditPct = isUnlimited ? 100
+    : creditsTotal > 0 ? Math.round((creditsRemaining / creditsTotal) * 100) : 0
+
+  const refCode  = sub?.referral_code || ("SLIP" + user.id.replace(/-/g,'').slice(0,8).toUpperCase())
+  const joinDate = (sub?.joined_at || user.created_at)
+    ? new Date(sub?.joined_at || user.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})
+    : "—"
+  const renewDate = sub?.plan_expires_at
+    ? new Date(sub.plan_expires_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})
+    : "—"
 
   const planClass = `plan-${plan}`
   const isFree = plan === "free"
   const isActive = status === "active"
-  const creditPct = Math.round((maxCredits / Math.max(maxCredits,1)) * 100)
+
+  // Credit bar colour
+  const barGrad = isUnlimited
+    ? "var(--grad)"
+    : creditPct > 50 ? "var(--grad)"
+    : creditPct > 20 ? "linear-gradient(135deg,var(--orange),var(--gold))"
+    : "linear-gradient(135deg,var(--red),var(--orange))"
+
+  // Credit display value
+  const creditDisplayVal = isUnlimited ? "∞" : creditsRemaining
+  const creditMaxLabel   = isUnlimited ? "UNLIMITED" : `${creditsTotal} MAX`
 
   const content = document.getElementById("mainContent")
   content.innerHTML = `
-  <!-- HERO -->
   <div class="profile-hero">
     <div class="avatar">${avatarLetter}</div>
     <div style="flex:1">
@@ -267,7 +269,10 @@ function renderProfile(user, sub){
       <div class="ph-email">${escH(email)}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="plan-badge ${planClass}">${plan.toUpperCase()} PLAN</span>
-        <span style="font-family:'JetBrains Mono';font-size:9px;padding:3px 8px;border-radius:4px;background:${isActive?"rgba(0,255,136,.1)":"rgba(255,59,92,.1)"};border:1px solid ${isActive?"rgba(0,255,136,.3)":"rgba(255,59,92,.3)"};color:${isActive?"var(--green)":"var(--red)"}">${status.toUpperCase()}</span>
+        <span style="font-family:'JetBrains Mono';font-size:9px;padding:3px 8px;border-radius:4px;
+          background:${isActive?"rgba(0,255,136,.1)":"rgba(255,59,92,.1)"};
+          border:1px solid ${isActive?"rgba(0,255,136,.3)":"rgba(255,59,92,.3)"};
+          color:${isActive?"var(--green)":"var(--red)"}">${status.toUpperCase()}</span>
       </div>
     </div>
     <button class="sign-out-btn" onclick="signOut()">SIGN OUT</button>
@@ -285,18 +290,25 @@ function renderProfile(user, sub){
     <!-- CREDITS -->
     <div class="card">
       <div class="card-title">CREDITS</div>
-      <div class="credit-big" id="creditDisplay">—</div>
-      <div class="credit-lbl">REMAINING THIS MONTH</div>
-      <div class="credit-bar-wrap"><div class="credit-bar" id="creditBar" style="width:0%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">
-        <span>0</span><span>${maxCredits} MAX</span>
-      </div>
+      ${isUnlimited
+        ? `<div class="unlimited-badge">UNLIMITED</div>
+           <div class="credit-lbl">PLATINUM — NO LIMITS</div>
+           <div class="credit-bar-wrap"><div class="credit-bar" style="width:100%;background:var(--grad)"></div></div>
+           <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--gold)">∞ credits available</div>`
+        : `<div class="credit-big">${creditDisplayVal}</div>
+           <div class="credit-lbl">REMAINING THIS MONTH</div>
+           <div class="credit-bar-wrap"><div class="credit-bar" style="width:${creditPct}%;background:${barGrad}"></div></div>
+           <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">
+             <span>0</span><span>${creditMaxLabel}</span>
+           </div>`
+      }
+      ${creditsBonus > 0 ? `<div style="margin-top:8px;font-family:'JetBrains Mono';font-size:9px;color:var(--teal)">+${creditsBonus} BONUS CREDITS</div>` : ""}
       <div style="margin-top:12px">
-        <a href="subscriptions.html" style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:5px 12px;border-radius:4px;display:inline-block">+ BUY MORE CREDITS</a>
+        <a href="store.html" style="font-family:'JetBrains Mono';font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,200,248,.3);padding:5px 12px;border-radius:4px;display:inline-block">+ BUY MORE CREDITS</a>
       </div>
     </div>
 
-    <!-- SUBSCRIPTION DETAILS -->
+    <!-- SUBSCRIPTION -->
     <div class="card">
       <div class="card-title">SUBSCRIPTION</div>
       <div class="stat-row"><span class="stat-lbl">Plan</span><span class="stat-val" style="text-transform:uppercase">${plan}</span></div>
@@ -314,7 +326,7 @@ function renderProfile(user, sub){
       <div class="card-title">REFERRAL CODE</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Share your code — you both get a free month when they subscribe.</div>
       <div class="ref-code-box">
-        <span class="ref-code" id="refCodeDisplay">${refCode}</span>
+        <span class="ref-code" id="refCodeDisplay">${escH(refCode)}</span>
         <button class="copy-btn" onclick="copyRef()">COPY</button>
       </div>
       <div class="ref-stats">
@@ -323,7 +335,7 @@ function renderProfile(user, sub){
       </div>
     </div>
 
-    <!-- ACCOUNT DETAILS -->
+    <!-- ACCOUNT -->
     <div class="card">
       <div class="card-title">ACCOUNT</div>
       <div class="stat-row"><span class="stat-lbl">User ID</span><span class="stat-val" style="font-size:10px;color:var(--text3)">${user.id.slice(0,16)}…</span></div>
@@ -336,51 +348,25 @@ function renderProfile(user, sub){
     </div>
   </div>`
 
-  // Now fetch live credits from our API
-  fetchLiveCredits(user.id, maxCredits)
-  // Fetch referral stats
-  fetchReferralStats(user.id)
+  fetchReferralStats(user.id, refCode)
 }
 
-// ── FETCH LIVE CREDITS FROM SERVER ───────────────────────
-async function fetchLiveCredits(userId, planMax){
+// ── REFERRAL STATS ────────────────────────────────────────
+async function fetchReferralStats(userId, fallbackCode){
   try {
-    const res = await fetch(`/user/${userId}`)
-    if(!res.ok) throw new Error("no data")
-    const data = await res.json()
-    const used = data.credits_used || 0
-    const total = data.credits_total || planMax
-    const remaining = Math.max(0, total - used)
-    const pct = Math.round((remaining / Math.max(total,1)) * 100)
-    const el = document.getElementById("creditDisplay")
-    const bar = document.getElementById("creditBar")
-    if(el) el.textContent = remaining
-    if(bar) {
-      bar.style.width = pct + "%"
-      bar.style.background = pct > 50 ? "var(--grad)" : pct > 20 ? "linear-gradient(135deg,var(--orange),var(--gold))" : "linear-gradient(135deg,var(--red),var(--orange))"
-    }
-  } catch(e){
-    // Server not available — show plan max as remaining
-    const el = document.getElementById("creditDisplay")
-    const bar = document.getElementById("creditBar")
-    if(el) el.textContent = planMax
-    if(bar) bar.style.width = "100%"
-  }
-}
+    const { data: me } = await sbClient
+      .from("users").select("referral_code").eq("id", userId).single()
+    const code = me?.referral_code || fallbackCode
+    const codeEl = document.getElementById("refCodeDisplay")
+    if(codeEl && me?.referral_code) codeEl.textContent = me.referral_code
 
-// ── FETCH REFERRAL STATS ──────────────────────────────────
-async function fetchReferralStats(userId){
-  try {
-    const refCode = "SLIP" + userId.slice(0,6).toUpperCase()
-    const { data } = await sbClient
-      .from("subscriptions")
-      .select("id", { count:"exact" })
-      .eq("referral_code_used", refCode)
-    const count = data?.length || 0
+    const { count } = await sbClient
+      .from("users").select("id", { count:"exact", head:true }).eq("referred_by", code)
+    const total = count || 0
     const el1 = document.getElementById("refCount")
     const el2 = document.getElementById("refBonus")
-    if(el1) el1.textContent = count
-    if(el2) el2.textContent = Math.floor(count / 3) // 1 free month per 3 referrals
+    if(el1) el1.textContent = total
+    if(el2) el2.textContent = Math.floor(total / 3)
   } catch(e){
     const el1 = document.getElementById("refCount")
     const el2 = document.getElementById("refBonus")
@@ -392,25 +378,21 @@ async function fetchReferralStats(userId){
 // ── LOCKED SCREEN ─────────────────────────────────────────
 function showLocked(reason){
   const content = document.getElementById("mainContent")
-  const loginUrl = "login.html"
-  const signupUrl = "login.html?tab=signup"
-
   if(reason === "config_missing"){
     content.innerHTML = `<div class="lock-screen">
       <div class="lock-icon">⚙️</div>
       <div class="lock-title">CONFIG NOT LOADED</div>
-      <div class="lock-sub">The Supabase config could not be loaded from /js/config.js. Check your server is running and the config file is accessible.</div>
+      <div class="lock-sub">The Supabase config could not be loaded from /js/config.js. Check your server is running.</div>
     </div>`
     return
   }
-
   content.innerHTML = `<div class="lock-screen">
     <div class="lock-icon">🔒</div>
     <div class="lock-title">SIGN IN TO VIEW YOUR PROFILE</div>
     <div class="lock-sub">Track your parlays, credits, referrals, and subscription. Sign in or create a free account to get started.</div>
     <div class="lock-btns">
-      <a href="${loginUrl}" class="btn-primary">→ SIGN IN</a>
-      <a href="${signupUrl}" class="btn-secondary">CREATE FREE ACCOUNT</a>
+      <a href="login.html" class="btn-primary">→ SIGN IN</a>
+      <a href="login.html?tab=signup" class="btn-secondary">CREATE FREE ACCOUNT</a>
     </div>
     <div style="margin-top:16px;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)">Free plan includes 25 credits/month and match predictions</div>
   </div>`
@@ -419,24 +401,22 @@ function showLocked(reason){
 // ── SIGN OUT ──────────────────────────────────────────────
 async function signOut(){
   if(!sbClient) return
-  try {
-    await sbClient.auth.signOut()
-    showToast("Signed out successfully")
-  } catch(e){
-    showToast("Sign out failed", "var(--red)")
-  }
+  try { await sbClient.auth.signOut(); showToast("Signed out successfully") }
+  catch(e){ showToast("Sign out failed", "var(--red)") }
 }
 
-// ── COPY REFERRAL CODE ────────────────────────────────────
+// ── COPY REFERRAL ─────────────────────────────────────────
 function copyRef(){
   const code = document.getElementById("refCodeDisplay")?.textContent || ""
   if(!code) return
-  navigator.clipboard.writeText(code).then(()=>showToast("Referral code copied! ✓")).catch(()=>{
-    // Fallback
-    const ta = document.createElement("textarea")
-    ta.value = code; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta)
-    showToast("Referral code copied! ✓")
-  })
+  navigator.clipboard.writeText(code)
+    .then(()=>showToast("Referral code copied! ✓"))
+    .catch(()=>{
+      const ta = document.createElement("textarea")
+      ta.value=code; document.body.appendChild(ta); ta.select()
+      document.execCommand("copy"); document.body.removeChild(ta)
+      showToast("Referral code copied! ✓")
+    })
 }
 
 // ── DELETE ACCOUNT ────────────────────────────────────────
