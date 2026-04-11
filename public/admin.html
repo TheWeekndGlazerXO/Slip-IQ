@@ -12,45 +12,68 @@
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
 body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:9999}
+
+/* ── GATE OVERLAY ── */
+.gate-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
+.gate-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:380px;max-width:95vw;box-shadow:0 0 80px rgba(0,212,255,.06)}
+.gate-logo{font-family:'Bebas Neue';font-size:32px;color:var(--accent);letter-spacing:5px;text-align:center;text-shadow:0 0 30px rgba(0,212,255,.4);margin-bottom:4px}
+.gate-sub{font-family:'DM Mono';font-size:9px;letter-spacing:3px;color:var(--text3);text-align:center;margin-bottom:28px;text-transform:uppercase}
+.gate-label{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:5px}
+.gate-input{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:10px 13px;border-radius:8px;font-size:13px;font-family:'Outfit';outline:none;margin-bottom:12px;transition:border-color .2s}
+.gate-input:focus{border-color:var(--accent)}
+.gate-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;border-radius:8px;font-size:12px;font-weight:800;font-family:'Outfit';cursor:pointer;letter-spacing:1px;margin-top:4px;transition:opacity .2s}
+.gate-btn:hover{opacity:.9}
+.gate-error{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.25);color:var(--red);padding:9px 12px;border-radius:7px;font-size:11px;margin-bottom:12px;display:none;font-family:'DM Mono'}
+.gate-error.show{display:block}
+.gate-attempts{font-family:'DM Mono';font-size:9px;color:var(--text3);text-align:center;margin-top:12px}
+.gate-locked{background:rgba(255,51,85,.05);border:1px solid rgba(255,51,85,.2);border-radius:8px;padding:12px;text-align:center;font-family:'DM Mono';font-size:10px;color:var(--red);display:none}
+.gate-locked.show{display:block}
+
+/* ── SIDEBAR ── */
 .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}
 .sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
-.sidebar-logo .wordmark{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:0 0 20px rgba(0,212,255,0.4);display:block}
+.sidebar-logo .wordmark{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:0 0 20px rgba(0,212,255,.4);display:block}
 .sidebar-logo .sub{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;margin-top:2px}
 .sidebar-nav{padding:16px 10px;flex:1}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:0.5px;transition:all 0.2s;margin-bottom:2px;text-decoration:none;border:1px solid transparent}
-.nav-item:hover{background:rgba(0,212,255,0.05);color:var(--text);border-color:var(--border)}
-.nav-item.active{background:rgba(0,212,255,0.1);color:var(--accent);border-color:rgba(0,212,255,0.25)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.5px;transition:all .2s;margin-bottom:2px;text-decoration:none;border:1px solid transparent}
+.nav-item:hover{background:rgba(0,212,255,.05);color:var(--text);border-color:var(--border)}
+.nav-item.active{background:rgba(0,212,255,.1);color:var(--accent);border-color:rgba(0,212,255,.25)}
 .nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
 .nav-section{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;padding:14px 12px 6px;text-transform:uppercase}
 .sidebar-footer{padding:16px;border-top:1px solid var(--border)}
 .founder-pills{display:flex;flex-direction:column;gap:6px}
 .founder-pill{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;font-size:11px}
 .fp-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}
-.fp-1{background:rgba(0,212,255,0.2);color:var(--accent)}.fp-2{background:rgba(155,109,255,0.2);color:var(--purple)}
+.fp-1{background:rgba(0,212,255,.2);color:var(--accent)}.fp-2{background:rgba(155,109,255,.2);color:var(--purple)}
 .fp-name{color:var(--text2);font-size:10px;font-weight:600}.fp-share{margin-left:auto;font-family:'DM Mono';font-size:9px;color:var(--green)}
+
+/* ── MAIN ── */
 .main{margin-left:220px;min-height:100vh}
-.topbar{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:12px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
+.topbar{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:10px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
 .tb-title{font-family:'Bebas Neue';font-size:18px;color:var(--text);letter-spacing:2px}
-.tb-live{display:flex;align-items:center;gap:6px;font-family:'DM Mono';font-size:10px;color:var(--green);background:rgba(0,232,122,0.08);border:1px solid rgba(0,232,122,0.2);padding:4px 10px;border-radius:20px}
+.tb-live{display:flex;align-items:center;gap:6px;font-family:'DM Mono';font-size:10px;color:var(--green);background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);padding:4px 10px;border-radius:20px}
 .live-pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;box-shadow:0 0 6px var(--green)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .tb-date{margin-left:auto;font-family:'DM Mono';font-size:11px;color:var(--text3)}
-.tb-btn{height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;cursor:pointer;font-size:11px;font-family:'DM Mono';color:var(--text2);transition:all 0.2s;gap:5px;text-decoration:none;white-space:nowrap}
+.tb-btn{height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;cursor:pointer;font-size:11px;font-family:'DM Mono';color:var(--text2);transition:all .2s;gap:5px;text-decoration:none;white-space:nowrap}
 .tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.demo-badge{background:rgba(255,204,0,.12);border:1px solid rgba(255,204,0,.3);color:var(--gold);font-family:'DM Mono';font-size:9px;padding:3px 10px;border-radius:4px;letter-spacing:1px;display:none}
+
+/* ── CONTENT ── */
 .content{padding:24px 28px}
 .load-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
 .load-overlay.hidden{opacity:0;pointer-events:none}
 .load-spinner{width:40px;height:40px;border:2px solid var(--border);border-top:2px solid var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .load-text{font-family:'DM Mono';font-size:12px;color:var(--text2)}
-.err-banner{background:rgba(255,51,85,0.08);border:1px solid rgba(255,51,85,0.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--red);display:none;align-items:center;gap:10px;line-height:1.5}
+.err-banner{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--red);display:none;align-items:center;gap:10px;line-height:1.5}
 .err-banner.show{display:flex}
 .section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:28px}
 .section-hdr:first-child{margin-top:0}
 .section-hdr h2{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--text2)}
 .section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color 0.2s}
+.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s}
 .kpi-card:hover{border-color:var(--border2)}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
 .kpi-card.accent::before{background:var(--accent)}.kpi-card.green::before{background:var(--green)}.kpi-card.gold::before{background:var(--gold)}.kpi-card.purple::before{background:var(--purple)}.kpi-card.orange::before{background:var(--orange)}.kpi-card.red::before{background:var(--red)}
@@ -59,12 +82,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .kpi-card.accent .kpi-value{color:var(--accent)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.gold .kpi-value{color:var(--gold)}.kpi-card.purple .kpi-value{color:var(--purple)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}
 .kpi-sub{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .kpi-delta{font-family:'DM Mono';font-size:10px;padding:1px 5px;border-radius:3px}
-.delta-up{background:rgba(0,232,122,0.12);color:var(--green)}.delta-down{background:rgba(255,51,85,0.12);color:var(--red)}
+.delta-up{background:rgba(0,232,122,.12);color:var(--green)}.delta-down{background:rgba(255,51,85,.12);color:var(--red)}
 .sparkline{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:6px}
-.spark-bar{flex:1;border-radius:2px 2px 0 0;min-width:3px;opacity:0.7}
+.spark-bar{flex:1;border-radius:2px 2px 0 0;min-width:3px;opacity:.7}
 .two-thirds{display:grid;grid-template-columns:2fr 1fr;gap:12px}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.live-counter-card{background:linear-gradient(135deg,rgba(0,232,122,0.06) 0%,rgba(0,212,255,0.03) 100%);border:1px solid rgba(0,232,122,0.2);border-radius:12px;padding:18px 22px;display:flex;align-items:center;gap:20px}
+.live-counter-card{background:linear-gradient(135deg,rgba(0,232,122,.06) 0%,rgba(0,212,255,.03) 100%);border:1px solid rgba(0,232,122,.2);border-radius:12px;padding:18px 22px;display:flex;align-items:center;gap:20px}
 .lc-ring-wrap{position:relative;width:70px;height:70px;flex-shrink:0}
 .lc-ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
 .lc-ring-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue';font-size:22px;color:var(--green)}
@@ -93,22 +116,22 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .founder-split-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .founder-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
 .fc-avatar{width:40px;height:40px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:18px}
-.fc-1{background:rgba(0,212,255,0.12);color:var(--accent);border:2px solid rgba(0,212,255,0.3)}.fc-2{background:rgba(155,109,255,0.12);color:var(--purple);border:2px solid rgba(155,109,255,0.3)}
-.fc-name{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;font-family:'DM Mono';letter-spacing:0.5px}
+.fc-1{background:rgba(0,212,255,.12);color:var(--accent);border:2px solid rgba(0,212,255,.3)}.fc-2{background:rgba(155,109,255,.12);color:var(--purple);border:2px solid rgba(155,109,255,.3)}
+.fc-name{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;font-family:'DM Mono';letter-spacing:.5px}
 .fc-stat{margin-bottom:7px}
 .fc-stat-lbl{font-size:9px;color:var(--text3);font-family:'DM Mono';letter-spacing:1px;text-transform:uppercase;margin-bottom:2px}
 .fc-stat-val{font-family:'Bebas Neue';font-size:22px}
 .rev-table{width:100%;border-collapse:collapse}
 .rev-table th{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;text-align:left;padding:6px 10px 8px;border-bottom:1px solid var(--border)}
-.rev-table td{padding:8px 10px;font-size:12px;border-bottom:1px solid rgba(22,34,46,0.5);color:var(--text2)}
+.rev-table td{padding:8px 10px;font-size:12px;border-bottom:1px solid rgba(22,34,46,.5);color:var(--text2)}
 .rev-table tr:last-child td{border-bottom:none}
-.rev-table tr:hover td{background:rgba(0,212,255,0.02)}
+.rev-table tr:hover td{background:rgba(0,212,255,.02)}
 .rev-table .mono{font-family:'DM Mono';font-size:11px}.rev-table .positive{color:var(--green)}.rev-table .col-month{color:var(--text);font-weight:600}
-.proj-card{background:linear-gradient(135deg,rgba(255,204,0,0.05),rgba(255,140,0,0.03));border:1px solid rgba(255,204,0,0.15);border-radius:12px;padding:18px 20px}
+.proj-card{background:linear-gradient(135deg,rgba(255,204,0,.05),rgba(255,140,0,.03));border:1px solid rgba(255,204,0,.15);border-radius:12px;padding:18px 20px}
 .proj-header{display:flex;align-items:center;gap:8px;margin-bottom:16px}
 .proj-title{font-family:'Bebas Neue';font-size:18px;color:var(--gold);letter-spacing:1px}
 .proj-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.proj-item{background:rgba(0,0,0,0.2);border:1px solid rgba(255,204,0,0.08);border-radius:8px;padding:12px;text-align:center}
+.proj-item{background:rgba(0,0,0,.2);border:1px solid rgba(255,204,0,.08);border-radius:8px;padding:12px;text-align:center}
 .proj-item-lbl{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase}
 .proj-item-val{font-family:'Bebas Neue';font-size:26px;color:var(--gold)}
 .proj-item-sub{font-size:10px;color:var(--text3);margin-top:2px}
@@ -129,7 +152,34 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </style>
 </head>
 <body>
-<div class="load-overlay" id="loadOverlay"><div class="load-spinner"></div><div class="load-text">LOADING LIVE DATA...</div></div>
+
+<!-- ── GATE OVERLAY ── -->
+<div class="gate-overlay" id="gateOverlay">
+  <div class="gate-card">
+    <div class="gate-logo">SLIP IQ</div>
+    <div class="gate-sub">Admin Access Required</div>
+    <div class="gate-error" id="gateError"></div>
+    <div class="gate-locked" id="gateLocked">🔒 Too many failed attempts. Please wait 60 seconds.</div>
+    <div>
+      <div class="gate-label">Email</div>
+      <input type="email" class="gate-input" id="gateEmail" placeholder="admin@yourdomain.com" onkeydown="if(event.key==='Enter')checkGate()">
+    </div>
+    <div>
+      <div class="gate-label">Password</div>
+      <input type="password" class="gate-input" id="gatePassword" placeholder="••••••" onkeydown="if(event.key==='Enter')checkGate()">
+    </div>
+    <button class="gate-btn" id="gateBtn" onclick="checkGate()">ACCESS DASHBOARD →</button>
+    <div class="gate-attempts" id="gateAttempts"></div>
+  </div>
+</div>
+
+<!-- ── LOAD OVERLAY ── -->
+<div class="load-overlay hidden" id="loadOverlay">
+  <div class="load-spinner"></div>
+  <div class="load-text">LOADING LIVE DATA...</div>
+</div>
+
+<!-- ── SIDEBAR ── -->
 <div class="sidebar">
   <div class="sidebar-logo"><span class="wordmark">SLIP IQ</span><span class="sub">ADMIN DASHBOARD</span></div>
   <div class="sidebar-nav">
@@ -151,17 +201,22 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div>
 </div>
-<div class="main">
+
+<!-- ── MAIN SHELL ── -->
+<div class="main" id="mainShell" style="display:none">
   <div class="topbar">
     <div class="tb-title">ADMIN DASHBOARD</div>
-    <div class="tb-live"><div class="live-pulse"></div>LIVE</div>
+    <div class="tb-live"><div class="live-pulse"></div><span id="liveLabel">LIVE</span></div>
+    <div class="demo-badge" id="demoBadge">DEMO DATA</div>
     <div class="tb-date" id="tbDate">—</div>
     <a class="tb-btn" href="index.html">← App</a>
+    <div class="tb-btn" id="toggleBtn" onclick="toggleMode()" title="Switch between live Supabase data and demo placeholder">📊 DEMO MODE</div>
     <div class="tb-btn" onclick="loadAll()">↻ Refresh</div>
-    <div class="tb-btn" onclick="signOut()" style="color:var(--red);border-color:rgba(255,51,85,0.3)">Sign Out</div>
+    <div class="tb-btn" onclick="signOut()" style="color:var(--red);border-color:rgba(255,51,85,.3)">Sign Out</div>
   </div>
   <div class="content">
     <div class="err-banner" id="errBanner"><span>⚠️</span><span id="errText">—</span></div>
+
     <div id="overview">
       <div class="section-hdr"><h2>KEY METRICS</h2></div>
       <div class="kpi-grid">
@@ -171,9 +226,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="kpi-card purple"><div class="kpi-label">Growth Rate (MoM)</div><div class="kpi-value" id="kpi-growth">—</div><div class="kpi-sub" id="kpi-growth-sub">—</div><div class="sparkline" id="spark-growth"></div></div>
       </div>
     </div>
+
     <div class="two-thirds" style="margin-top:12px">
       <div class="live-counter-card">
-        <div class="lc-ring-wrap"><svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="28" fill="none" stroke="rgba(0,232,122,0.1)" stroke-width="5"/><circle cx="35" cy="35" r="28" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="175.9" id="liveRing"/></svg><div class="lc-ring-num" id="liveRingNum">—</div></div>
+        <div class="lc-ring-wrap"><svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="28" fill="none" stroke="rgba(0,232,122,.1)" stroke-width="5"/><circle cx="35" cy="35" r="28" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="175.9" id="liveRing"/></svg><div class="lc-ring-num" id="liveRingNum">—</div></div>
         <div class="lc-info">
           <div class="lc-title">LIVE SUBSCRIBER COUNT</div>
           <div class="lc-sub">Realtime from Supabase · <span id="lastUpdated">—</span></div>
@@ -188,6 +244,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="growth-row" id="weekBars"></div>
       </div>
     </div>
+
     <div id="revenue">
       <div class="section-hdr"><h2>REVENUE BREAKDOWN</h2></div>
       <div class="kpi-grid">
@@ -201,6 +258,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <table class="rev-table"><thead><tr><th>Month</th><th>Subscribers</th><th>Gross Revenue</th><th>API Costs</th><th>Net Profit</th><th>Growth</th><th>Per Founder</th></tr></thead><tbody id="revBody"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;font-family:'DM Mono';font-size:11px">Loading...</td></tr></tbody></table>
       </div>
     </div>
+
     <div id="subscribers">
       <div class="section-hdr"><h2>TIER BREAKDOWN</h2></div>
       <div class="two-thirds">
@@ -214,6 +272,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         </div>
       </div>
     </div>
+
     <div id="growth">
       <div class="section-hdr"><h2>GROWTH ANALYTICS</h2></div>
       <div class="kpi-grid">
@@ -227,6 +286,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <canvas id="growthChart" height="150"></canvas>
       </div>
     </div>
+
     <div id="projections">
       <div class="section-hdr"><h2>PROJECTIONS</h2></div>
       <div class="proj-card">
@@ -245,6 +305,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <canvas id="projChart" height="150"></canvas>
       </div>
     </div>
+
     <div id="costs">
       <div class="section-hdr"><h2>API COSTS BREAKDOWN</h2></div>
       <div class="chart-panel">
@@ -258,10 +319,11 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
           <div class="cost-item"><div class="cost-name">Domain + SSL</div><div class="cost-val">~€5/mo</div><div class="cost-plan">Amortized</div></div>
           <div class="cost-item"><div class="cost-name">Stripe Fees</div><div class="cost-val" id="cost-stripe">~€55/mo</div><div class="cost-plan">2.9% + 30¢/txn</div></div>
           <div class="cost-item"><div class="cost-name">Supabase</div><div class="cost-val">€25/mo</div><div class="cost-plan">Pro plan</div></div>
-          <div class="cost-item" style="border-color:rgba(255,51,85,0.2)"><div class="cost-name" style="color:var(--text)">Total Monthly</div><div class="cost-val" style="font-size:18px" id="cost-total">—</div><div class="cost-plan" style="color:var(--green)" id="cost-profit-note">Net profit: loading...</div></div>
+          <div class="cost-item" style="border-color:rgba(255,51,85,.2)"><div class="cost-name" style="color:var(--text)">Total Monthly</div><div class="cost-val" style="font-size:18px" id="cost-total">—</div><div class="cost-plan" style="color:var(--green)" id="cost-profit-note">Net profit: loading...</div></div>
         </div>
       </div>
     </div>
+
     <div id="founders">
       <div class="section-hdr"><h2>FOUNDER PROFIT SPLIT — 50 / 50</h2></div>
       <div class="kpi-grid">
@@ -290,35 +352,111 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────────
-const SUPABASE_URL      = 'YOUR_SUPABASE_URL'
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'
-const ADMIN_EMAILS      = ['your@email.com','cofounder@email.com']
-const API_COSTS_FIXED   = 175   // fixed costs: hosting + APIs (excl. Stripe)
+// ── CONFIG ────────────────────────────────────────────────
+// ⚠️ NOTE: password stored client-side = visible in source.
+// Fine for internal use; don't rely on this for sensitive financial ops.
+const ADMIN_EMAIL    = 'zioncmulangala@gmail.com'
+const ADMIN_PASS     = 'marsai'            // 6-char password
+const SUPABASE_URL   = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL'
+const SUPABASE_ANON  = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
+const API_COSTS_FIXED = 175
 const PLAN_PRICES = { free:0, starter:2.99, basic:4.99, pro:14.99, elite:49.99 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 const { createClient } = supabase
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
 
-async function authGuard() {
-  const { data: { session } } = await sb.auth.getSession()
-  if (!session) { window.location.href='login.html'; return false }
-  if (!ADMIN_EMAILS.includes(session.user.email)) { window.location.href='index.html'; return false }
-  return true
+// ── MODE TOGGLE ───────────────────────────────────────────
+let demoMode = false
+let gateAttempts = 0
+const MAX_ATTEMPTS = 5
+let lockoutUntil = 0
+
+function toggleMode() {
+  demoMode = !demoMode
+  const btn = document.getElementById('toggleBtn')
+  const badge = document.getElementById('demoBadge')
+  const liveLabel = document.getElementById('liveLabel')
+  if (demoMode) {
+    btn.textContent = '📡 LIVE DATA'
+    btn.style.color = 'var(--gold)'
+    badge.style.display = 'block'
+    liveLabel.textContent = 'DEMO'
+    document.querySelector('.tb-live').style.borderColor = 'rgba(255,204,0,.2)'
+    document.querySelector('.tb-live').style.color = 'var(--gold)'
+    renderDemo()
+  } else {
+    btn.textContent = '📊 DEMO MODE'
+    btn.style.color = ''
+    badge.style.display = 'none'
+    liveLabel.textContent = 'LIVE'
+    document.querySelector('.tb-live').style.borderColor = ''
+    document.querySelector('.tb-live').style.color = 'var(--green)'
+    loadAll()
+  }
 }
 
-async function signOut() { await sb.auth.signOut(); window.location.href='login.html' }
+// ── GATE ──────────────────────────────────────────────────
+function checkGate() {
+  const now = Date.now()
+  if (now < lockoutUntil) {
+    const secs = Math.ceil((lockoutUntil - now) / 1000)
+    showGateErr(`Locked out. Try again in ${secs}s.`)
+    return
+  }
 
+  const email = document.getElementById('gateEmail').value.trim().toLowerCase()
+  const pass  = document.getElementById('gatePassword').value
+
+  if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+    sessionStorage.setItem('slip_admin_auth', '1')
+    document.getElementById('gateOverlay').style.display = 'none'
+    document.getElementById('mainShell').style.display = 'block'
+    document.getElementById('loadOverlay').classList.remove('hidden')
+    loadAll()
+    subscribeRealtime()
+  } else {
+    gateAttempts++
+    if (gateAttempts >= MAX_ATTEMPTS) {
+      lockoutUntil = Date.now() + 60000 // 60 second lockout
+      document.getElementById('gateLocked').classList.add('show')
+      document.getElementById('gateBtn').disabled = true
+      setTimeout(() => {
+        document.getElementById('gateLocked').classList.remove('show')
+        document.getElementById('gateBtn').disabled = false
+        gateAttempts = 0
+      }, 60000)
+    }
+    const remaining = MAX_ATTEMPTS - gateAttempts
+    showGateErr(`Incorrect credentials.${remaining > 0 ? ` ${remaining} attempt${remaining!==1?'s':''} remaining.` : ''}`)
+    document.getElementById('gateAttempts').textContent = `Attempt ${gateAttempts} of ${MAX_ATTEMPTS}`
+    document.getElementById('gatePassword').value = ''
+  }
+}
+
+function showGateErr(msg) {
+  const el = document.getElementById('gateError')
+  el.textContent = msg
+  el.classList.add('show')
+}
+
+async function signOut() {
+  sessionStorage.removeItem('slip_admin_auth')
+  await sb.auth.signOut().catch(()=>{})
+  location.reload()
+}
+
+// ── DATA FETCH ────────────────────────────────────────────
 async function loadAll() {
   document.getElementById('tbDate').textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
+  document.getElementById('errBanner').classList.remove('show')
+  if (demoMode) { renderDemo(); return }
+  document.getElementById('loadOverlay').classList.remove('hidden')
   try {
     const [subs, revenue, daily] = await Promise.all([fetchSubs(), fetchRevenue(), fetchDaily()])
     render(subs, revenue, daily)
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString()
   } catch(err) {
     showErr(err.message)
-    console.error(err)
   } finally {
     document.getElementById('loadOverlay').classList.add('hidden')
   }
@@ -332,7 +470,11 @@ async function fetchSubs() {
 
 async function fetchRevenue() {
   const { data, error } = await sb.from('revenue_history').select('*').order('month', { ascending: true }).limit(24)
-  if (error) throw new Error('revenue_history: ' + error.message)
+  if (error) {
+    // Table may not exist yet — return empty so dashboard still renders
+    console.warn('revenue_history table missing or error:', error.message)
+    return []
+  }
   return data || []
 }
 
@@ -343,6 +485,7 @@ async function fetchDaily() {
   return data || []
 }
 
+// ── RENDER LIVE ───────────────────────────────────────────
 function render(subs, revenue, daily) {
   const now = new Date()
   const thisMonth = now.toISOString().slice(0,7)
@@ -354,26 +497,30 @@ function render(subs, revenue, daily) {
   const churned = subs.filter(s => s.status === 'cancelled' || s.status === 'churned')
   const total   = active.length
 
-  const mrr       = paid.reduce((s, x) => s + (PLAN_PRICES[x.plan]||0), 0)
+  const mrr       = paid.reduce((s,x) => s + (PLAN_PRICES[x.plan]||0), 0)
   const stripeFee = mrr * 0.029 + paid.length * 0.30
   const totalCost = API_COSTS_FIXED + stripeFee
   const net       = mrr - totalCost
 
   const tierCounts = {}, tierRev = {}
   Object.keys(PLAN_PRICES).forEach(p => { tierCounts[p]=0; tierRev[p]=0 })
-  active.forEach(s => { tierCounts[s.plan]=(tierCounts[s.plan]||0)+1; tierRev[s.plan]=(tierRev[s.plan]||0)+(PLAN_PRICES[s.plan]||0) })
+  active.forEach(s => {
+    tierCounts[s.plan] = (tierCounts[s.plan]||0) + 1
+    tierRev[s.plan]    = (tierRev[s.plan]||0) + (PLAN_PRICES[s.plan]||0)
+  })
 
   const last2 = revenue.slice(-2)
-  const mom = last2.length>=2 && last2[0].subscribers>0 ? ((last2[1].subscribers-last2[0].subscribers)/last2[0].subscribers*100) : 0
+  const mom = last2.length>=2 && last2[0].subscribers>0
+    ? ((last2[1].subscribers-last2[0].subscribers)/last2[0].subscribers*100) : 0
   const churnRate = total>0 ? (churned.length/(total+churned.length)*100).toFixed(1) : 0
   const convRate  = total>0 ? (paid.length/total*100).toFixed(0) : 0
   const ltv       = mom>0 ? Math.round((mrr/Math.max(total,1))/(mom/100)) : 0
 
-  const yearRevRows = revenue.filter(r => r.month?.startsWith(thisYear))
-  const yearRev   = yearRevRows.reduce((s,r) => s+(r.gross||0), 0)
-  const allTimeRev = revenue.reduce((s,r) => s+(r.gross||0), 0)
-  const yearProfit = yearRevRows.reduce((s,r) => s+(r.net||0), 0) || (net * (now.getMonth()+1))
-  const alltimeProfit = revenue.reduce((s,r) => s+(r.net||0), 0) || net
+  const yearRevRows = revenue.filter(r => r.month?.startsWith(String(thisYear)))
+  const yearRev     = yearRevRows.length ? yearRevRows.reduce((s,r)=>s+(r.gross||0),0) : mrr
+  const allTimeRev  = revenue.length ? revenue.reduce((s,r)=>s+(r.gross||0),0) : mrr
+  const yearProfit  = yearRevRows.length ? yearRevRows.reduce((s,r)=>s+(r.net||0),0) : net*(now.getMonth()+1)
+  const alltimeProfit = revenue.length ? revenue.reduce((s,r)=>s+(r.net||0),0) : net
   const arpu = paid.length > 0 ? (mrr/paid.length).toFixed(2) : '0'
 
   // KPIs
@@ -386,14 +533,14 @@ function render(subs, revenue, daily) {
   s('kpi-profit-sub', `After $${Math.round(totalCost)} costs`)
   s('kpi-growth-sub', `${convRate}% free→paid conv`)
 
-  // Live counter
+  // Live counter ring
   s('liveRingNum', fm(total))
   ring('liveRing', total, Math.max(total+50,200))
   bar('bar-paid','val-paid',paid.length,total)
   bar('bar-free','val-free',free.length,total)
   bar('bar-churned','val-churned',churned.length,total+churned.length)
 
-  // Today
+  // Today subs
   const tod = new Date().toDateString(), ysd = new Date(Date.now()-86400000).toDateString()
   const tc = daily.filter(d=>new Date(d.created_at).toDateString()===tod).length
   const yc = daily.filter(d=>new Date(d.created_at).toDateString()===ysd).length
@@ -402,24 +549,29 @@ function render(subs, revenue, daily) {
   renderWeekBars(daily)
 
   // Revenue
-  s('rev-month', '$'+fmo(revenue.find(r=>r.month?.slice(0,7)===thisMonth)?.gross || mrr))
+  const thisMonthRevRow = revenue.find(r=>r.month?.slice(0,7)===thisMonth)
+  s('rev-month', '$'+fmo(thisMonthRevRow?.gross || mrr))
   s('rev-month-sub', now.toLocaleDateString('en-GB',{month:'long',year:'numeric'}))
-  s('rev-year', '$'+fmo(yearRev || mrr))
+  s('rev-year', '$'+fmo(yearRev))
   s('rev-year-sub', `Jan–${now.toLocaleDateString('en-GB',{month:'short'})} ${thisYear}`)
-  s('rev-alltime', '$'+fmo(allTimeRev || mrr))
+  s('rev-alltime', '$'+fmo(allTimeRev))
   s('rev-arpu', '$'+arpu)
   renderRevTable(revenue, totalCost)
 
   // Tiers
   renderTiers(tierCounts, tierRev, paid.length, free.length)
-  s('tier-paid-total', `${paid.length} Paid`); s('tier-free-note', `+${free.length} Free tier`)
-  s('donut-total', '$'+fmo(mrr)); drawDonut(tierRev, mrr)
+  s('tier-paid-total', `${paid.length} Paid`)
+  s('tier-free-note', `+${free.length} Free tier`)
+  s('donut-total', '$'+fmo(mrr))
+  drawDonut(tierRev, mrr)
 
   // Growth
   const revD = revenue.slice(-6).map(r=>r.subscribers||0)
   const revL = revenue.slice(-6).map(r=>r.month?.slice(0,7)||'')
-  s('grow-mom', Math.round(mom)+'%'); s('grow-churn', churnRate+'%')
-  s('grow-ltv', ltv>0?'$'+ltv:'—'); s('grow-conv', convRate+'%')
+  s('grow-mom', Math.round(mom)+'%')
+  s('grow-churn', churnRate+'%')
+  s('grow-ltv', ltv>0?'$'+ltv:'—')
+  s('grow-conv', convRate+'%')
   if(revD.length>=2){s('grow-chart-label',`${revD[0]} → ${revD[revD.length-1]}`);const pct=revD[0]>0?Math.round((revD[revD.length-1]-revD[0])/revD[0]*100):0;s('grow-pct',`+${pct}%`)}
   drawGrowthChart(revD, revL)
 
@@ -451,21 +603,51 @@ function render(subs, revenue, daily) {
   ;['z','r'].forEach(p=>{s(p+'-month','$'+fmo(net/2));s(p+'-year','$'+fmo(yearProfit/2));s(p+'-alltime','$'+fmo(alltimeProfit/2));s(p+'-proj','$'+fmo(pMrr/2)+'/mo')})
 
   // Sparklines
-  const rData = revenue.slice(-8).map(r=>r.subscribers||0).concat(total)
-  buildSparkline('spark-subs', rData, 'var(--accent)')
+  buildSparkline('spark-subs', revenue.slice(-8).map(r=>r.subscribers||0).concat(total), 'var(--accent)')
   buildSparkline('spark-mrr', revenue.slice(-8).map(r=>r.gross||0).concat(mrr), 'var(--green)')
   buildSparkline('spark-profit', revenue.slice(-8).map(r=>r.net||0).concat(net), 'var(--gold)')
   buildSparkline('spark-growth', revenue.slice(-8).map((_,i,a)=>i>0&&a[i-1].subscribers>0?Math.round((a[i].subscribers-a[i-1].subscribers)/a[i-1].subscribers*100):0), 'var(--purple)')
 }
 
+// ── RENDER DEMO ───────────────────────────────────────────
+function renderDemo() {
+  document.getElementById('loadOverlay').classList.add('hidden')
+  const DEMO = {
+    subs: [
+      ...Array(62).fill(null).map((_,i)=>({ status:'active', plan:'free', created_at: new Date(Date.now()-i*86400000*2).toISOString() })),
+      ...Array(18).fill(null).map((_,i)=>({ status:'active', plan:'starter', created_at: new Date(Date.now()-i*86400000*3).toISOString() })),
+      ...Array(11).fill(null).map((_,i)=>({ status:'active', plan:'basic', created_at: new Date(Date.now()-i*86400000*4).toISOString() })),
+      ...Array(7).fill(null).map((_,i)=>({ status:'active', plan:'pro', created_at: new Date(Date.now()-i*86400000*5).toISOString() })),
+      ...Array(2).fill(null).map((_,i)=>({ status:'active', plan:'elite', created_at: new Date(Date.now()-i*86400000*10).toISOString() })),
+      ...Array(5).fill(null).map((_,i)=>({ status:'cancelled', plan:'starter', created_at: new Date(Date.now()-i*86400000*7).toISOString() })),
+    ],
+    revenue: [
+      { month:'2025-10', subscribers:12, gross:89, costs:185, net:-96 },
+      { month:'2025-11', subscribers:25, gross:198, costs:190, net:8 },
+      { month:'2025-12', subscribers:41, gross:312, costs:195, net:117 },
+      { month:'2026-01', subscribers:67, gross:498, costs:202, net:296 },
+      { month:'2026-02', subscribers:88, gross:641, costs:208, net:433 },
+      { month:'2026-03', subscribers:100, gross:728, costs:212, net:516 },
+    ],
+    daily: Array(7).fill(null).flatMap((_,i)=>
+      Array(Math.max(0,3-i)).fill(null).map(()=>({ created_at: new Date(Date.now()-i*86400000).toISOString(), plan:'free' }))
+    )
+  }
+  render(DEMO.subs, DEMO.revenue, DEMO.daily)
+}
+
+// ── UI HELPERS ────────────────────────────────────────────
 function renderRevTable(revenue, costs) {
   const rows = revenue.slice(-12)
-  if (!rows.length) { s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — add rows to revenue_history table</td></tr>'); return }
+  if (!rows.length) {
+    s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — create a <code>revenue_history</code> table in Supabase with columns: month (text), subscribers (int), gross (numeric), costs (numeric), net (numeric)</td></tr>')
+    return
+  }
   s('revBody', rows.map((r,i,arr)=>{
     const growth = i>0&&arr[i-1].subscribers>0 ? Math.round((r.subscribers-arr[i-1].subscribers)/arr[i-1].subscribers*100) : null
     const rnet = (r.gross||0)-(r.costs||costs)
     const isCur = r.month?.slice(0,7)===new Date().toISOString().slice(0,7)
-    return `<tr${isCur?' style="background:rgba(0,232,122,0.03)"':''}>
+    return `<tr${isCur?' style="background:rgba(0,232,122,.03)"':''}>
       <td class="col-month"${isCur?' style="color:var(--green)"'}>${fmMonth(r.month)}${isCur?' ●':''}</td>
       <td class="mono"${isCur?' style="color:var(--green)"'}>${fm(r.subscribers||0)}</td>
       <td class="mono positive">$${fmo(r.gross||0)}</td>
@@ -521,7 +703,7 @@ function drawGrowthChart(data, labels) {
   ctx.strokeStyle='#16222e'; ctx.lineWidth=1
   for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke()}
   if(data.length>1){
-    const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+h); grad.addColorStop(0,'rgba(0,232,122,0.3)'); grad.addColorStop(1,'rgba(0,232,122,0)')
+    const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+h); grad.addColorStop(0,'rgba(0,232,122,.3)'); grad.addColorStop(1,'rgba(0,232,122,0)')
     ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=grad; ctx.fill()
     ctx.beginPath(); ctx.strokeStyle='#00e87a'; ctx.lineWidth=2.5; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke()
   }
@@ -536,7 +718,7 @@ function drawProjChart(data, labels) {
   ctx.strokeStyle='#16222e'; ctx.lineWidth=1
   for(let i=0;i<=4;i++){const y=pad.top+(h/4)*i;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+w,y);ctx.stroke();ctx.fillStyle='#384d60';ctx.font='9px DM Mono';ctx.textAlign='right';ctx.fillText('$'+Math.round((maxV-(maxV/4)*i)/1000)+'k',pad.left-6,y+3)}
   if(data.length>1){
-    const gradP=ctx.createLinearGradient(0,pad.top,0,pad.top+h); gradP.addColorStop(0,'rgba(255,204,0,0.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)')
+    const gradP=ctx.createLinearGradient(0,pad.top,0,pad.top+h); gradP.addColorStop(0,'rgba(255,204,0,.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)')
     ctx.beginPath(); data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath(); ctx.fillStyle=gradP; ctx.fill()
     ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle='#ffcc00'; ctx.lineWidth=2; data.forEach((v,i)=>{const x=pad.left+(i/(data.length-1))*w,y=pad.top+h-((v/maxV)*h);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}); ctx.stroke(); ctx.setLineDash([])
   }
@@ -550,7 +732,7 @@ function fmMonth(m) { if(!m)return'—'; const d=new Date(m+'T00:00:00'); return
 function buildSparkline(id, data, color) {
   const el=document.getElementById(id); if(!el)return
   const max=Math.max(...data.filter(v=>v>0),1)
-  el.innerHTML=data.map((v,i)=>`<div class="spark-bar" style="height:${Math.max(4,(v/max)*28)}px;background:${color};opacity:${0.3+(i/data.length)*0.7}"></div>`).join('')
+  el.innerHTML=data.map((v,i)=>`<div class="spark-bar" style="height:${Math.max(4,(v/max)*28)}px;background:${color};opacity:${.3+(i/data.length)*.7}"></div>`).join('')
 }
 function ring(id, val, max) { const el=document.getElementById(id); if(!el)return; const c=175.9; el.style.strokeDashoffset=c-(c*Math.min(val/max,1)) }
 function bar(barId, valId, count, total) {
@@ -558,18 +740,37 @@ function bar(barId, valId, count, total) {
   if(b) b.style.width=(total>0?(count/total*100).toFixed(0):'0')+'%'
   if(v) v.textContent=fm(count)
 }
-function showErr(msg) { const el=document.getElementById('errBanner'); document.getElementById('errText').textContent=msg; el.classList.add('show') }
+function showErr(msg) {
+  const el=document.getElementById('errBanner')
+  document.getElementById('errText').textContent=msg
+  el.classList.add('show')
+}
 
-// Realtime — re-render when any subscription changes
+// Realtime Supabase subscription
 function subscribeRealtime() {
   sb.channel('admin-rt')
-    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, () => { console.log('🔄 Change detected'); loadAll() })
+    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, () => {
+      if (!demoMode) { console.log('🔄 Supabase change → refreshing'); loadAll() }
+    })
     .subscribe()
 }
 
-window.addEventListener('resize', () => { setTimeout(()=>{ drawDonut({},0); drawGrowthChart([],[]); drawProjChart([],[]) }, 100) })
+window.addEventListener('resize', () => {
+  setTimeout(() => { if (!demoMode) return; renderDemo() }, 100)
+})
 
-authGuard().then(ok => { if(ok) { loadAll(); subscribeRealtime() } })
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tbDate').textContent = new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})
+  // Check if already authenticated this session
+  if (sessionStorage.getItem('slip_admin_auth') === '1') {
+    document.getElementById('gateOverlay').style.display = 'none'
+    document.getElementById('mainShell').style.display = 'block'
+    document.getElementById('loadOverlay').classList.remove('hidden')
+    loadAll()
+    subscribeRealtime()
+  }
+})
 </script>
 </body>
 </html>
