@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slip IQ — Betting Intelligence</title>
@@ -657,6 +659,8 @@ var ACTION_COSTS = {
   leagues_tab:15, sport_analysis:15, ai_agent:10
 };
 
+var PLAN_CREDITS = { free:25, starter:55, basic:55, plus:115, pro:265, elite:900, platinum:999999 };
+
 var LEAGUE_IMPORTANCE = {
   "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
   "Ligue 1":6,"Europa League":7,"Conference League":8,"FA Cup":9,"Carabao Cup":9,
@@ -729,7 +733,7 @@ async function loadCurrentSport() {
     }
     // FIX: pass userId as query param, correctly appending to existing query string
     url += (url.includes('?') ? '&' : '?') + 'userId=' + encodeURIComponent(USER_ID);
-    var res = await fetch(url);
+    var res = await fetch(url, { headers: { 'x-user-id': USER_ID || '' } });
     if (!res.ok) {
       // FIX: handle 402 plan-lock responses from server
       if (res.status === 402) {
@@ -1828,26 +1832,52 @@ var FEATURE_LABELS = {
 
 function getUserPlan() { return currentSub && currentSub.plan ? currentSub.plan : 'free'; }
 
-function showLockModal(feature) {
-  var info = FEATURE_LABELS[feature] || {icon:'🔒',title:'LOCKED',desc:'Upgrade to access this feature.'};
-  var minPlan = FEATURE_MIN_PLAN[feature] || 'plus';
-  var cost = ACTION_COSTS[feature] || 0;
-  document.getElementById('lmIcon').textContent = info.icon;
-  document.getElementById('lmTitle').textContent = info.title;
-  document.getElementById('lmDesc').textContent = info.desc;
-  document.getElementById('lmCost').innerHTML = cost > 0 ? 'Costs <b style="color:#ffd700">' + cost + ' credits</b> per use' : '';
-  document.getElementById('lmCurrent').textContent = 'Your plan: ' + getUserPlan().toUpperCase();
-  var plansDiv = document.getElementById('lmPlans');
-  plansDiv.innerHTML = '';
-  var minRank = PLAN_RANK[minPlan] || 0;
-  PLAN_HIERARCHY.forEach(function(plan) {
-    var chip = document.createElement('span');
-    chip.className = 'plan-chip ' + ((PLAN_RANK[plan]||0) >= minRank ? 'pc-' + plan : 'pc-locked');
-    chip.style.opacity = (PLAN_RANK[plan]||0) < minRank ? '.35' : '1';
-    chip.textContent = plan.toUpperCase();
-    plansDiv.appendChild(chip);
-  });
-  document.getElementById('lockModal').classList.add('open');
+function showLockModal(feature, requiredPlan, userPlan) {
+  const PLAN_LABELS = { free:'FREE', starter:'STARTER', basic:'BASIC', plus:'PLUS', pro:'PRO', elite:'ELITE', platinum:'PLATINUM' }
+  const PLAN_ICONS = { plus:'🎯', pro:'⚡', elite:'🏆', platinum:'💎' }
+  const PLAN_COLORS = { plus:'var(--orange)', pro:'var(--purple)', elite:'var(--gold)', platinum:'var(--accent)' }
+  const PLAN_FEATURES = { plus:'Auto-Parlay Builder, Team Stats, League Tables', pro:'All Plus features + Parlay Advisor, Risk Analysis', elite:'All Pro features + Sport Analysis (NBA/NFL/Tennis/F1/Boxing/MMA)', platinum:'Everything + AI Agent, Unlimited Credits' }
+  const FEATURE_LABELS = { auto_parlay:'Auto-Parlay Builder', team_stats:'Team Statistics', leagues_tab:'League Tables', parlay_advice:'Parlay Advisor', risk_analysis:'Risk Analysis', sport_analysis:'Sport AI Analysis', ai_agent:'AI Agent', match_analysis:'Match Analysis' }
+
+  const req = requiredPlan || 'plus'
+  const modal = document.createElement('div')
+  modal.id = 'planLockModal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)'
+  modal.innerHTML = `
+  <div style="background:var(--panel);border:1px solid ${PLAN_COLORS[req]||'var(--border2)'};border-radius:16px;padding:32px 28px;max-width:420px;width:100%;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">${PLAN_ICONS[req]||'🔒'}</div>
+    <div style="font-family:'Bebas Neue';font-size:24px;letter-spacing:2px;color:var(--text);margin-bottom:6px">
+      ${FEATURE_LABELS[feature]||feature.replace(/_/g,' ').toUpperCase()}
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">
+      This feature requires the <strong style="color:${PLAN_COLORS[req]||'var(--accent)'}">${PLAN_LABELS[req]||req.toUpperCase()} PLAN</strong> or above.<br>
+      <span style="font-size:11px;color:var(--text3)">${PLAN_FEATURES[req]||''}</span>
+    </div>
+    <div style="font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-bottom:18px">
+      Your plan: ${PLAN_LABELS[userPlan||'free']||'FREE'}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <a href="subscriptions.html" style="background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:1px;padding:13px 24px;border-radius:8px;text-decoration:none;display:block">
+        ⚡ UPGRADE PLAN
+      </a>
+      <button onclick="closePlanLock()" style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);color:var(--text3);font-family:'JetBrains Mono';font-size:10px;padding:10px;border-radius:8px;cursor:pointer">
+        Maybe later → Go to Account
+      </button>
+    </div>
+  </div>`
+  // Clicking backdrop goes to account page (not just closes)
+  modal.addEventListener('click', e => {
+    if (e.target === modal) { 
+      modal.remove()
+      window.location.href = 'account.html'
+    }
+  })
+  document.body.appendChild(modal)
+}
+
+function closePlanLock() {
+  document.getElementById('planLockModal')?.remove()
+  window.location.href = 'account.html'
 }
 
 function closeLockModal() { document.getElementById('lockModal').classList.remove('open'); }
@@ -1959,65 +1989,79 @@ function flagFor(n) {
 }
 
 async function loadUserCredits() {
+  const userId = USER_ID
+  if (!userId || userId.startsWith('user_')) return
   try {
-    var res = await fetch(API + "/user/" + USER_ID);
-    if (!res.ok) return;
-    var u = await res.json();
-    var btn = document.getElementById("creditsBtn");
-    if (btn && u.credits_available !== undefined) {
-      var inf = u.plan === "platinum";
-      btn.textContent = "💳 " + (inf ? "∞" : u.credits_available) + " CREDITS";
-    }
-    currentSub = u;
-  } catch(e) {}
+    const res = await fetch(`/user/${userId}`)
+    if (!res.ok) throw new Error('not found')
+    const data = await res.json()
+    const plan = data.plan || 'free'
+    const monthly = data.monthly_credits ?? (PLAN_CREDITS[plan] || 25)
+    const used = data.credits_used || 0
+    const bonus = data.credits_bonus || 0
+    const remaining = plan === 'platinum' ? '∞' : Math.max(0, monthly - used + bonus)
+    
+    // Update sidebar credit display
+    const el = document.getElementById('creditCount') // adjust ID to match yours
+    if (el) el.textContent = remaining === '∞' ? '∞' : remaining + ' CREDITS'
+    
+    // Store for access checks
+    window._userPlan = plan
+    window._userCredits = typeof remaining === 'number' ? remaining : 999999
+  } catch(e) {
+    window._userPlan = 'free'
+    window._userCredits = 0
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
-  // FIX: Auth guard — check for Supabase session token in localStorage
-  // Looks for any sb-*-auth-token key set by Supabase client
-  var hasSession = false;
+  // Step 1: Try Supabase getSession
   try {
-    for (var k in localStorage) {
-      if (k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1) {
-        var stored = localStorage.getItem(k);
-        if (stored) {
-          var parsed = JSON.parse(stored);
-          if (parsed && parsed.access_token) {
-            // Use the actual Supabase user ID if available
-            if (parsed.user && parsed.user.id) {
-              USER_ID = parsed.user.id;
-            }
-            hasSession = true;
-          }
-        }
-        break;
+    if (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+      var _sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      var { data: _sd } = await _sb.auth.getSession();
+      if (_sd && _sd.session && _sd.session.user && _sd.session.user.id) {
+        USER_ID = _sd.session.user.id;
       }
     }
   } catch(e) {}
 
-  // Fallback: check for a manually stored session
-  if (!hasSession) {
-    var manualSession = localStorage.getItem('slipiq_session');
-    if (manualSession) {
-      try {
-        var ms = JSON.parse(manualSession);
-        if (ms && ms.user_id) { USER_ID = ms.user_id; hasSession = true; }
-      } catch(e) {}
-    }
+  // Step 2: ALWAYS scan localStorage directly — never skip this
+  if (!USER_ID || USER_ID.startsWith('user_')) {
+    try {
+      for (var k in localStorage) {
+        if (k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1) {
+          var stored = localStorage.getItem(k);
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            var uid = (parsed && parsed.user && parsed.user.id) ||
+                      (parsed && parsed.session && parsed.session.user && parsed.session.user.id);
+            if (uid) { USER_ID = uid; break; }
+          }
+        }
+      }
+    } catch(e2) {}
   }
 
-  // Redirect to login if no session found and Supabase URL is configured
-  if (!hasSession && window.SUPABASE_URL) {
-    window.location.href = 'login.html';
-    return;
+  // Step 3: If session found, stamp it so we never redirect unnecessarily
+  if (USER_ID && !USER_ID.startsWith('user_')) {
+    sessionStorage.setItem('_slipiq_auth_ok', '1');
+  }
+
+  // Step 4: Only redirect if BOTH Supabase AND localStorage found nothing,
+  // AND login.html hasn't already told us this session is valid
+  if (!USER_ID || USER_ID.startsWith('user_')) {
+    if (window.SUPABASE_URL && !sessionStorage.getItem('_slipiq_auth_ok')) {
+      window.location.replace('login.html');
+      return;
+    }
   }
 
   await loadCurrentSport();
   loadNewsTicker();
   loadUserCredits();
 }
-
 window.addEventListener("DOMContentLoaded", init);
 </script>
 </body>

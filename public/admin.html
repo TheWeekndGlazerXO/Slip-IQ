@@ -353,7 +353,7 @@ var ADMIN_PASS       = 'marsai';
 var SUPABASE_URL     = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL';
 var SUPABASE_ANON    = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 var API_COSTS_FIXED  = 175;
-var PLAN_PRICES      = { free:0, starter:2.99, basic:4.99, pro:14.99, elite:49.99 };
+var PLAN_PRICES = { free:0, starter:2.99, basic:4.99, plus:7.99, pro:14.99, elite:49.99, platinum:99.99 };
 
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -455,25 +455,66 @@ async function loadAll() {
 }
 
 async function fetchSubs() {
-  var res = await sb.from('subscriptions').select('*').order('created_at', { ascending: false });
-  if (res.error) throw new Error('subscriptions: ' + res.error.message);
-  return res.data || [];
+  // Query users table, filter out regard = 'no' rows
+  var res = await sb.from('users')
+    .select('id,email,plan,plan_status,joined_at,last_seen_at,credits_total,credits_used,total_parlays,won_parlays')
+    .or('regard.is.null,regard.eq.yes')
+    .order('joined_at', { ascending: false });
+  if (res.error) throw new Error('users: ' + res.error.message);
+  // Normalise to shape the render() function expects
+  return (res.data || []).map(function(u) {
+    return {
+      id:         u.id,
+      email:      u.email,
+      plan:       u.plan || 'free',
+      status:     u.plan_status || 'active',
+      created_at: u.joined_at,
+      last_seen:  u.last_seen_at,
+      credits_used: u.credits_used || 0,
+      total_parlays: u.total_parlays || 0,
+      won_parlays:   u.won_parlays || 0,
+    };
+  });
 }
 
 async function fetchRevenue() {
-  var res = await sb.from('revenue_history').select('*').order('month', { ascending: true }).limit(24);
-  if (res.error) {
-    console.warn('revenue_history table missing or error:', res.error.message);
-    return [];
-  }
-  return res.data || [];
+  // Compute monthly revenue cohorts directly from users table
+  var res = await sb.from('users')
+    .select('joined_at,plan,plan_status')
+    .or('regard.is.null,regard.eq.yes')
+    .neq('plan', 'free')
+    .order('joined_at', { ascending: true });
+  if (res.error) { console.warn('revenue compute error:', res.error.message); return []; }
+
+  var months = {};
+  (res.data || []).forEach(function(u) {
+    var m = (u.joined_at || new Date().toISOString()).slice(0, 7);
+    if (!months[m]) months[m] = { month: m, newPaid: 0, gross: 0 };
+    months[m].newPaid++;
+    if (u.plan_status === 'active') months[m].gross += PLAN_PRICES[u.plan] || 0;
+  });
+
+  var sorted = Object.values(months).sort(function(a, b) { return a.month.localeCompare(b.month); });
+  var cumSubs = 0;
+  sorted.forEach(function(r) {
+    cumSubs += r.newPaid;
+    r.subscribers = cumSubs;
+    r.costs = API_COSTS_FIXED;
+    r.net   = r.gross - r.costs;
+  });
+  return sorted;
 }
 
 async function fetchDaily() {
-  var since = new Date(); since.setDate(since.getDate()-7);
-  var res = await sb.from('subscriptions').select('created_at,plan').gte('created_at', since.toISOString());
+  var since = new Date(); since.setDate(since.getDate() - 7);
+  var res = await sb.from('users')
+    .select('joined_at,plan')
+    .or('regard.is.null,regard.eq.yes')
+    .gte('joined_at', since.toISOString());
   if (res.error) throw new Error('daily: ' + res.error.message);
-  return res.data || [];
+  return (res.data || []).map(function(u) {
+    return { created_at: u.joined_at, plan: u.plan };
+  });
 }
 
 // ── RENDER LIVE ───────────────────────────────────────────

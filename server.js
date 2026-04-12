@@ -6,7 +6,7 @@ const axios    = require("axios")
 const path     = require("path")
 const https    = require("https")
 const dns      = require("dns")
-
+ 
 // ── AI LEARNING SYSTEM ─────────────────────────────────────────────────────
 const predictionLog    = new Map()
 const sportWeights     = {
@@ -53,7 +53,8 @@ const DEFAULT_TEAM_WEIGHTS = () => ({
   vsFinessers: 0.50, vsDirectPlay: 0.50, vsHighPress: 0.50, vsLowBlock: 0.50,
   matchCount: 0, lastUpdated: Date.now()
 })
-// ── REFEREE BIAS TRACKER ──────────────────────────────────
+
+ // ── REFEREE BIAS TRACKER ──────────────────────────────────
 const refereeDB = new Map() // refereeId → { name, yellowsPerGame, redsPerGame, homeWinRate, penaltiesPerGame, matchCount }
 
 function updateRefereeStats(refId, refName, homeWon, yellows, reds, penalties) {
@@ -236,12 +237,49 @@ const app  = express()
 const PORT = process.env.PORT || 3000
 const smAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 35000 })
 
+// ── COMPRESSION + HELMET ──────────────────────────────────
+const compression = require('compression')
+const helmet = require('helmet')
+app.use(compression())
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }))
+app.use(express.static(path.join(__dirname, "public"), { maxAge: '1d', etag: true }))
+
 app.use(cors())
 app.use("/webhook/stripe", express.raw({ type: "application/json" }))
 app.use(express.json({ limit: "15mb" }))
 app.use(express.static(path.join(__dirname, "public")))
 app.use(express.static(__dirname, { extensions: ["html"] }))
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+  res.setHeader('X-XSS-Protection', '1; mode=block')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  next()
+})
 
+// Basic rate limiting for auth-adjacent endpoints
+const rateLimitMap = new Map()
+function rateLimit(maxPerMin) {
+  return (req, res, next) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'unknown'
+    const key = `${ip}_${req.path}`
+    const now = Date.now()
+    const window = rateLimitMap.get(key) || { count: 0, start: now }
+    if (now - window.start > 60000) { window.count = 0; window.start = now }
+    window.count++
+    rateLimitMap.set(key, window)
+    if (window.count > maxPerMin) return res.status(429).json({ error: 'Too many requests' })
+    next()
+  }
+}
+
+// Apply rate limits
+// Stricter rate limits for auth endpoints — replace existing ones:
+app.use('/user/ensure', rateLimit(5));    // 5 signups per min per IP
+app.use('/credits/use', rateLimit(30));
+app.use('/analyze',     rateLimit(20));
+app.use('/parlay/auto', rateLimit(10));
 // ── ENV ───────────────────────────────────────────────────
 const SM_KEY   = process.env.SPORTMONKS_API_KEY
 const ODDS_KEY = process.env.ODDS_API_KEY
@@ -343,49 +381,64 @@ async function useCredits(userId, action) {
   const cost = ACTION_COSTS[action] || 0
   if (!cost) return { ok: true }
   try {
-    const { data: sub } = await sb.from('subscriptions')
-      .select('plan, credits_total, credits_used')
-      .eq('user_id', userId).single()
+    const { data: sub } = await sb.from('users')
+      .select('plan, credits_total, credits_used, credits_bonus, monthly_credits')
+      .eq('id', userId).single()
     if (!sub) return { ok: false, reason: 'not_found' }
     if (sub.plan === 'platinum') return { ok: true, unlimited: true }
+    
+    const monthly = sub.monthly_credits ?? (PLAN_CREDITS[sub.plan] || 25)
     const newUsed = (sub.credits_used || 0) + cost
-    await sb.from('subscriptions')
-      .update({ credits_used: newUsed, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-    return { ok: true, credits_remaining: Math.max(0, (sub.credits_total || 25) - newUsed) }
+    // Recalculate total: monthly - used + bonus
+    const newTotal = Math.max(0, monthly - newUsed + (sub.credits_bonus || 0))
+    
+    await sb.from('users').update({
+      credits_used: newUsed,
+      credits_total: newTotal,
+      updated_at: new Date().toISOString()
+    }).eq('id', userId)
+    
+    return { ok: true, credits_remaining: newTotal }
   } catch(e) { return { ok: false, reason: 'db_error' } }
 }
-
 async function checkAccess(userId, action) {
   if (!sb) return { ok: true, plan: 'platinum' }
   try {
-    const { data, error } = await sb.from('subscriptions')
-      .select('plan, status, credits_total, credits_used, credits_reset_at')
-      .eq('user_id', userId).single()
+    const { data, error } = await sb.from('users')
+      .select('plan, plan_status, credits_total, credits_used, credits_bonus, credits_reset_at, monthly_credits')
+      .eq('id', userId).single()
     if (error || !data) return { ok: false, reason: 'user_not_found' }
-    if (data.status !== 'active') return { ok: false, reason: 'subscription_inactive' }
+    if (data.plan_status !== 'active') return { ok: false, reason: 'subscription_inactive' }
 
     const plan = data.plan || 'free'
+    const monthlyMax = PLAN_CREDITS[plan] || 25
 
-    // Auto-reset credits if reset_at has passed
+    // Monthly reset: refresh monthly_credits back to plan max, reset credits_used to 0
+    // But KEEP credits_bonus (earned bonus credits persist)
     if (data.credits_reset_at && new Date(data.credits_reset_at) < new Date() && plan !== 'platinum') {
-      const newTotal = PLAN_CREDITS[plan] || 25
-      await sb.from('subscriptions').update({
+      await sb.from('users').update({
+        monthly_credits: monthlyMax,
         credits_used: 0,
-        credits_total: newTotal,
+        credits_total: monthlyMax + (data.credits_bonus || 0), // recalculate total
         credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
         updated_at: new Date().toISOString()
-      }).eq('user_id', userId)
+      }).eq('id', userId)
       data.credits_used = 0
-      data.credits_total = newTotal
+      data.monthly_credits = monthlyMax
+      data.credits_total = monthlyMax + (data.credits_bonus || 0)
     }
 
     if (!planCanAccess(plan, action)) {
       return { ok: false, reason: 'plan_locked', user_plan: plan,
         required_plan: FEATURE_MIN_PLAN[action], action }
     }
+
     const cost = ACTION_COSTS[action] || 0
-    const available = plan === 'platinum' ? 999999 : Math.max(0, (data.credits_total || 25) - (data.credits_used || 0))
+    // available = monthly_credits - credits_used + bonus_credits
+    const monthly = data.monthly_credits ?? monthlyMax
+    const available = plan === 'platinum' ? 999999 
+      : Math.max(0, monthly - (data.credits_used || 0) + (data.credits_bonus || 0))
+
     if (plan !== 'platinum' && available < cost) {
       return { ok: false, reason: 'insufficient_credits', credits_available: available, credits_needed: cost }
     }
@@ -2194,32 +2247,87 @@ async function autoPopulateSquads() {
 // ══════════════════════════════════════════════════════════
 
 // ── FOOTBALL PREDICTIONS ─────────────────────────────────
+// ── FOOTBALL PREDICTIONS — PROGRESSIVE LOADING ──────────
+const PRIORITY_LEAGUES = [
+  // Tier 1 — load first (top 3)
+  { name: "Champions League", smId: 2 },
+  { name: "Premier League",   smId: 8 },
+  { name: "La Liga",          smId: 564 },
+  // Tier 2
+  { name: "Serie A",          smId: 384 },
+  { name: "Bundesliga",       smId: 82  },
+  // Tier 3
+  { name: "Ligue 1",          smId: 301 },
+  { name: "Europa League",    smId: 5   },
+  { name: "Championship",     smId: 9   },
+]
+
+// Exact league ID whitelist — only these pass through
+const ALLOWED_LEAGUE_IDS = new Set([
+  2,   // UEFA Champions League
+  8,   // English Premier League  
+  564, // La Liga (Spain top flight)
+  384, // Serie A (Italy)
+  82,  // Bundesliga (Germany)
+  301, // Ligue 1 (France)
+  5,   // UEFA Europa League
+  9,   // EFL Championship
+  72,  // Primeira Liga
+  1,   // Eredivisie
+  203, // Süper Lig
+  208, // Belgian Pro League
+  462, // Scottish Premiership
+  271, // Danish Superliga
+  197, // Greek Super League
+  321, // Czech Liga
+  155, // MLS
+  7,   // FA Cup
+  24,  // Conference League
+])
+
 app.get("/predictions", async (req, res) => {
   try {
     const days = Math.min(parseInt(req.query.days || "14"), 14)
-    console.log(`\n📊 /predictions (${days} days)`)
+    const leagueTier = parseInt(req.query.tier || "0") // 0 = all, 1/2/3 = tiers
+    console.log(`\n📊 /predictions (${days}d tier=${leagueTier})`)
+
     const [smList, oddsMap, liveList] = await Promise.all([
-      smFixtures(days).catch(e => { console.log("⚠️  smFix:", e.message); return [] }),
+      smFixtures(days).catch(() => []),
       fetchOddsAPI().catch(() => ({})),
       smLive().catch(() => []),
     ])
+
     const all = new Map()
     for (const f of [...smList, ...liveList]) all.set(f.id, f)
-    const fixtures = [...all.values()].filter(f => !!normLeague((f.league && f.league.name) || "")).slice(0, 400)
-    console.log(`⚙️  Building ${fixtures.length} football predictions...`)
+
+    // STRICT league filtering — only exact top-flight leagues
+    const fixtures = [...all.values()].filter(f => {
+      const leagueId = f.league_id || f.league?.id
+      if (!leagueId) return false
+      return ALLOWED_LEAGUE_IDS.has(leagueId)
+    }).slice(0, 300)
+
+    console.log(`⚙️  Building ${fixtures.length} predictions...`)
+
     const results = []
-    const BATCH = 20
+    const BATCH = 15 // smaller batches = less timeout risk
     for (let b = 0; b < fixtures.length; b += BATCH) {
-      const bRes = await Promise.all(fixtures.slice(b, b + BATCH).map(f => buildPrediction(f, oddsMap).catch(() => null)))
+      const bRes = await Promise.all(
+        fixtures.slice(b, b + BATCH).map(f => buildPrediction(f, oddsMap).catch(() => null))
+      )
       results.push(...bRes.filter(Boolean))
-      if (b + BATCH < fixtures.length) await sleep(50)
+      if (b + BATCH < fixtures.length) await sleep(80)
     }
-    console.log(`✅ ${results.length} football predictions ready`)
+
+    console.log(`✅ ${results.length} predictions ready`)
     res.json(results.sort((a, b) => {
       const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
       return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
     }))
-  } catch(e) { console.error("❌ /predictions:", e.message); res.status(500).json({ error: e.message }) }
+  } catch(e) {
+    console.error("❌ /predictions:", e.message)
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ── SPORT-SPECIFIC ROUTES ─────────────────────────────────
@@ -2475,21 +2583,22 @@ app.get("/parlays/:userId", async (req, res) => {
 app.get("/user/:userId", async (req, res) => {
   if (!sb) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_available:25 })
   try {
-    const uid = req.params.userId
-    // Try by user_id first (preferred), then by id column as fallback
-    let { data, error } = await sb.from("subscriptions").select("*").eq("user_id", uid).single()
-    if (error || !data) {
-      const r2 = await sb.from("subscriptions").select("*").eq("id", uid).single()
-      data = r2.data; error = r2.error
-    }
+    const { data, error } = await sb.from('users')
+      .select('*')
+      .eq('id', req.params.userId).single()
+    console.log('USER LOOKUP:', req.params.userId.slice(0,8), 
+      'plan:', data?.plan, 'total:', data?.credits_total, 
+      'used:', data?.credits_used, 'monthly:', data?.monthly_credits,
+      'err:', error?.message)
     if (error || !data) return res.status(404).json({ error: "User not found" })
     const plan = data.plan || 'free'
     const unlimited = plan === 'platinum'
-    const available = unlimited ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
+    const monthly = data.monthly_credits ?? (PLAN_CREDITS[plan] || 25)
+    const available = unlimited ? 999999 
+      : Math.max(0, monthly - (data.credits_used || 0) + (data.credits_bonus || 0))
     res.json({ ...data, credits_available: available, unlimited })
   } catch(e) { res.status(500).json({ error: e.message }) }
 })
-
 app.post("/credits/use", async (req, res) => {
   if (!sb) return res.status(503).json({ error: "Supabase not configured" })
   const { user_id, action } = req.body
@@ -2503,19 +2612,14 @@ app.post("/credits/use", async (req, res) => {
 app.get("/credits/:userId", async (req, res) => {
   if (!sb) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
   const uid = req.params.userId
-  let { data } = await sb.from('subscriptions')
-    .select('plan, credits_total, credits_used, credits_reset_at, referral_code, referral_count')
-    .eq('user_id', uid).single().catch(() => ({ data: null }))
-  if (!data) {
-    // fallback to id
-    const r2 = await sb.from('subscriptions').select('plan, credits_total, credits_used, credits_reset_at, referral_code, referral_count').eq('id', uid).single().catch(() => ({ data: null }))
-    data = r2.data
-  }
+  const { data } = await sb.from('users')
+    .select('plan, credits_total, credits_used, credits_reset_at, referral_code')
+    .eq('id', uid).single().catch(() => ({ data: null }))
   if (!data) return res.json({ plan:'free', credits_total:25, credits_used:0, credits_remaining:25 })
   const plan = data.plan || 'free'
   const unlimited = plan === 'platinum'
   const remaining = unlimited ? 999999 : Math.max(0, (data.credits_total||25) - (data.credits_used||0))
-  res.json({ plan, credits_total:data.credits_total, credits_used:data.credits_used, credits_remaining:remaining, unlimited, reset_at:data.credits_reset_at, referral_code:data.referral_code, referral_count:data.referral_count })
+  res.json({ plan, credits_total:data.credits_total, credits_used:data.credits_used, credits_remaining:remaining, unlimited, reset_at:data.credits_reset_at, referral_code:data.referral_code })
 })
 
 app.post('/credits/check', async (req, res) => {
@@ -2530,17 +2634,17 @@ app.post('/user/ensure', async (req, res) => {
   const { user_id, email, full_name } = req.body
   if (!user_id || !email) return res.status(400).json({ error: 'Missing fields' })
   try {
-    const { data: existing } = await sb.from('subscriptions')
-      .select('id, plan').eq('user_id', user_id).maybeSingle()
+    const { data: existing } = await sb.from('users')
+      .select('id, plan').eq('id', user_id).maybeSingle()
     if (existing) return res.json({ ok: true, plan: existing.plan, created: false })
     const myRef  = 'SLIP' + user_id.replace(/-/g,'').slice(0,8).toUpperCase()
     const resetAt = new Date(Date.now() + 30*86400000).toISOString()
-    const { error } = await sb.from('subscriptions').insert({
-      user_id, email, full_name: full_name || '',
-      plan: 'free', status: 'active',
+    const { error } = await sb.from('users').insert({
+      id: user_id, email, full_name: full_name || '',
+      plan: 'free', plan_status: 'active',
       credits_total: 25, credits_used: 0, credits_reset_at: resetAt,
-      referral_code: myRef, referral_count: 0,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      referral_code: myRef,
+      joined_at: new Date().toISOString(), updated_at: new Date().toISOString()
     })
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, plan: 'free', created: true })
@@ -2550,29 +2654,23 @@ app.post('/user/ensure', async (req, res) => {
 app.get("/referral/my/:userId", async (req, res) => {
   if (!sb) return res.json({ code: 'SLIP' + req.params.userId.slice(0,8).toUpperCase() })
   const uid = req.params.userId
-  // Try user_id, then id
-  let { data } = await sb.from('subscriptions')
-    .select('referral_code, referral_count, referral_rewards_claimed, plan')
-    .eq('user_id', uid).single().catch(() => ({data:null}))
+  const { data } = await sb.from('users')
+    .select('referral_code, plan')
+    .eq('id', uid).single().catch(() => ({data:null}))
   if (!data) {
-    const r2 = await sb.from('subscriptions').select('referral_code, referral_count, referral_rewards_claimed, plan').eq('id', uid).single().catch(() => ({data:null}))
-    data = r2?.data
+    return res.json({ code: 'SLIP' + uid.replace(/-/g,'').slice(0,8).toUpperCase(), referral_count: 0 })
   }
-  if (!data) {
-    // Create a deterministic code from userId
-    return res.json({ code: 'SLIP' + uid.replace(/-/g,'').slice(0,8).toUpperCase(), referral_count: 0, referral_rewards_claimed: 0 })
-  }
-  const made = data.referral_count || 0
-  // Ensure referral_code is set in DB
   if (!data.referral_code) {
     const code = 'SLIP' + uid.replace(/-/g,'').slice(0,8).toUpperCase()
-    await sb.from('subscriptions').update({ referral_code: code, updated_at: new Date().toISOString() }).eq('user_id', uid).catch(()=>{})
+    await sb.from('users').update({ referral_code: code, updated_at: new Date().toISOString() }).eq('id', uid).catch(()=>{})
     data.referral_code = code
   }
+  // Count how many users were referred by this code
+  const { count } = await sb.from('users').select('id', { count: 'exact' }).eq('referred_by', data.referral_code).catch(() => ({ count: 0 }))
+  const made = count || 0
   res.json({
     code: data.referral_code,
     referral_count: made,
-    referral_rewards_claimed: data.referral_rewards_claimed || 0,
     next_reward_at: made < 3 ? 3 : made < 5 ? 5 : made < 8 ? 8 : 'maxed',
     plan: data.plan
   })
@@ -2581,11 +2679,11 @@ app.get("/referral/my/:userId", async (req, res) => {
 app.get("/referral/validate/:code", async (req, res) => {
   if (!sb) return res.json({ valid: false })
   const code = req.params.code.toUpperCase().trim()
-  const { data } = await sb.from('subscriptions')
-    .select('user_id, plan, referral_code, referral_count')
+  const { data } = await sb.from('users')
+    .select('id, plan, referral_code')
     .eq('referral_code', code).single().catch(() => ({data:null}))
   if (!data) return res.json({ valid: false, message: 'Code not found' })
-  res.json({ valid: true, code, referrer_plan: data.plan, referrer_user_id: data.user_id })
+  res.json({ valid: true, code, referrer_plan: data.plan, referrer_user_id: data.id })
 })
 
 app.post("/referral/apply", async (req, res) => {
@@ -2595,15 +2693,15 @@ app.post("/referral/apply", async (req, res) => {
   if (plan && !ELIGIBLE.includes(plan)) {
     return res.json({ ok: false, reason: 'plan_not_eligible', message: 'Referral codes can only be used on Pro plan and above.' })
   }
-  const { data: referrer } = await sb.from('subscriptions')
-    .select('user_id, referral_code, plan').eq('referral_code', code.toUpperCase()).single().catch(() => ({data:null}))
+  const { data: referrer } = await sb.from('users')
+    .select('id, referral_code, plan').eq('referral_code', code.toUpperCase()).single().catch(() => ({data:null}))
   if (!referrer) return res.json({ ok: false, message: 'Code not found' })
-  if (user_id && referrer.user_id === user_id) return res.json({ ok: false, message: 'Cannot use your own code' })
+  if (user_id && referrer.id === user_id) return res.json({ ok: false, message: 'Cannot use your own code' })
   if (user_id) {
-    const { data: me } = await sb.from('subscriptions').select('referral_used').eq('user_id', user_id).single().catch(() => ({data:null}))
-    if (me?.referral_used) return res.json({ ok: false, message: 'You have already used a referral code' })
+    const { data: me } = await sb.from('users').select('referred_by').eq('id', user_id).single().catch(() => ({data:null}))
+    if (me?.referred_by) return res.json({ ok: false, message: 'You have already used a referral code' })
   }
-  res.json({ ok: true, discount: 25, referrer_user_id: referrer.user_id, message: '✓ Code applied! 25% off your first month.' })
+  res.json({ ok: true, discount: 25, referrer_user_id: referrer.id, message: '✓ Code applied! 25% off your first month.' })
 })
 
 app.post("/referral/confirm", async (req, res) => {
@@ -2611,35 +2709,36 @@ app.post("/referral/confirm", async (req, res) => {
   const { code, referred_user_id, referrer_user_id } = req.body
   if (!referrer_user_id) return res.json({ ok: false })
 
-  // Mark referred user as having used a code
+  // Mark referred user as having used this referral code
   if (referred_user_id) {
-    await sb.from('subscriptions').update({
-      referral_code_used: code, referral_used: true, updated_at: new Date().toISOString()
-    }).eq('user_id', referred_user_id).catch(() => {})
+    await sb.from('users').update({
+      referred_by: code, updated_at: new Date().toISOString()
+    }).eq('id', referred_user_id).catch(() => {})
   }
 
-  // Increment referrer's count and potentially upgrade plan
-  const { data: ref } = await sb.from('subscriptions')
-    .select('referral_count, plan, referral_rewards_claimed').eq('user_id', referrer_user_id).single().catch(() => ({data:null}))
-  const newCount = (ref?.referral_count || 0) + 1
+  // Count total referrals for the referrer
+  const { data: referrerData } = await sb.from('users')
+    .select('plan, referral_code').eq('id', referrer_user_id).single().catch(() => ({data:null}))
+  const { count: newCount } = await sb.from('users')
+    .select('id', { count: 'exact' }).eq('referred_by', referrerData?.referral_code || '').catch(() => ({ count: 0 }))
 
-  // Tiered rewards: 3 refs = pro month, 5 refs = elite month, 8 refs = platinum
+  // Tiered rewards: 3 refs = pro, 5 refs = elite, 8 refs = platinum
   let rewardPlan = null
-  const claimed = ref?.referral_rewards_claimed || 0
-  if (newCount >= 8 && claimed < 3) rewardPlan = 'platinum'
-  else if (newCount >= 5 && claimed < 2) rewardPlan = 'elite'
-  else if (newCount >= 3 && claimed < 1) rewardPlan = 'pro'
+  const c = newCount || 0
+  if (c >= 8) rewardPlan = 'platinum'
+  else if (c >= 5) rewardPlan = 'elite'
+  else if (c >= 3) rewardPlan = 'pro'
 
-  const updateData = { referral_count: newCount, updated_at: new Date().toISOString() }
-  if (rewardPlan) {
-    updateData.plan = rewardPlan
-    updateData.credits_total = PLAN_CREDITS[rewardPlan] || 265
-    updateData.credits_used = 0
-    updateData.credits_reset_at = new Date(Date.now() + 30*86400000).toISOString()
-    updateData.referral_rewards_claimed = claimed + 1
+  if (rewardPlan && rewardPlan !== referrerData?.plan) {
+    await sb.from('users').update({
+      plan: rewardPlan,
+      credits_total: PLAN_CREDITS[rewardPlan] || 265,
+      credits_used: 0,
+      credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq('id', referrer_user_id).catch(() => {})
   }
-  await sb.from('subscriptions').update(updateData).eq('user_id', referrer_user_id).catch(() => {})
-  res.json({ ok: true, referral_count: newCount, reward_plan: rewardPlan })
+  res.json({ ok: true, referral_count: c, reward_plan: rewardPlan })
 })
 
 // ── ELO RANKINGS ─────────────────────────────────────────
@@ -2890,11 +2989,11 @@ app.post("/webhook/stripe", async (req, res) => {
         const newPlan = meta.plan
         const newCredits = PLAN_CREDITS[newPlan] || 25
         // Find subscription by email
-        const { data: existing } = await sb.from('subscriptions')
-          .select('id, user_id').eq('email', email).single().catch(() => ({data:null}))
+        const { data: existing } = await sb.from('users')
+          .select('id').eq('email', email).single().catch(() => ({data:null}))
         if (existing) {
-          await sb.from('subscriptions').update({
-            plan: newPlan, status: 'active',
+          await sb.from('users').update({
+            plan: newPlan, plan_status: 'active',
             stripe_customer_id: custId, stripe_subscription_id: subId,
             credits_total: newCredits, credits_used: 0,
             credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
@@ -2919,7 +3018,7 @@ app.post("/webhook/stripe", async (req, res) => {
       const custId = sub.customer
       const status = sub.status === 'active' ? 'active' : 'cancelled'
       if (sb) {
-        await sb.from('subscriptions').update({ status, updated_at: new Date().toISOString() }).eq('stripe_customer_id', custId).catch(()=>{})
+        await sb.from('users').update({ plan_status: status, updated_at: new Date().toISOString() }).eq('stripe_customer_id', custId).catch(()=>{})
       }
     }
 
@@ -2944,7 +3043,34 @@ app.listen(PORT, async () => {
 
   console.log("🔄 Pre-warming caches...")
   smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))
-
+// Pre-warm predictions cache so first user gets fast response
+setTimeout(async () => {
+  try {
+    console.log('🔄 Pre-warming predictions cache...')
+    const [smList, oddsMap, liveList] = await Promise.all([
+      smFixtures(14).catch(() => []),
+      fetchOddsAPI().catch(() => ({})),
+      smLive().catch(() => []),
+    ])
+    const all = new Map()
+    for (const f of [...smList, ...liveList]) all.set(f.id, f)
+    const fixtures = [...all.values()].filter(f => {
+      const leagueId = f.league_id || f.league?.id
+      return leagueId && ALLOWED_LEAGUE_IDS.has(leagueId)
+    }).slice(0, 300)
+    const results = []
+    for (let b = 0; b < fixtures.length; b += 15) {
+      const bRes = await Promise.all(fixtures.slice(b, b+15).map(f => buildPrediction(f, {}).catch(() => null)))
+      results.push(...bRes.filter(Boolean))
+      await sleep(100)
+    }
+    // Keep SM fixture cache warm — don't overwrite if already populated
+    if (!cache.get('sm_fix_14') || cache.get('sm_fix_14').ts === 0) {
+      cache.set('sm_fix_14', { data: [], ts: 0 });
+    }
+    console.log(`✅ Pre-warmed ${results.length} predictions`)
+  } catch(e) { console.log('⚠️  Pre-warm failed:', e.message) }
+}, 25000) // 25s after startup
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)

@@ -4,9 +4,11 @@
     "@azure/core-auth": "^1.10.1",
     "@supabase/supabase-js": "^2.99.2",
     "axios": "^1.13.6",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "helmet": "^8.1.0",
     "openai": "^6.32.0"
   }
 }

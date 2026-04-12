@@ -3,355 +3,352 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SLIP IQ — Sign In</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Slip IQ — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="/js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Cloudflare Turnstile (free captcha) -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
-:root{--bg:#050709;--bg2:#080c10;--panel:#0b1118;--border:#16222e;--border2:#1e2f40;--accent:#00d4ff;--accent2:#0090b8;--green:#00e87a;--red:#ff3355;--text:#ddeeff;--text2:#6a8aa8;--text3:#384d60;--purple:#9b6dff}
+:root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(0,212,255,0.07),transparent),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(155,109,255,0.05),transparent);pointer-events:none}
-body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
-.auth-wrap{width:100%;max-width:420px;padding:20px;position:relative;z-index:1}
-.auth-logo{text-align:center;margin-bottom:32px}
-.auth-logo .wordmark{font-family:'Bebas Neue';font-size:42px;color:var(--accent);letter-spacing:6px;text-shadow:0 0 40px rgba(0,212,255,0.4);display:block}
-.auth-logo .tagline{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:3px;margin-top:4px}
-.auth-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 0 1px rgba(0,212,255,0.05)}
-.auth-tabs{display:grid;grid-template-columns:1fr 1fr}
-.auth-tab{padding:14px;text-align:center;font-family:'DM Mono';font-size:11px;letter-spacing:2px;color:var(--text3);cursor:pointer;transition:all .2s;border-bottom:2px solid var(--border);text-transform:uppercase}
-.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,212,255,0.04)}
-.auth-tab:hover:not(.active){color:var(--text2)}
-.auth-form{padding:28px;display:none}
-.auth-form.active{display:block}
-.form-group{margin-bottom:16px}
-.form-label{display:block;font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:7px}
-.form-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:13px;font-family:'Outfit';outline:none;transition:all .2s}
-.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,0.08)}
-.form-input::placeholder{color:var(--text3)}
-.pw-wrap{position:relative}
-.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px;transition:color .2s}
-.pw-toggle:hover{color:var(--text2)}
-.auth-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:#000;font-family:'Outfit';font-size:14px;font-weight:800;letter-spacing:0.5px;cursor:pointer;transition:all .2s;margin-top:8px;box-shadow:0 6px 24px rgba(0,212,255,0.25)}
-.auth-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(0,212,255,0.35)}
-.auth-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
-.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text3);font-size:11px;font-family:'DM Mono'}
-.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
-.google-btn{width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-family:'Outfit';font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px}
-.google-btn:hover{border-color:var(--border2);color:var(--text)}
-.auth-msg{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none;line-height:1.5}
-.auth-msg.error{background:rgba(255,51,85,0.08);border:1px solid rgba(255,51,85,0.2);color:var(--red);display:block}
-.auth-msg.success{background:rgba(0,232,122,0.08);border:1px solid rgba(0,232,122,0.2);color:var(--green);display:block}
-.auth-footer{text-align:center;margin-top:16px;font-size:12px;color:var(--text3)}
-.auth-footer a{color:var(--accent);text-decoration:none;cursor:pointer}
-.auth-footer a:hover{text-decoration:underline}
-.ref-validated{font-family:'DM Mono';font-size:9px;margin-top:5px;padding:4px 8px;border-radius:5px;display:none}
-.ref-validated.ok{background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.2);color:var(--green);display:block}
-.ref-validated.bad{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.2);color:var(--red);display:block}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}
+.card{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:100%;max-width:420px;position:relative;z-index:1}
+.logo{font-family:'Bebas Neue';font-size:32px;letter-spacing:4px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;margin-bottom:4px}
+.logo-sub{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:2px;text-align:center;margin-bottom:28px}
+.tabs{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.tab{flex:1;padding:10px;text-align:center;font-family:'JetBrains Mono';font-size:10px;letter-spacing:1px;cursor:pointer;background:transparent;border:none;color:var(--text3);transition:all .2s}
+.tab.active{background:rgba(0,200,248,.1);color:var(--accent)}
+.field{margin-bottom:14px}
+.field label{display:block;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;color:var(--text3);margin-bottom:5px}
+.field input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:11px 14px;color:var(--text);font-family:'DM Sans';font-size:14px;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--accent)}
+.field input.error{border-color:var(--red)}
+.tcs-wrap{display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:7px}
+.tcs-wrap input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+.tcs-text{font-size:11px;color:var(--text2);line-height:1.5}
+.tcs-text a{color:var(--accent);text-decoration:none}
+.captcha-wrap{margin:14px 0;display:flex;justify-content:center}
+.btn-main{width:100%;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:12px;font-weight:700;letter-spacing:1px;padding:13px;border-radius:8px;border:none;cursor:pointer;margin-top:6px;transition:opacity .2s}
+.btn-main:disabled{opacity:.5;cursor:not-allowed}
+.btn-google{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border2);color:var(--text);font-family:'DM Sans';font-size:13px;font-weight:500;padding:12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;transition:background .2s}
+.btn-google:hover{background:rgba(255,255,255,.1)}
+.btn-google svg{width:18px;height:18px;flex-shrink:0}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border2)}
+.err-msg{background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:10px;padding:10px 12px;border-radius:6px;margin-bottom:14px;display:none}
+.err-msg.show{display:block}
+.ok-msg{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);color:var(--green);font-family:'JetBrains Mono';font-size:10px;padding:10px 12px;border-radius:6px;margin-bottom:14px;display:none}
+.ok-msg.show{display:block}
+.rate-warn{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);text-align:center;margin-top:10px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:#000;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="auth-wrap">
-  <div class="auth-logo">
-    <span class="wordmark">SLIP IQ</span>
-    <span class="tagline">PROFESSIONAL FOOTBALL INTELLIGENCE</span>
+<div class="card">
+  <div class="logo">SLIP IQ</div>
+  <div class="logo-sub">BETTING INTELLIGENCE v14</div>
+
+  <button class="btn-google" onclick="signInWithGoogle()">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Continue with Google
+  </button>
+
+  <div class="divider">OR</div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabSignin" onclick="switchTab('signin')">SIGN IN</button>
+    <button class="tab" id="tabSignup" onclick="switchTab('signup')">CREATE ACCOUNT</button>
   </div>
-  <div class="auth-card">
-    <div class="auth-tabs">
-      <div class="auth-tab active" id="tab-signin" onclick="switchTab('signin')">SIGN IN</div>
-      <div class="auth-tab" id="tab-signup" onclick="switchTab('signup')">SIGN UP</div>
-    </div>
 
-    <!-- SIGN IN -->
-    <div class="auth-form active" id="form-signin">
-      <div class="auth-msg" id="signin-msg"></div>
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input type="email" class="form-input" id="signin-email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <div class="pw-wrap">
-          <input type="password" class="form-input" id="signin-pw" placeholder="••••••••" autocomplete="current-password">
-          <button class="pw-toggle" onclick="togglePw('signin-pw')" type="button">👁</button>
-        </div>
-      </div>
-      <button class="auth-btn" id="signin-btn" onclick="signIn()">SIGN IN →</button>
-      <div class="auth-divider">or</div>
-      <button class="google-btn" onclick="signInGoogle()">
-        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Continue with Google
-      </button>
-      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;font-size:11px;color:var(--text2)">
-        <input type="checkbox" id="termsCheck" required style="margin-top:2px;accent-color:var(--accent)">
-        <label for="termsCheck">
-          I am 18+ years old and agree to the
-          <a href="terms.html" target="_blank" style="color:var(--accent)">Terms & Conditions</a>
-          and confirm that sports betting may be restricted in my jurisdiction.
-          I accept full responsibility for my betting decisions.
-        </label>
-      </div>
-      <div class="auth-footer"><a onclick="showForgot()">Forgot password?</a></div>
-    </div>
+  <div id="errMsg" class="err-msg"></div>
+  <div id="okMsg" class="ok-msg"></div>
 
-    <!-- SIGN UP -->
-    <div class="auth-form" id="form-signup">
-      <div class="auth-msg" id="signup-msg"></div>
-      <div class="form-group">
-        <label class="form-label">Full Name</label>
-        <input type="text" class="form-input" id="signup-name" placeholder="John Smith" autocomplete="name">
+  <!-- SIGN IN FORM -->
+  <div id="formSignin">
+    <div class="field">
+      <label>EMAIL</label>
+      <input type="email" id="siEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>PASSWORD</label>
+      <input type="password" id="siPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-main" id="btnSignin" onclick="doSignIn()">SIGN IN</button>
+    <div class="rate-warn" id="rateWarn"></div>
+    <div style="text-align:center;margin-top:14px">
+      <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="showForgot()">Forgot password?</span>
+    </div>
+  </div>
+
+  <!-- SIGN UP FORM -->
+  <div id="formSignup" style="display:none">
+    <div class="field">
+      <label>FULL NAME</label>
+      <input type="text" id="suName" placeholder="Your name" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>EMAIL</label>
+      <input type="email" id="suEmail" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>PASSWORD (min 8 chars)</label>
+      <input type="password" id="suPass" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <!-- T&Cs checkbox — mandatory -->
+    <div class="tcs-wrap">
+      <input type="checkbox" id="tcsCheck">
+      <div class="tcs-text">
+        I agree to the <a href="terms.html" target="_blank">Terms & Conditions</a> and 
+        <a href="privacy.html" target="_blank">Privacy Policy</a>. I confirm I am 18+ years old 
+        and understand this service is for informational purposes only — not financial advice.
       </div>
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input type="email" class="form-input" id="signup-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <!-- Turnstile captcha widget -->
+    <div class="captcha-wrap">
+      <div class="cf-turnstile" 
+           data-sitekey="0x4AAAAAABkMGHKdpF9lQr8s"
+           data-theme="dark"
+           data-callback="onCaptchaSuccess"
+           data-expired-callback="onCaptchaExpired"
+           id="turnstileWidget">
       </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <div class="pw-wrap">
-          <input type="password" class="form-input" id="signup-pw" placeholder="Min 8 characters" autocomplete="new-password">
-          <button class="pw-toggle" onclick="togglePw('signup-pw')" type="button">👁</button>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Referral / Affiliate Code <span style="color:var(--text3);font-weight:400">(optional — get 25% off)</span></label>
-        <input type="text" class="form-input" id="signup-ref" placeholder="e.g. SLIPAB12" oninput="validateRefCode(this.value)">
-        <div class="ref-validated" id="ref-feedback"></div>
-      </div>
-      <button class="auth-btn" id="signup-btn" onclick="signUp()">CREATE ACCOUNT →</button>
-      <div class="auth-divider">or</div>
-      <button class="google-btn" onclick="signInGoogle()">
-        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Continue with Google
-      </button>
-      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;font-size:11px;color:var(--text2)">
-        <input type="checkbox" id="termsCheck" required style="margin-top:2px;accent-color:var(--accent)">
-        <label for="termsCheck">
-          I am 18+ years old and agree to the
-          <a href="terms.html" target="_blank" style="color:var(--accent)">Terms & Conditions</a>
-          and confirm that sports betting may be restricted in my jurisdiction.
-          I accept full responsibility for my betting decisions.
-        </label>
-      </div>
-      <div class="auth-footer">Already have an account? <a onclick="switchTab('signin')">Sign in</a></div>
+    </div>
+    <button class="btn-main" id="btnSignup" onclick="doSignUp()">CREATE ACCOUNT</button>
+  </div>
+
+  <!-- FORGOT PASSWORD -->
+  <div id="formForgot" style="display:none">
+    <div class="field">
+      <label>EMAIL</label>
+      <input type="email" id="fpEmail" placeholder="you@email.com">
+    </div>
+    <button class="btn-main" onclick="doForgot()">SEND RESET EMAIL</button>
+    <div style="text-align:center;margin-top:12px">
+      <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="showSignin()">← Back to sign in</span>
     </div>
   </div>
 </div>
 
 <script>
-var sbInstance = null
-// Referral code persists in localStorage so it survives the email-confirm redirect
-var pendingRefCode = localStorage.getItem('slipiq_pending_ref') || ''
-var hasHandledSession = false  // prevents double-fire from onAuthStateChange
+let sbClient = null
+let captchaToken = null
+let captchaVerified = false
 
-window.addEventListener('load', function () {
-  setTimeout(initAuth, 80)
+// Rate limiting state (client-side backup — server should also rate limit)
+const RATE_LIMIT = { attempts: 0, lockedUntil: 0 }
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS = 15 * 60 * 1000 // 15 minutes
+
+function onCaptchaSuccess(token) {
+  captchaToken = token
+  captchaVerified = true
+}
+function onCaptchaExpired() {
+  captchaToken = null
+  captchaVerified = false
+}
+
+window.addEventListener('load', () => {
+  const cfg = window.NEXUS_CONFIG || {}
+  const url = cfg.SUPABASE_URL || window.SUPABASE_URL || ''
+  const key = cfg.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ''
+  if (!url || !key) { showErr('Config not loaded — check /js/config.js'); return }
+  const { createClient } = supabase
+  sbClient = createClient(url, key)
+
+  // If already logged in, redirect — clear bounce flag either way
+  sbClient.auth.getSession().then(({ data }) => {
+    if (data?.session?.user) {
+      sessionStorage.setItem('_slipiq_auth_ok', '1'); // Tell home.html to trust this
+      redirectHome();
+    } else {
+      sessionStorage.removeItem('_slipiq_auth_ok'); // Genuinely no session
+    }
+  })
+
+  // Handle OAuth callback
+  sbClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      ensureUserRow(session.user).then(() => redirectHome())
+    }
+  })
+
+  // Check for tab param
+  const tab = new URLSearchParams(location.search).get('tab')
+  if (tab === 'signup') switchTab('signup')
 })
 
-function initAuth() {
-  
-  var cfg = window.NEXUS_CONFIG || {}
-  var url = cfg.SUPABASE_URL || window.SUPABASE_URL || ''
-  var key = cfg.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ''
-
-  if (!url || !key) {
-    showMsg('signin-msg', 'Config not loaded — check /js/config.js')
-    return
-  }
-
-  sbInstance = supabase.createClient(url, key)
-
-  // ── AUTH STATE LISTENER ──────────────────────────────────────────────────
-  // Fires on page load (if session exists) AND when the user clicks the
-  // email confirmation link and lands back on the site.
-  // In both cases we ensure their subscriptions row exists before redirecting.
-  sbInstance.auth.onAuthStateChange(async function (event, session) {
-    if (!session || hasHandledSession) return
-
-    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-      hasHandledSession = true
-      await ensureSubscription(session.user)
-
-      // Only redirect if we're actually on the login page
-      if (window.location.pathname.includes('login')) {
-        redirectAfterLogin(session.user)
-      }
-    }
-  })
-
-  var params = new URLSearchParams(window.location.search)
-  if (params.get('tab') === 'signup') switchTab('signup')
-}
-
-// ── ENSURE SUBSCRIPTION ROW ──────────────────────────────────────────────────
-// Safe to call on every login — checks first so it never overwrites a paid plan.
-async function ensureSubscription(user) {
-  if (!sbInstance || !user) return
-  try {
-    // Check if row already exists
-    var check = await sbInstance
-      .from('subscriptions')
-      .select('id, plan')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (check.data) {
-      // Row exists — just touch updated_at, leave plan/credits untouched
-      await sbInstance
-        .from('subscriptions')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-      console.log('✅ Sub row exists, plan:', check.data.plan)
-      return
-    }
-
-    // Brand new user — build the full subscription row
-    var refCode  = pendingRefCode || (user.user_metadata && user.user_metadata.referral_code_used) || ''
-    var myRef    = 'SLIP' + user.id.replace(/-/g, '').slice(0, 8).toUpperCase()
-    var resetAt  = new Date(Date.now() + 30 * 86400000).toISOString()
-
-    var row = {
-      user_id:                  user.id,
-      email:                    user.email,
-      full_name:                (user.user_metadata && user.user_metadata.full_name) || '',
-      plan:                     'free',
-      status:                   'active',
-      credits_total:            25,
-      credits_used:             0,
-      credits_reset_at:         resetAt,
-      referral_code:            myRef,
-      referral_code_used:       refCode || null,
-      referral_used:            refCode ? true : false,
-      referral_count:           0,
-      referral_rewards_claimed: 0,
-      created_at:               new Date().toISOString(),
-      updated_at:               new Date().toISOString()
-    }
-
-    var result = await sbInstance.from('subscriptions').insert(row)
-
-    if (result.error) {
-      console.error('❌ Sub insert error:', result.error.message)
-    } else {
-      console.log('✅ New subscription created for', user.email, '| ref code:', myRef)
-      localStorage.removeItem('slipiq_pending_ref')
-      pendingRefCode = ''
-    }
-  } catch (e) {
-    console.error('ensureSubscription error:', e.message)
-  }
-}
-
-function redirectAfterLogin(user) {
-  var params      = new URLSearchParams(window.location.search)
-  var pendingPlan = params.get('plan')
-  var cfg         = window.NEXUS_CONFIG || {}
-  var adminEmails = cfg.ADMIN_EMAILS || []
-
-  if (adminEmails.includes(user.email)) { window.location.href = 'admin.html'; return }
-  if (pendingPlan && pendingPlan !== 'free') { window.location.href = 'payment.html?plan=' + pendingPlan; return }
-  window.location.href = 'account.html'
-}
-
-async function signIn() {
-  if (!sbInstance) return showMsg('signin-msg', 'App not ready — reload page')
-  var email = document.getElementById('signin-email').value.trim()
-  var pw    = document.getElementById('signin-pw').value
-  if (!email || !pw) return showMsg('signin-msg', 'Please fill in all fields')
-  setLoading('signin-btn', true)
-  var res = await sbInstance.auth.signInWithPassword({ email: email, password: pw })
-  setLoading('signin-btn', false, 'SIGN IN →')
-  if (res.error) showMsg('signin-msg', res.error.message)
-  // Redirect handled by onAuthStateChange above
-}
-
-async function signUp() {
-  if (!sbInstance) return showMsg('signup-msg', 'App not ready — reload page')
-  var name  = document.getElementById('signup-name').value.trim()
-  var email = document.getElementById('signup-email').value.trim()
-  var pw    = document.getElementById('signup-pw').value
-  var ref   = document.getElementById('signup-ref').value.trim().toUpperCase()
-
-  if (!name || !email || !pw) return showMsg('signup-msg', 'Please fill in all fields')
-  if (pw.length < 8) return showMsg('signup-msg', 'Password must be at least 8 characters')
-
-  // Save ref code so it survives the email-confirm redirect
-  if (ref) { localStorage.setItem('slipiq_pending_ref', ref); pendingRefCode = ref }
-
-  setLoading('signup-btn', true)
-
-  var res = await sbInstance.auth.signUp({
-    email:    email,
-    password: pw,
-    options:  { data: { full_name: name, referral_code_used: ref || null } }
-  })
-
-  setLoading('signup-btn', false, 'CREATE ACCOUNT →')
-
-  if (res.error) { showMsg('signup-msg', res.error.message); return }
-
-  if (res.data.session) {
-    // Email confirm is OFF — onAuthStateChange fires immediately, handles everything
-  } else {
-    // Email confirm is ON — show message, subscription row created when they click link
-    showMsg('signup-msg', '✅ Account created! Check your email to confirm, then sign in.', 'success')
-  }
-}
-
-async function signInGoogle() {
-  if (!sbInstance) return showMsg('signin-msg', 'App not ready — reload page')
-  await sbInstance.auth.signInWithOAuth({
-    provider: 'google',
-    options:  { redirectTo: window.location.origin + '/account.html' }
-  })
+function switchTab(tab) {
+  document.getElementById('formSignin').style.display = tab === 'signin' ? '' : 'none'
+  document.getElementById('formSignup').style.display = tab === 'signup' ? '' : 'none'
+  document.getElementById('formForgot').style.display = 'none'
+  document.getElementById('tabSignin').classList.toggle('active', tab === 'signin')
+  document.getElementById('tabSignup').classList.toggle('active', tab === 'signup')
+  clearMsgs()
 }
 
 function showForgot() {
-  if (!sbInstance) return
-  var email = document.getElementById('signin-email').value.trim()
-  if (!email) { showMsg('signin-msg', 'Enter your email above first'); return }
-  sbInstance.auth.resetPasswordForEmail(email).then(function () {
-    showMsg('signin-msg', 'Password reset email sent!', 'success')
-  })
+  document.getElementById('formSignin').style.display = 'none'
+  document.getElementById('formSignup').style.display = 'none'
+  document.getElementById('formForgot').style.display = ''
+  clearMsgs()
 }
 
-async function validateRefCode(code) {
-  var fb = document.getElementById('ref-feedback')
-  code = (code || '').toUpperCase().trim()
-  if (code.length < 4) { fb.className = 'ref-validated'; return }
-  if (!sbInstance) return
+function showSignin() { switchTab('signin') }
+
+function showErr(msg) {
+  const el = document.getElementById('errMsg')
+  el.textContent = msg; el.classList.add('show')
+  document.getElementById('okMsg').classList.remove('show')
+}
+function showOk(msg) {
+  const el = document.getElementById('okMsg')
+  el.textContent = msg; el.classList.add('show')
+  document.getElementById('errMsg').classList.remove('show')
+}
+function clearMsgs() {
+  document.getElementById('errMsg').classList.remove('show')
+  document.getElementById('okMsg').classList.remove('show')
+}
+
+function isRateLimited() {
+  if (Date.now() < RATE_LIMIT.lockedUntil) {
+    const mins = Math.ceil((RATE_LIMIT.lockedUntil - Date.now()) / 60000)
+    showErr(`Too many attempts. Try again in ${mins} minute${mins > 1 ? 's' : ''}.`)
+    return true
+  }
+  return false
+}
+
+function recordAttempt(success) {
+  if (success) { RATE_LIMIT.attempts = 0; return }
+  RATE_LIMIT.attempts++
+  if (RATE_LIMIT.attempts >= MAX_ATTEMPTS) {
+    RATE_LIMIT.lockedUntil = Date.now() + LOCKOUT_MS
+    document.getElementById('rateWarn').textContent = `Account locked for 15 minutes after ${MAX_ATTEMPTS} failed attempts.`
+  }
+}
+
+async function signInWithGoogle() {
+  if (!sbClient) return
+  clearMsgs()
   try {
-    var res = await sbInstance.from('subscriptions').select('id').eq('referral_code', code).maybeSingle()
-    if (res.data) { fb.textContent = '✓ Valid code — 25% discount applied'; fb.className = 'ref-validated ok' }
-    else          { fb.textContent = 'Code not found'; fb.className = 'ref-validated bad' }
-  } catch (e) { fb.className = 'ref-validated' }
+    const { error } = await sbClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/home.html'
+      }
+    })
+    if (error) showErr(error.message)
+  } catch(e) { showErr('Google sign-in failed') }
 }
 
-function switchTab(tab) {
-  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin')
-  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup')
-  document.getElementById('form-signin').classList.toggle('active', tab === 'signin')
-  document.getElementById('form-signup').classList.toggle('active', tab === 'signup')
+async function doSignIn() {
+  if (!sbClient || isRateLimited()) return
+  clearMsgs()
+  const email = document.getElementById('siEmail').value.trim()
+  const pass  = document.getElementById('siPass').value
+  if (!email || !pass) { showErr('Please fill in all fields'); return }
+
+  const btn = document.getElementById('btnSignin')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> SIGNING IN...'
+
+  try {
+    const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass })
+    if (error) {
+      recordAttempt(false)
+      showErr(error.message === 'Invalid login credentials' 
+        ? 'Invalid email or password.' : error.message)
+    } else {
+      recordAttempt(true)
+      await ensureUserRow(data.user)
+      redirectHome()
+    }
+  } catch(e) { showErr('Sign in failed — please try again') }
+  finally {
+    btn.disabled = false; btn.textContent = 'SIGN IN'
+  }
 }
 
-function showMsg(id, text, type) {
-  var el = document.getElementById(id)
-  if (!el) return
-  el.textContent = text
-  el.className = 'auth-msg ' + (type || 'error')
+async function doSignUp() {
+  if (!sbClient) return
+  clearMsgs()
+  const name  = document.getElementById('suName').value.trim()
+  const email = document.getElementById('suEmail').value.trim()
+  const pass  = document.getElementById('suPass').value
+  const tcs   = document.getElementById('tcsCheck').checked
+
+  if (!name || !email || !pass) { showErr('Please fill in all fields'); return }
+  if (!tcs) { showErr('You must agree to the Terms & Conditions to create an account.'); return }
+  if (pass.length < 8) { showErr('Password must be at least 8 characters.'); return }
+  if (!captchaVerified) { showErr('Please complete the captcha verification.'); return }
+
+  const btn = document.getElementById('btnSignup')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> CREATING ACCOUNT...'
+
+  try {
+    const { data, error } = await sbClient.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: { full_name: name },
+        captchaToken // pass to Supabase if you enable captcha in Auth settings
+      }
+    })
+    if (error) {
+      showErr(error.message)
+    } else if (data.user && !data.session) {
+      // Email confirmation required
+      showOk('✓ Account created! Check your email to confirm your account, then sign in.')
+      switchTab('signin')
+    } else if (data.user && data.session) {
+      await ensureUserRow(data.user, name)
+      redirectHome()
+    }
+  } catch(e) { showErr('Sign up failed — please try again') }
+  finally {
+    btn.disabled = false; btn.textContent = 'CREATE ACCOUNT'
+  }
 }
 
-function setLoading(btnId, loading, label) {
-  var btn = document.getElementById(btnId)
-  if (!btn) return
-  btn.disabled = loading
-  btn.innerHTML = loading ? 'PLEASE WAIT...' : (label || '')
+async function doForgot() {
+  if (!sbClient) return
+  clearMsgs()
+  const email = document.getElementById('fpEmail').value.trim()
+  if (!email) { showErr('Please enter your email'); return }
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/login.html'
+  })
+  if (error) showErr(error.message)
+  else showOk('✓ Password reset email sent! Check your inbox.')
 }
 
-function togglePw(id) {
-  var input = document.getElementById(id)
-  if (!input) return
-  input.type = input.type === 'password' ? 'text' : 'password'
+async function ensureUserRow(user, name) {
+  try {
+    await fetch('/user/ensure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        user_id: user.id, 
+        email: user.email,
+        full_name: name || user.user_metadata?.full_name || ''
+      })
+    })
+  } catch(e) {}
+}
+
+function redirectHome() {
+  window.location.href = 'home.html'
 }
 </script>
 </body>
