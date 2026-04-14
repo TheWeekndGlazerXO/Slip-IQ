@@ -146,7 +146,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .upset-badge{position:absolute;top:-1px;right:2px;background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:var(--gold);font-family:'JetBrains Mono';font-size:6px;padding:1px 3px;border-radius:2px}
 .real-odds-tag{padding:2px 11px;font-family:'JetBrains Mono';font-size:7px;color:var(--teal);background:rgba(0,229,200,.04);border-top:1px solid rgba(0,229,200,.1);letter-spacing:1px}
 .sport-info-bar{padding:5px 11px;background:rgba(0,200,248,.04);border-top:1px solid var(--border);font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
-.parlay-panel{width:264px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.parlay-panel{width:520px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .25s ease}
 .pp-hdr{padding:9px 11px;border-bottom:1px solid var(--border);flex-shrink:0}
 .pp-title{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .pp-meta{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:1px}
@@ -167,9 +167,81 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .cfg-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
 .markets-checkboxes{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px}
 .mkt-cb{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono';font-size:9px;color:var(--text2);cursor:pointer;padding:2px 0}
-.pp-legs{flex:1;overflow-y:auto;padding:7px 11px;display:flex;flex-direction:column;gap:5px;min-height:80px;max-height:calc(100vh - 520px)}
+.pp-legs{flex:1;overflow-y:auto;padding:7px 11px;display:flex;flex-direction:column;gap:5px;min-height:60px}
 .pp-legs::-webkit-scrollbar{width:3px}
 .pp-legs::-webkit-scrollbar-thumb{background:var(--border2)}
+.parlay-preview-btn{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.3);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .2s;width:100%}
+.parlay-preview-btn:hover{background:rgba(0,200,248,.15);border-color:var(--accent)}
+.ppb-left{display:flex;flex-direction:column;gap:3px;text-align:left}
+.ppb-legs-count{font-family:'Bebas Neue';font-size:22px;color:var(--accent);line-height:1}
+.ppb-label{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
+.ppb-odds{font-family:'Bebas Neue';font-size:18px;color:var(--gold)}
+.ppb-arrow{font-size:18px;color:var(--accent)}
+.parlay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);z-index:400;display:none;align-items:flex-end;justify-content:center;padding:0}
+.parlay-overlay.open{display:flex}
+.parlay-overlay-card{background:var(--panel);border:1px solid var(--border2);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(0,200,248,.15);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.poc-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.poc-close{color:var(--text3);cursor:pointer;font-size:18px;line-height:1;transition:color .2s}
+.poc-close:hover{color:var(--red)}
+.poc-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-stat{text-align:center;padding:8px 4px;border-right:1px solid var(--border)}
+.poc-stat:last-child{border-right:none}
+.poc-stat-val{font-family:'Bebas Neue';font-size:18px;color:var(--gold);line-height:1}
+.poc-stat-lbl{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);letter-spacing:1px;margin-top:2px}
+.poc-legs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.poc-legs::-webkit-scrollbar{width:3px}
+.poc-legs::-webkit-scrollbar-thumb{background:var(--border2)}
+.poc-actions{padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bg2)}
+.parlay-preview-btn{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.3);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .2s;width:100%}
+.parlay-preview-btn:hover{background:rgba(0,200,248,.15);border-color:var(--accent)}
+.ppb-left{display:flex;flex-direction:column;gap:3px;text-align:left}
+.ppb-legs-count{font-family:'Bebas Neue';font-size:22px;color:var(--accent);line-height:1}
+.ppb-label{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
+.ppb-odds{font-family:'Bebas Neue';font-size:18px;color:var(--gold)}
+.ppb-arrow{font-size:18px;color:var(--accent)}
+.parlay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);z-index:400;display:none;align-items:flex-end;justify-content:center;padding:0}
+.parlay-overlay.open{display:flex}
+.parlay-overlay-card{background:var(--panel);border:1px solid var(--border2);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(0,200,248,.15);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.poc-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.poc-close{color:var(--text3);cursor:pointer;font-size:18px;line-height:1;transition:color .2s}
+.poc-close:hover{color:var(--red)}
+.poc-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-stat{text-align:center;padding:8px 4px;border-right:1px solid var(--border)}
+.poc-stat:last-child{border-right:none}
+.poc-stat-val{font-family:'Bebas Neue';font-size:18px;color:var(--gold);line-height:1}
+.poc-stat-lbl{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);letter-spacing:1px;margin-top:2px}
+.poc-legs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.poc-legs::-webkit-scrollbar{width:3px}
+.poc-legs::-webkit-scrollbar-thumb{background:var(--border2)}
+.poc-actions{padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bg2)}
+.parlay-preview-btn{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.3);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .2s;width:100%}
+.parlay-preview-btn:hover{background:rgba(0,200,248,.15);border-color:var(--accent)}
+.ppb-left{display:flex;flex-direction:column;gap:3px;text-align:left}
+.ppb-legs-count{font-family:'Bebas Neue';font-size:22px;color:var(--accent);line-height:1}
+.ppb-label{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
+.ppb-odds{font-family:'Bebas Neue';font-size:18px;color:var(--gold)}
+.ppb-arrow{font-size:18px;color:var(--accent)}
+.parlay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);z-index:400;display:none;align-items:flex-end;justify-content:center;padding:0}
+.parlay-overlay.open{display:flex}
+.parlay-overlay-card{background:var(--panel);border:1px solid var(--border2);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(0,200,248,.15);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.poc-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-title{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.poc-close{color:var(--text3);cursor:pointer;font-size:18px;line-height:1;transition:color .2s}
+.poc-close:hover{color:var(--red)}
+.poc-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);flex-shrink:0}
+.poc-stat{text-align:center;padding:8px 4px;border-right:1px solid var(--border)}
+.poc-stat:last-child{border-right:none}
+.poc-stat-val{font-family:'Bebas Neue';font-size:18px;color:var(--gold);line-height:1}
+.poc-stat-lbl{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);letter-spacing:1px;margin-top:2px}
+.poc-legs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.poc-legs::-webkit-scrollbar{width:3px}
+.poc-legs::-webkit-scrollbar-thumb{background:var(--border2)}
+.poc-actions{padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bg2)}
 .parlay-leg{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 8px;position:relative}
 .parlay-leg.hc{border-left:3px solid var(--green)}.parlay-leg.mc{border-left:3px solid var(--orange)}.parlay-leg.lc{border-left:3px solid var(--red)}
 .leg-match{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;padding-right:13px}
@@ -462,10 +534,11 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       </div>
     </div>
 
-    <div class="parlay-panel">
-      <div class="pp-hdr">
+    <div class="parlay-panel" id="parlayPanel">
+      <div class="pp-hdr" style="position:relative">
         <div class="pp-title">PARLAY BUILDER</div>
         <div class="pp-meta">Click outcome to add · <span id="pLegs">0</span> legs</div>
+        <button onclick="toggleParlayPanel()" id="parlayCollapseBtn" title="Collapse panel" style="position:absolute;top:8px;right:8px;background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:10px;padding:3px 7px;border-radius:4px;cursor:pointer;line-height:1">◀</button>
       </div>
       <div class="score-ring-wrap">
         <svg viewBox="0 0 72 72"><circle class="track" cx="36" cy="36" r="30"/><circle class="fill" id="scoreRing" cx="36" cy="36" r="30" stroke="var(--text3)" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg>
@@ -526,12 +599,20 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
         </div>
       </div>
       <div class="pp-legs" id="parlayLegs">
-        <div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Auto-Build or click any outcome.</div></div>
+        <button class="parlay-preview-btn" onclick="openParlayOverlay()" id="parlayPreviewBtn">
+          <div class="ppb-left">
+            <div class="ppb-legs-count" id="ppbLegsCount">0 LEGS</div>
+            <div class="ppb-label">AUTO-BUILD OR CLICK ANY OUTCOME</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+            <div class="ppb-odds" id="ppbOdds">—</div>
+            <div class="ppb-label">COMBINED ODDS</div>
+          </div>
+          <div class="ppb-arrow">▶</div>
+        </button>
       </div>
       <div class="pp-actions">
         <button class="btn-auto" id="autoBtn" onclick="autoParlay()">⚡ AUTO-BUILD OPTIMAL PARLAY</button>
-        <button class="btn-save-parlay" onclick="saveParlay()">💾 SAVE PARLAY</button>
-        <button class="btn-analyze-p" onclick="analyzeParlay()">🤖 GPT-4o ANALYSIS</button>
       </div>
     </div>
   </div><!-- end page-home -->
@@ -756,7 +837,22 @@ async function loadCurrentSport() {
     grid.innerHTML = '<div class="loading-container"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Cannot connect to server.<br><code style="color:var(--accent)">node server.js</code><br><br>' + e.message + '</div></div></div>';
   }
 }
-
+function toggleParlayPanel() {
+  var panel = document.getElementById('parlayPanel');
+  var btn   = document.getElementById('parlayCollapseBtn');
+  var isCollapsed = panel.style.width === '36px';
+  if (isCollapsed) {
+    panel.style.width = '264px';
+    panel.style.overflow = 'hidden';
+    btn.textContent = '◀';
+    panel.querySelectorAll('.score-ring-wrap,.pp-stats,.pp-config,.pp-legs,.pp-actions,.pp-meta').forEach(function(el){ el.style.display=''; });
+  } else {
+    panel.style.width = '36px';
+    panel.style.overflow = 'hidden';
+    btn.textContent = '▶';
+    panel.querySelectorAll('.score-ring-wrap,.pp-stats,.pp-config,.pp-legs,.pp-actions,.pp-meta').forEach(function(el){ el.style.display='none'; });
+  }
+}
 async function loadMatches() { await loadCurrentSport(); }
 async function reloadMatches() { await loadCurrentSport(); }
 
@@ -1414,12 +1510,28 @@ function getEnabledMarkets() {
   if (document.getElementById("mkt-ou45") && document.getElementById("mkt-ou45").checked) mkts.push("ou_4.5");
   return mkts.length ? mkts : ["h2h"];
 }
-
 function renderParlay() {
-  var legs = document.getElementById("parlayLegs");
-  document.getElementById("pLegs").textContent = parlaySelections.length;
-  if (!parlaySelections.length) {
-    legs.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Auto-Build or click any outcome.</div></div>';
+  var count = parlaySelections.length;
+  document.getElementById("pLegs").textContent = count;
+
+  // Update the preview button
+  var btn = document.getElementById("parlayPreviewBtn");
+  var co = count ? parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1) : 0;
+  document.getElementById("ppbLegsCount").textContent = count + (count === 1 ? " LEG" : " LEGS");
+  document.getElementById("ppbOdds").textContent = count ? co.toFixed(2) + "x" : "—";
+
+  // Pulse the button when legs are added
+  if (count > 0) {
+    btn.style.borderColor = "var(--accent)";
+    btn.style.background = "rgba(0,200,248,.12)";
+    btn.querySelector('.ppb-label').textContent = "TAP TO VIEW & MANAGE PARLAY";
+  } else {
+    btn.style.borderColor = "rgba(0,200,248,.3)";
+    btn.style.background = "rgba(0,200,248,.08)";
+    btn.querySelector('.ppb-label').textContent = "AUTO-BUILD OR CLICK ANY OUTCOME";
+  }
+
+  if (!count) {
     document.getElementById("parlayScore").textContent = "—";
     document.getElementById("scoreGrade").textContent = "ADD SELECTIONS";
     document.getElementById("pOdds").textContent = "—";
@@ -1428,10 +1540,10 @@ function renderParlay() {
     document.getElementById("scoreRing").style.strokeDashoffset = "188.5";
     return;
   }
-  var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1);
+
   var cp = parlaySelections.reduce(function(p,s){ return p*(s.prob/100); }, 1) * 100;
   var sc = calcScore();
-  var risk = riskLabel(parlaySelections.length, co);
+  var risk = riskLabel(count, co);
   document.getElementById("pOdds").textContent = co.toFixed(2) + "x";
   document.getElementById("pRisk").textContent = risk.label;
   document.getElementById("pRisk").style.color = risk.color;
@@ -1442,15 +1554,57 @@ function renderParlay() {
   var ring = document.getElementById("scoreRing");
   ring.style.strokeDashoffset = offset;
   ring.style.stroke = sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)";
-  legs.innerHTML = parlaySelections.map(function(s){
-    return '<div class="parlay-leg ' + (s.prob>=65?"hc":s.prob>=50?"mc":"lc") + '">' +
-      '<div class="leg-match">' + (s.matchName||'') + '</div>' +
-      '<div class="leg-pick">⚡ ' + (s.label||s.pick) + ' @ ' + s.odds + (s.hasRealOdds?" ●":"") + '</div>' +
-      '<div class="leg-conf">' + (s.league||'') + ' · ' + s.prob + '% conf</div>' +
-      '<div class="leg-remove" onclick="removeParlay(' + JSON.stringify(s.matchId) + ')">✕</div></div>';
+
+  // Sync overlay if open
+  syncOverlayStats(co, sc, cp, risk);
+  renderOverlayLegs();
+}
+
+function syncOverlayStats(co, sc, cp, risk) {
+  var pocOdds = document.getElementById("pocOdds");
+  var pocScore = document.getElementById("pocScore");
+  var pocProb = document.getElementById("pocProb");
+  var pocRisk = document.getElementById("pocRisk");
+  if (pocOdds) pocOdds.textContent = co.toFixed(2) + "x";
+  if (pocScore) { pocScore.textContent = sc + "/100"; pocScore.style.color = sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)"; }
+  if (pocProb) pocProb.textContent = cp.toFixed(1) + "%";
+  if (pocRisk) { pocRisk.textContent = risk.label; pocRisk.style.color = risk.color; }
+}
+
+function renderOverlayLegs() {
+  var container = document.getElementById("pocLegs");
+  if (!container) return;
+  if (!parlaySelections.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No selections yet.<br>Click any match outcome to add a leg.</div></div>';
+    return;
+  }
+  container.innerHTML = parlaySelections.map(function(s, i) {
+    return '<div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;border-left:3px solid ' + (s.prob>=65?"var(--green)":s.prob>=50?"var(--orange)":"var(--red)") + ';position:relative">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;padding-right:20px">' + (i+1) + '. ' + (s.matchName||'') + '</div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--accent);margin-bottom:2px">⚡ ' + (s.label||s.pick) + ' @ ' + s.odds + (s.hasRealOdds?" ●":"") + '</div>' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + (s.league||'') + ' · ' + s.prob + '% confidence</div>' +
+      '<div onclick="removeParlay(' + JSON.stringify(s.matchId) + ');renderOverlayLegs()" style="position:absolute;top:9px;right:10px;color:var(--text3);cursor:pointer;font-size:14px;transition:color .15s" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text3)\'">✕</div>' +
+      '</div>';
   }).join("");
 }
 
+function openParlayOverlay() {
+  var overlay = document.getElementById("parlayOverlay");
+  overlay.classList.add("open");
+  // Sync stats
+  if (parlaySelections.length) {
+    var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1);
+    var cp = parlaySelections.reduce(function(p,s){ return p*(s.prob/100); }, 1) * 100;
+    var sc = calcScore();
+    var risk = riskLabel(parlaySelections.length, co);
+    syncOverlayStats(co, sc, cp, risk);
+  }
+  renderOverlayLegs();
+}
+
+function closeParlayOverlay() {
+  document.getElementById("parlayOverlay").classList.remove("open");
+}
 function calcScore() {
   if (!parlaySelections.length) return 0;
   var avg = parlaySelections.reduce(function(s,x){ return s+x.prob; }, 0) / parlaySelections.length;
@@ -2064,5 +2218,26 @@ async function init() {
 }
 window.addEventListener("DOMContentLoaded", init);
 </script>
+<!-- PARLAY OVERLAY -->
+<div class="parlay-overlay" id="parlayOverlay" onclick="if(event.target===this)closeParlayOverlay()">
+  <div class="parlay-overlay-card">
+    <div class="poc-header">
+      <div class="poc-title">⚡ PARLAY BUILDER</div>
+      <div class="poc-close" onclick="closeParlayOverlay()">✕</div>
+    </div>
+    <div class="poc-stats">
+      <div class="poc-stat"><div class="poc-stat-val" id="pocOdds">—</div><div class="poc-stat-lbl">ODDS</div></div>
+      <div class="poc-stat"><div class="poc-stat-val" id="pocScore" style="color:var(--accent)">—</div><div class="poc-stat-lbl">SCORE</div></div>
+      <div class="poc-stat"><div class="poc-stat-val" id="pocProb">—</div><div class="poc-stat-lbl">PROB</div></div>
+      <div class="poc-stat"><div class="poc-stat-val" id="pocRisk" style="color:var(--text3)">—</div><div class="poc-stat-lbl">RISK</div></div>
+    </div>
+    <div class="poc-legs" id="pocLegs"></div>
+    <div class="poc-actions">
+      <button class="btn-save-parlay" style="width:100%;padding:9px" onclick="saveParlay();closeParlayOverlay()">💾 SAVE PARLAY</button>
+      <button class="btn-analyze-p" style="width:100%;padding:9px" onclick="closeParlayOverlay();analyzeParlay()">🤖 GPT-4o ANALYSIS</button>
+      <button style="background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:9px;padding:7px;border-radius:5px;cursor:pointer;width:100%" onclick="parlaySelections=[];renderParlay();closeParlayOverlay()">🗑 CLEAR ALL</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

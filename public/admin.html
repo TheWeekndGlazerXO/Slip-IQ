@@ -3,881 +3,402 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SLIP IQ — Admin Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Slip IQ — Admin</title>
+<script src="/config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#050709;--bg2:#080c10;--panel:#0b1118;--border:#16222e;--border2:#1e2f40;--accent:#00d4ff;--accent2:#0090b8;--green:#00e87a;--red:#ff3355;--orange:#ff8c00;--gold:#ffcc00;--purple:#9b6dff;--text:#ddeeff;--text2:#6a8aa8;--text3:#384d60}
-*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
-body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:9999}
+:root{
+  --bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;
+  --accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;
+  --orange:#ff8c42;--purple:#a855f7;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;
+  --grad:linear-gradient(135deg,#00c8f8,#00e5c8);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.008) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
 
-/* ── GATE OVERLAY ── */
-.gate-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0}
-.gate-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:380px;max-width:95vw;box-shadow:0 0 80px rgba(0,212,255,.06)}
-.gate-logo{font-family:'Bebas Neue';font-size:32px;color:var(--accent);letter-spacing:5px;text-align:center;text-shadow:0 0 30px rgba(0,212,255,.4);margin-bottom:4px}
-.gate-sub{font-family:'DM Mono';font-size:9px;letter-spacing:3px;color:var(--text3);text-align:center;margin-bottom:28px;text-transform:uppercase}
-.gate-label{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:5px}
-.gate-input{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:10px 13px;border-radius:8px;font-size:13px;font-family:'Outfit';outline:none;margin-bottom:12px;transition:border-color .2s}
-.gate-input:focus{border-color:var(--accent)}
-.gate-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;border:none;border-radius:8px;font-size:12px;font-weight:800;font-family:'Outfit';cursor:pointer;letter-spacing:1px;margin-top:4px;transition:opacity .2s}
-.gate-btn:hover{opacity:.9}
-.gate-error{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.25);color:var(--red);padding:9px 12px;border-radius:7px;font-size:11px;margin-bottom:12px;display:none;font-family:'DM Mono'}
-.gate-error.show{display:block}
-.gate-attempts{font-family:'DM Mono';font-size:9px;color:var(--text3);text-align:center;margin-top:12px}
-.gate-locked{background:rgba(255,51,85,.05);border:1px solid rgba(255,51,85,.2);border-radius:8px;padding:12px;text-align:center;font-family:'DM Mono';font-size:10px;color:var(--red);display:none}
-.gate-locked.show{display:block}
+/* AUTH */
+#authGate{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
+.auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:32px;width:340px;text-align:center}
+.auth-title{font-family:'Bebas Neue';font-size:26px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+.auth-sub{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:20px}
+.auth-input{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:11px 14px;font-family:'JetBrains Mono';font-size:12px;outline:none;margin-bottom:10px;letter-spacing:2px}
+.auth-input:focus{border-color:var(--accent)}
+.auth-btn{width:100%;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:2px;padding:12px;border-radius:7px;border:none;cursor:pointer}
+.auth-err{color:var(--red);font-family:'JetBrains Mono';font-size:9px;margin-top:8px;display:none}
 
-/* ── SIDEBAR ── */
-.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}
-.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
-.sidebar-logo .wordmark{font-family:'Bebas Neue';font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:0 0 20px rgba(0,212,255,.4);display:block}
-.sidebar-logo .sub{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;margin-top:2px}
-.sidebar-nav{padding:16px 10px;flex:1}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.5px;transition:all .2s;margin-bottom:2px;text-decoration:none;border:1px solid transparent}
-.nav-item:hover{background:rgba(0,212,255,.05);color:var(--text);border-color:var(--border)}
-.nav-item.active{background:rgba(0,212,255,.1);color:var(--accent);border-color:rgba(0,212,255,.25)}
-.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
-.nav-section{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:2px;padding:14px 12px 6px;text-transform:uppercase}
-.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
-.founder-pills{display:flex;flex-direction:column;gap:6px}
-.founder-pill{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;font-size:11px}
-.fp-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}
-.fp-1{background:rgba(0,212,255,.2);color:var(--accent)}.fp-2{background:rgba(155,109,255,.2);color:var(--purple)}
-.fp-name{color:var(--text2);font-size:10px;font-weight:600}.fp-share{margin-left:auto;font-family:'DM Mono';font-size:9px;color:var(--green)}
+/* LAYOUT */
+.topbar{position:sticky;top:0;z-index:50;background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.topbar-logo{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-meta{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
+.btn-refresh{background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:5px 12px;border-radius:5px;cursor:pointer;transition:all .2s}
+.btn-refresh:hover{background:rgba(0,200,248,.2)}
+.page{max-width:1400px;margin:0 auto;padding:20px 24px;position:relative;z-index:1}
 
-/* ── MAIN ── */
-.main{margin-left:220px;min-height:100vh}
-.topbar{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:10px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
-.tb-title{font-family:'Bebas Neue';font-size:18px;color:var(--text);letter-spacing:2px}
-.tb-live{display:flex;align-items:center;gap:6px;font-family:'DM Mono';font-size:10px;color:var(--green);background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);padding:4px 10px;border-radius:20px}
-.live-pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;box-shadow:0 0 6px var(--green)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.tb-date{margin-left:auto;font-family:'DM Mono';font-size:11px;color:var(--text3)}
-.tb-btn{height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;cursor:pointer;font-size:11px;font-family:'DM Mono';color:var(--text2);transition:all .2s;gap:5px;text-decoration:none;white-space:nowrap}
-.tb-btn:hover{border-color:var(--accent);color:var(--accent)}
-.demo-badge{background:rgba(255,204,0,.12);border:1px solid rgba(255,204,0,.3);color:var(--gold);font-family:'DM Mono';font-size:9px;padding:3px 10px;border-radius:4px;letter-spacing:1px;display:none}
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;margin-top:28px}
+.sec-title{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--text3)}
+.sec-line{flex:1;height:1px;background:var(--border)}
 
-/* ── CONTENT ── */
-.content{padding:24px 28px}
-.load-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
-.load-overlay.hidden{opacity:0;pointer-events:none}
-.load-spinner{width:40px;height:40px;border:2px solid var(--border);border-top:2px solid var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:8px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s}
+.kpi:hover{border-color:var(--border2)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.accent::before{background:var(--grad)}
+.kpi.green::before{background:var(--green)}
+.kpi.gold::before{background:var(--gold)}
+.kpi.red::before{background:var(--red)}
+.kpi.purple::before{background:var(--purple)}
+.kpi-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:6px;text-transform:uppercase}
+.kpi-val{font-family:'Bebas Neue';font-size:32px;line-height:1;color:var(--text)}
+.kpi-val.accent{color:var(--accent)}
+.kpi-val.green{color:var(--green)}
+.kpi-val.gold{color:var(--gold)}
+.kpi-val.red{color:var(--red)}
+.kpi-val.purple{color:var(--purple)}
+.kpi-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:4px}
+
+/* PLAN BREAKDOWN */
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.plan-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.plan-name{font-family:'Bebas Neue';font-size:14px;letter-spacing:2px;margin-bottom:4px}
+.plan-count{font-family:'Bebas Neue';font-size:28px;line-height:1}
+.plan-mrr{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:4px}
+.plan-price{font-family:'JetBrains Mono';font-size:8px;color:var(--text3)}
+.plan-free .plan-name{color:var(--text3)}
+.plan-starter .plan-name{color:var(--teal)}
+.plan-basic .plan-name{color:var(--accent)}
+.plan-plus .plan-name{color:var(--orange)}
+.plan-pro .plan-name{color:var(--purple)}
+.plan-elite .plan-name{color:var(--gold)}
+.plan-platinum .plan-name{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* MRR BAR */
+.mrr-bar-wrap{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:10px}
+.mrr-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mrr-bar-lbl{font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;width:72px;flex-shrink:0}
+.mrr-bar-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.mrr-bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.mrr-bar-num{font-family:'JetBrains Mono';font-size:9px;color:var(--text2);width:60px;text-align:right;flex-shrink:0}
+
+/* TABLE */
+.table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-title{font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;color:var(--text3)}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border)}
+th{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);padding:8px 14px;text-align:left;font-weight:400}
+td{font-size:12px;color:var(--text2);padding:9px 14px;border-bottom:1px solid rgba(14,32,64,.6)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,200,248,.03);color:var(--text)}
+.badge{display:inline-block;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px}
+.badge-free{background:rgba(58,90,122,.15);color:var(--text3);border:1px solid var(--border)}
+.badge-starter{background:rgba(0,229,200,.1);color:var(--teal);border:1px solid rgba(0,229,200,.25)}
+.badge-basic{background:rgba(0,200,248,.1);color:var(--accent);border:1px solid rgba(0,200,248,.25)}
+.badge-plus{background:rgba(255,140,66,.1);color:var(--orange);border:1px solid rgba(255,140,66,.25)}
+.badge-pro{background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25)}
+.badge-elite{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.25)}
+.badge-platinum{background:rgba(0,200,248,.15);color:var(--accent);border:1px solid var(--accent)}
+.badge-active{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.badge-cancelled{background:rgba(255,59,92,.1);color:var(--red);border:1px solid rgba(255,59,92,.25)}
+
+/* TWO-COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;gap:14px}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.load-text{font-family:'DM Mono';font-size:12px;color:var(--text2)}
-.err-banner{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.2);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--red);display:none;align-items:center;gap:10px;line-height:1.5}
-.err-banner.show{display:flex}
-.section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:28px}
-.section-hdr:first-child{margin-top:0}
-.section-hdr h2{font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--text2)}
-.section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s}
-.kpi-card:hover{border-color:var(--border2)}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
-.kpi-card.accent::before{background:var(--accent)}.kpi-card.green::before{background:var(--green)}.kpi-card.gold::before{background:var(--gold)}.kpi-card.purple::before{background:var(--purple)}.kpi-card.orange::before{background:var(--orange)}.kpi-card.red::before{background:var(--red)}
-.kpi-label{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
-.kpi-value{font-family:'Bebas Neue';font-size:36px;line-height:1;margin-bottom:4px}
-.kpi-card.accent .kpi-value{color:var(--accent)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.gold .kpi-value{color:var(--gold)}.kpi-card.purple .kpi-value{color:var(--purple)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}
-.kpi-sub{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.kpi-delta{font-family:'DM Mono';font-size:10px;padding:1px 5px;border-radius:3px}
-.delta-up{background:rgba(0,232,122,.12);color:var(--green)}.delta-down{background:rgba(255,51,85,.12);color:var(--red)}
-.sparkline{display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:6px}
-.spark-bar{flex:1;border-radius:2px 2px 0 0;min-width:3px;opacity:.7}
-.two-thirds{display:grid;grid-template-columns:2fr 1fr;gap:12px}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.live-counter-card{background:linear-gradient(135deg,rgba(0,232,122,.06) 0%,rgba(0,212,255,.03) 100%);border:1px solid rgba(0,232,122,.2);border-radius:12px;padding:18px 22px;display:flex;align-items:center;gap:20px}
-.lc-ring-wrap{position:relative;width:70px;height:70px;flex-shrink:0}
-.lc-ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
-.lc-ring-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue';font-size:22px;color:var(--green)}
-.lc-info{flex:1}
-.lc-title{font-family:'Bebas Neue';font-size:20px;color:var(--green);letter-spacing:2px}
-.lc-sub{font-size:12px;color:var(--text2);margin-top:2px}
-.lc-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:10px;margin-top:8px}
-.lc-bar-lbl{color:var(--text3);font-family:'DM Mono';width:50px;flex-shrink:0}
-.lc-bar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
-.lc-bar-fill{height:100%;border-radius:2px;transition:width .6s}
-.lc-bar-val{color:var(--text2);font-family:'DM Mono';width:28px;text-align:right;flex-shrink:0}
-.chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative}
-.cp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-.cp-title{font-family:'DM Mono';font-size:10px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:4px}
-.cp-value{font-family:'Bebas Neue';font-size:28px;color:var(--text)}
-.cp-badge{font-family:'DM Mono';font-size:9px;padding:3px 8px;border-radius:4px;letter-spacing:1px}
-.tier-grid{display:grid;gap:10px}
-.tier-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
-.tier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tier-name{font-size:12px;font-weight:700;color:var(--text);width:60px;flex-shrink:0}
-.tier-bar-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
-.tier-bar-fill{height:100%;border-radius:3px}
-.tier-count{font-family:'DM Mono';font-size:11px;color:var(--text2);width:28px;text-align:right;flex-shrink:0}
-.tier-pct{font-family:'DM Mono';font-size:10px;color:var(--text3);width:32px;text-align:right;flex-shrink:0}
-.tier-rev{font-family:'DM Mono';font-size:11px;width:55px;text-align:right;flex-shrink:0;font-weight:600}
-.founder-split-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.founder-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
-.fc-avatar{width:40px;height:40px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:18px}
-.fc-1{background:rgba(0,212,255,.12);color:var(--accent);border:2px solid rgba(0,212,255,.3)}.fc-2{background:rgba(155,109,255,.12);color:var(--purple);border:2px solid rgba(155,109,255,.3)}
-.fc-name{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;font-family:'DM Mono';letter-spacing:.5px}
-.fc-stat{margin-bottom:7px}
-.fc-stat-lbl{font-size:9px;color:var(--text3);font-family:'DM Mono';letter-spacing:1px;text-transform:uppercase;margin-bottom:2px}
-.fc-stat-val{font-family:'Bebas Neue';font-size:22px}
-.rev-table{width:100%;border-collapse:collapse}
-.rev-table th{font-family:'DM Mono';font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;text-align:left;padding:6px 10px 8px;border-bottom:1px solid var(--border)}
-.rev-table td{padding:8px 10px;font-size:12px;border-bottom:1px solid rgba(22,34,46,.5);color:var(--text2)}
-.rev-table tr:last-child td{border-bottom:none}
-.rev-table tr:hover td{background:rgba(0,212,255,.02)}
-.rev-table .mono{font-family:'DM Mono';font-size:11px}.rev-table .positive{color:var(--green)}.rev-table .col-month{color:var(--text);font-weight:600}
-.proj-card{background:linear-gradient(135deg,rgba(255,204,0,.05),rgba(255,140,0,.03));border:1px solid rgba(255,204,0,.15);border-radius:12px;padding:18px 20px}
-.proj-header{display:flex;align-items:center;gap:8px;margin-bottom:16px}
-.proj-title{font-family:'Bebas Neue';font-size:18px;color:var(--gold);letter-spacing:1px}
-.proj-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.proj-item{background:rgba(0,0,0,.2);border:1px solid rgba(255,204,0,.08);border-radius:8px;padding:12px;text-align:center}
-.proj-item-lbl{font-family:'DM Mono';font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase}
-.proj-item-val{font-family:'Bebas Neue';font-size:26px;color:var(--gold)}
-.proj-item-sub{font-size:10px;color:var(--text3);margin-top:2px}
-.cost-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.cost-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
-.cost-name{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px}
-.cost-val{font-family:'DM Mono';font-size:14px;color:var(--red)}
-.cost-plan{font-size:10px;color:var(--text3);margin-top:2px}
-.growth-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}
-.growth-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
-.growth-bar-outer{width:100%;height:80px;background:var(--border);border-radius:4px;overflow:hidden;display:flex;align-items:flex-end}
-.growth-bar-fill{width:100%;border-radius:4px 4px 0 0}
-.growth-lbl{font-family:'DM Mono';font-size:9px;color:var(--text3)}
-.growth-val{font-family:'DM Mono';font-size:10px;font-weight:600}
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.sidebar{display:none}.main{margin-left:0}}
+.loading-text{font-family:'JetBrains Mono';font-size:10px;color:var(--text3);letter-spacing:1px}
+.err-box{background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:10px;padding:14px 16px;border-radius:8px;margin-top:20px}
+
+/* CREDIT RING */
+.credit-ring-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.credit-ring{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.credit-ring-num{font-family:'Bebas Neue';font-size:30px;line-height:1}
+.credit-ring-lbl{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px;margin-top:4px}
+
+@media(max-width:900px){.two-col{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 
-<!-- ── GATE OVERLAY ── -->
-<div class="gate-overlay" id="gateOverlay">
-  <div class="gate-card">
-    <div class="gate-logo">SLIP IQ</div>
-    <div class="gate-sub">Admin Access Required</div>
-    <div class="gate-error" id="gateError"></div>
-    <div class="gate-locked" id="gateLocked">🔒 Too many failed attempts. Please wait 60 seconds.</div>
-    <div>
-      <div class="gate-label">Password</div>
-      <input type="password" class="gate-input" id="gatePassword" placeholder="••••••" onkeydown="if(event.key==='Enter')checkGate()">
-    </div>
-    <button class="gate-btn" id="gateBtn" onclick="checkGate()">ACCESS DASHBOARD →</button>
-    <div class="gate-attempts" id="gateAttempts"></div>
+<!-- AUTH GATE -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-title">SLIP IQ</div>
+    <div class="auth-sub">ADMIN DASHBOARD · RESTRICTED</div>
+    <input class="auth-input" type="password" id="adminKeyInput" placeholder="ENTER ADMIN KEY" onkeydown="if(event.key==='Enter')tryAuth()">
+    <button class="auth-btn" onclick="tryAuth()">⚡ ACCESS DASHBOARD</button>
+    <div class="auth-err" id="authErr">Invalid admin key</div>
   </div>
 </div>
 
-<!-- ── LOAD OVERLAY ── -->
-<div class="load-overlay hidden" id="loadOverlay">
-  <div class="load-spinner"></div>
-  <div class="load-text">LOADING LIVE DATA...</div>
-</div>
-
-<!-- ── SIDEBAR ── -->
-<div class="sidebar">
-  <div class="sidebar-logo"><span class="wordmark">SLIP IQ</span><span class="sub">ADMIN DASHBOARD</span></div>
-  <div class="sidebar-nav">
-    <div class="nav-section">Overview</div>
-    <a class="nav-item active" href="#overview"><span class="nav-icon">📊</span>Dashboard</a>
-    <a class="nav-item" href="#revenue"><span class="nav-icon">💰</span>Revenue</a>
-    <a class="nav-item" href="#subscribers"><span class="nav-icon">👥</span>Subscribers</a>
-    <div class="nav-section">Analytics</div>
-    <a class="nav-item" href="#growth"><span class="nav-icon">📈</span>Growth</a>
-    <a class="nav-item" href="#projections"><span class="nav-icon">🔮</span>Projections</a>
-    <a class="nav-item" href="#costs"><span class="nav-icon">⚙️</span>API Costs</a>
-    <div class="nav-section">Founders</div>
-    <a class="nav-item" href="#founders"><span class="nav-icon">⚡</span>Profit Split</a>
+<!-- TOPBAR -->
+<div class="topbar" style="display:none" id="appTopbar">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="topbar-logo">⚡ SLIP IQ ADMIN</div>
+    <div class="topbar-meta" id="generatedAt">—</div>
   </div>
-  <div class="sidebar-footer">
-    <div class="founder-pills">
-      <div class="founder-pill"><div class="fp-avatar fp-1">Z</div><span class="fp-name">Zion</span><span class="fp-share">50%</span></div>
-      <div class="founder-pill"><div class="fp-avatar fp-2">R</div><span class="fp-name">Rapha</span><span class="fp-share">50%</span></div>
-    </div>
+  <div class="topbar-right">
+    <div class="topbar-meta" id="regardNote" style="color:var(--teal)">REGARD = YES ONLY</div>
+    <button class="btn-refresh" onclick="loadStats()">⟳ REFRESH</button>
+    <a href="home.html" class="btn-refresh" style="text-decoration:none">← HOME</a>
   </div>
 </div>
 
-<!-- ── MAIN SHELL ── -->
-<div class="main" id="mainShell" style="display:none">
-  <div class="topbar">
-    <div class="tb-title">ADMIN DASHBOARD</div>
-    <div class="tb-live"><div class="live-pulse"></div><span id="liveLabel">LIVE</span></div>
-    <div class="demo-badge" id="demoBadge">DEMO DATA</div>
-    <div class="tb-date" id="tbDate">—</div>
-    <a class="tb-btn" href="index.html">← App</a>
-    <div class="tb-btn" id="toggleBtn" onclick="toggleMode()" title="Switch between live Supabase data and demo placeholder">📊 DEMO MODE</div>
-    <div class="tb-btn" onclick="loadAll()">↻ Refresh</div>
-    <div class="tb-btn" onclick="signOut()" style="color:var(--red);border-color:rgba(255,51,85,.3)">Sign Out</div>
+<!-- MAIN -->
+<div class="page" id="appPage" style="display:none">
+
+  <!-- LOADING STATE -->
+  <div id="loadingState" class="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">LOADING ADMIN STATS...</div>
   </div>
-  <div class="content">
-    <div class="err-banner" id="errBanner"><span>⚠️</span><span id="errText">—</span></div>
 
-    <div id="overview">
-      <div class="section-hdr"><h2>KEY METRICS</h2></div>
-      <div class="kpi-grid">
-        <div class="kpi-card accent"><div class="kpi-label">Total Active Subscribers</div><div class="kpi-value" id="kpi-subs">—</div><div class="kpi-sub" id="kpi-subs-sub">—</div><div class="sparkline" id="spark-subs"></div></div>
-        <div class="kpi-card green"><div class="kpi-label">Monthly Recurring Revenue</div><div class="kpi-value" id="kpi-mrr">—</div><div class="kpi-sub" id="kpi-mrr-sub">—</div><div class="sparkline" id="spark-mrr"></div></div>
-        <div class="kpi-card gold"><div class="kpi-label">Monthly Net Profit</div><div class="kpi-value" id="kpi-profit">—</div><div class="kpi-sub" id="kpi-profit-sub">—</div><div class="sparkline" id="spark-profit"></div></div>
-        <div class="kpi-card purple"><div class="kpi-label">Growth Rate (MoM)</div><div class="kpi-value" id="kpi-growth">—</div><div class="kpi-sub" id="kpi-growth-sub">—</div><div class="sparkline" id="spark-growth"></div></div>
-      </div>
+  <div id="dashContent" style="display:none">
+
+    <!-- TOP KPIs -->
+    <div class="sec-hdr" style="margin-top:8px"><div class="sec-title">OVERVIEW</div><div class="sec-line"></div></div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- REVENUE -->
+    <div class="sec-hdr"><div class="sec-title">REVENUE</div><div class="sec-line"></div></div>
+    <div class="two-col">
+      <div class="plan-grid" id="planGrid"></div>
+      <div class="mrr-bar-wrap" id="mrrBars"></div>
     </div>
 
-    <div class="two-thirds" style="margin-top:12px">
-      <div class="live-counter-card">
-        <div class="lc-ring-wrap"><svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="28" fill="none" stroke="rgba(0,232,122,.1)" stroke-width="5"/><circle cx="35" cy="35" r="28" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="175.9" id="liveRing"/></svg><div class="lc-ring-num" id="liveRingNum">—</div></div>
-        <div class="lc-info">
-          <div class="lc-title">LIVE SUBSCRIBER COUNT</div>
-          <div class="lc-sub">Realtime from Supabase · <span id="lastUpdated">—</span></div>
-          <div class="lc-bar-row"><span class="lc-bar-lbl">Paid</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-paid" style="width:0%;background:var(--green)"></div></div><span class="lc-bar-val" style="color:var(--green)" id="val-paid">—</span></div>
-          <div class="lc-bar-row"><span class="lc-bar-lbl">Free</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-free" style="width:0%;background:var(--text3)"></div></div><span class="lc-bar-val" style="color:var(--text3)" id="val-free">—</span></div>
-          <div class="lc-bar-row"><span class="lc-bar-lbl">Churned</span><div class="lc-bar-track"><div class="lc-bar-fill" id="bar-churned" style="width:0%;background:var(--red)"></div></div><span class="lc-bar-val" style="color:var(--red)" id="val-churned">—</span></div>
-        </div>
-      </div>
-      <div class="chart-panel">
-        <div class="cp-header"><div><div class="cp-title">New Subscribers Today</div><div class="cp-value" id="todaySubs">—</div></div><div class="cp-badge delta-up" id="todayBadge">—</div></div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Last 7 days</div>
-        <div class="growth-row" id="weekBars"></div>
-      </div>
-    </div>
+    <!-- CREDITS -->
+    <div class="sec-hdr"><div class="sec-title">CREDITS USAGE</div><div class="sec-line"></div></div>
+    <div class="credit-ring-row" id="creditRings"></div>
 
-    <div id="revenue">
-      <div class="section-hdr"><h2>REVENUE BREAKDOWN</h2></div>
-      <div class="kpi-grid">
-        <div class="kpi-card green"><div class="kpi-label">This Month Revenue</div><div class="kpi-value" id="rev-month">—</div><div class="kpi-sub" id="rev-month-sub">—</div></div>
-        <div class="kpi-card gold"><div class="kpi-label">This Year Revenue</div><div class="kpi-value" id="rev-year">—</div><div class="kpi-sub" id="rev-year-sub">—</div></div>
-        <div class="kpi-card accent"><div class="kpi-label">All-Time Revenue</div><div class="kpi-value" id="rev-alltime">—</div><div class="kpi-sub">Since launch</div></div>
-        <div class="kpi-card orange"><div class="kpi-label">Avg Revenue Per User</div><div class="kpi-value" id="rev-arpu">—</div><div class="kpi-sub">Blended ARPU</div></div>
-      </div>
-      <div class="chart-panel" style="margin-top:12px">
-        <div class="cp-header"><div><div class="cp-title">Monthly Revenue History</div><div class="cp-value">All Months</div></div></div>
-        <table class="rev-table"><thead><tr><th>Month</th><th>Subscribers</th><th>Gross Revenue</th><th>API Costs</th><th>Net Profit</th><th>Growth</th><th>Per Founder</th></tr></thead><tbody id="revBody"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;font-family:'DM Mono';font-size:11px">Loading...</td></tr></tbody></table>
-      </div>
-    </div>
+    <!-- PARLAY STATS -->
+    <div class="sec-hdr"><div class="sec-title">PARLAY PERFORMANCE</div><div class="sec-line"></div></div>
+    <div class="kpi-grid" id="parlayKpis"></div>
 
-    <div id="subscribers">
-      <div class="section-hdr"><h2>TIER BREAKDOWN</h2></div>
-      <div class="two-thirds">
-        <div class="chart-panel">
-          <div class="cp-header"><div><div class="cp-title">Subscribers by Plan</div><div class="cp-value" id="tier-paid-total">—</div></div><div style="font-size:11px;color:var(--text3)" id="tier-free-note">—</div></div>
-          <div class="tier-grid" id="tierGrid"><div style="text-align:center;color:var(--text3);font-family:'DM Mono';font-size:11px;padding:20px">Loading...</div></div>
-        </div>
-        <div class="chart-panel">
-          <div class="cp-header"><div><div class="cp-title">Revenue by Tier</div><div class="cp-value" id="donut-total">—</div></div></div>
-          <canvas id="donutChart" height="180"></canvas>
-        </div>
-      </div>
-    </div>
+    <!-- ACTIVITY -->
+    <div class="sec-hdr"><div class="sec-title">ACTIVITY & GROWTH</div><div class="sec-line"></div></div>
+    <div class="kpi-grid" id="activityKpis"></div>
 
-    <div id="growth">
-      <div class="section-hdr"><h2>GROWTH ANALYTICS</h2></div>
-      <div class="kpi-grid">
-        <div class="kpi-card green"><div class="kpi-label">MoM Growth Rate</div><div class="kpi-value" id="grow-mom">—</div><div class="kpi-sub">Subscriber growth</div></div>
-        <div class="kpi-card accent"><div class="kpi-label">Churn Rate</div><div class="kpi-value" id="grow-churn">—</div><div class="kpi-sub">Monthly churn</div></div>
-        <div class="kpi-card orange"><div class="kpi-label">LTV (avg)</div><div class="kpi-value" id="grow-ltv">—</div><div class="kpi-sub">Lifetime value per user</div></div>
-        <div class="kpi-card purple"><div class="kpi-label">Free → Paid Conv.</div><div class="kpi-value" id="grow-conv">—</div><div class="kpi-sub">Conversion rate</div></div>
-      </div>
-      <div class="chart-panel" style="margin-top:12px">
-        <div class="cp-header"><div><div class="cp-title">Subscriber Growth</div><div class="cp-value" id="grow-chart-label">—</div></div><div class="cp-badge delta-up" id="grow-pct">—</div></div>
-        <canvas id="growthChart" height="150"></canvas>
-      </div>
-    </div>
+    <!-- TABLES -->
+    <div class="sec-hdr"><div class="sec-title">RECENT SIGNUPS</div><div class="sec-line"></div></div>
+    <div class="table-wrap" id="recentTable"></div>
 
-    <div id="projections">
-      <div class="section-hdr"><h2>PROJECTIONS</h2></div>
-      <div class="proj-card">
-        <div class="proj-header"><span style="font-size:18px">🔮</span><span class="proj-title">END OF YEAR FORECAST</span><span style="font-family:'DM Mono';font-size:9px;color:var(--text3);margin-left:auto">Based on actual MoM growth rate</span></div>
-        <div class="proj-grid">
-          <div class="proj-item"><div class="proj-item-lbl">Projected Subscribers</div><div class="proj-item-val" id="proj-subs">—</div><div class="proj-item-sub">by Dec</div></div>
-          <div class="proj-item"><div class="proj-item-lbl">Projected MRR</div><div class="proj-item-val" id="proj-mrr">—</div><div class="proj-item-sub">Dec</div></div>
-          <div class="proj-item"><div class="proj-item-lbl">Projected ARR</div><div class="proj-item-val" id="proj-arr">—</div><div class="proj-item-sub">Full year</div></div>
-          <div class="proj-item"><div class="proj-item-lbl">Projected Net Profit</div><div class="proj-item-val" id="proj-profit">—</div><div class="proj-item-sub">After API costs</div></div>
-          <div class="proj-item"><div class="proj-item-lbl">Per Founder (Annual)</div><div class="proj-item-val" id="proj-founder">—</div><div class="proj-item-sub">50/50 split</div></div>
-          <div class="proj-item"><div class="proj-item-lbl">Months to €10k MRR</div><div class="proj-item-val" id="proj-months">—</div><div class="proj-item-sub">at current growth</div></div>
-        </div>
-      </div>
-      <div class="chart-panel" style="margin-top:12px">
-        <div class="cp-header"><div><div class="cp-title">Revenue Projection — Now → Dec</div><div class="cp-value">Actual growth rate</div></div></div>
-        <canvas id="projChart" height="150"></canvas>
-      </div>
-    </div>
+    <div class="sec-hdr"><div class="sec-title">TOP WINNERS</div><div class="sec-line"></div></div>
+    <div class="table-wrap" id="winnersTable"></div>
 
-    <div id="costs">
-      <div class="section-hdr"><h2>API COSTS BREAKDOWN</h2></div>
-      <div class="chart-panel">
-        <div class="cp-header"><div><div class="cp-title">Monthly Estimated API Spend</div><div class="cp-value" style="color:var(--red)" id="cost-total-hdr">~€175–€325/mo</div></div><div style="text-align:right;font-size:11px;color:var(--text3)" id="cost-pct-label">—% of revenue</div></div>
-        <div class="cost-grid">
-          <div class="cost-item"><div class="cost-name">Odds API</div><div class="cost-val">€39/mo</div><div class="cost-plan">Pro plan</div></div>
-          <div class="cost-item"><div class="cost-name">SportMonks</div><div class="cost-val">€29/mo</div><div class="cost-plan">Growth plan</div></div>
-          <div class="cost-item"><div class="cost-name">NewsAPI</div><div class="cost-val">€12/mo</div><div class="cost-plan">Business plan</div></div>
-          <div class="cost-item"><div class="cost-name">GitHub Models (GPT-4o)</div><div class="cost-val">€0–€150/mo</div><div class="cost-plan">Usage-based</div></div>
-          <div class="cost-item"><div class="cost-name">Railway Hosting</div><div class="cost-val">€10/mo</div><div class="cost-plan">Starter plan</div></div>
-          <div class="cost-item"><div class="cost-name">Domain + SSL</div><div class="cost-val">~€5/mo</div><div class="cost-plan">Amortized</div></div>
-          <div class="cost-item"><div class="cost-name">Stripe Fees</div><div class="cost-val" id="cost-stripe">~€55/mo</div><div class="cost-plan">2.9% + 30¢/txn</div></div>
-          <div class="cost-item"><div class="cost-name">Supabase</div><div class="cost-val">€25/mo</div><div class="cost-plan">Pro plan</div></div>
-          <div class="cost-item" style="border-color:rgba(255,51,85,.2)"><div class="cost-name" style="color:var(--text)">Total Monthly</div><div class="cost-val" style="font-size:18px" id="cost-total">—</div><div class="cost-plan" style="color:var(--green)" id="cost-profit-note">Net profit: loading...</div></div>
-        </div>
-      </div>
-    </div>
+    <div class="sec-hdr"><div class="sec-title">MOST ACTIVE USERS</div><div class="sec-line"></div></div>
+    <div class="table-wrap" id="activeTable"></div>
 
-    <div id="founders">
-      <div class="section-hdr"><h2>FOUNDER PROFIT SPLIT — 50 / 50</h2></div>
-      <div class="kpi-grid">
-        <div class="kpi-card accent"><div class="kpi-label">This Month (Each)</div><div class="kpi-value" id="f-month">—</div><div class="kpi-sub" id="f-month-sub">After costs</div></div>
-        <div class="kpi-card green"><div class="kpi-label">This Year (Each)</div><div class="kpi-value" id="f-year">—</div><div class="kpi-sub" id="f-year-sub">—</div></div>
-        <div class="kpi-card gold"><div class="kpi-label">All-Time (Each)</div><div class="kpi-value" id="f-alltime">—</div><div class="kpi-sub">Since launch</div></div>
-        <div class="kpi-card purple"><div class="kpi-label">Projected 2026 (Each)</div><div class="kpi-value" id="f-projected">—</div><div class="kpi-sub">At current growth rate</div></div>
-      </div>
-      <div class="founder-split-grid" style="margin-top:12px">
-        <div class="founder-card"><div class="fc-avatar fc-1">Z</div><div class="fc-name">ZION</div>
-          <div class="fc-stat"><div class="fc-stat-lbl">This Month</div><div class="fc-stat-val" style="color:var(--accent)" id="z-month">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">This Year</div><div class="fc-stat-val" style="color:var(--green)" id="z-year">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">All Time</div><div class="fc-stat-val" style="color:var(--gold)" id="z-alltime">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">Projected Dec/mo</div><div class="fc-stat-val" style="color:var(--purple)" id="z-proj">—</div></div>
-        </div>
-        <div class="founder-card"><div class="fc-avatar fc-2">R</div><div class="fc-name">RAPHA</div>
-          <div class="fc-stat"><div class="fc-stat-lbl">This Month</div><div class="fc-stat-val" style="color:var(--accent)" id="r-month">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">This Year</div><div class="fc-stat-val" style="color:var(--green)" id="r-year">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">All Time</div><div class="fc-stat-val" style="color:var(--gold)" id="r-alltime">—</div></div>
-          <div class="fc-stat"><div class="fc-stat-lbl">Projected Dec/mo</div><div class="fc-stat-val" style="color:var(--purple)" id="r-proj">—</div></div>
-        </div>
-      </div>
-    </div>
-    <div style="height:40px"></div>
   </div>
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────
-var ADMIN_PASS       = 'marsai';
-var SUPABASE_URL     = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL';
-var SUPABASE_ANON    = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
-var API_COSTS_FIXED  = 175;
-var PLAN_PRICES = { free:0, starter:2.99, basic:4.99, plus:7.99, pro:14.99, elite:49.99, platinum:99.99 };
+var ADMIN_KEY = ''
+var PLAN_PRICES = { free:0, starter:4.99, basic:9.99, plus:19.99, pro:39.99, elite:79.99, platinum:149.99 }
 
-var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-
-// ── MODE TOGGLE ───────────────────────────────────────────
-var demoMode    = false;
-var gateAttempts = 0;
-var MAX_ATTEMPTS = 5;
-var lockoutUntil = 0;
-
-function toggleMode() {
-  demoMode = !demoMode;
-  var btn      = document.getElementById('toggleBtn');
-  var badge    = document.getElementById('demoBadge');
-  var liveLabel = document.getElementById('liveLabel');
-  var livePill  = document.querySelector('.tb-live');
-  if (demoMode) {
-    btn.textContent          = '📡 LIVE DATA';
-    btn.style.color          = 'var(--gold)';
-    badge.style.display      = 'block';
-    liveLabel.textContent    = 'DEMO';
-    livePill.style.borderColor = 'rgba(255,204,0,.2)';
-    livePill.style.color       = 'var(--gold)';
-    renderDemo();
-  } else {
-    btn.textContent          = '📊 DEMO MODE';
-    btn.style.color          = '';
-    badge.style.display      = 'none';
-    liveLabel.textContent    = 'LIVE';
-    livePill.style.borderColor = '';
-    livePill.style.color       = 'var(--green)';
-    loadAll();
-  }
-}
-
-// ── GATE ──────────────────────────────────────────────────
-function checkGate() {
-  var now = Date.now();
-  if (now < lockoutUntil) {
-    var secs = Math.ceil((lockoutUntil - now) / 1000);
-    showGateErr('Locked out. Try again in ' + secs + 's.');
-    return;
-  }
-
-  var pass = document.getElementById('gatePassword').value;
-
-  if (pass === ADMIN_PASS) {
-    sessionStorage.setItem('slip_admin_auth', '1');
-    document.getElementById('gateOverlay').style.display  = 'none';
-    document.getElementById('mainShell').style.display    = 'block';
-    document.getElementById('loadOverlay').classList.remove('hidden');
-    loadAll();
-    subscribeRealtime();
-  } else {
-    gateAttempts++;
-    if (gateAttempts >= MAX_ATTEMPTS) {
-      lockoutUntil = Date.now() + 60000;
-      document.getElementById('gateLocked').classList.add('show');
-      document.getElementById('gateBtn').disabled = true;
-      setTimeout(function() {
-        document.getElementById('gateLocked').classList.remove('show');
-        document.getElementById('gateBtn').disabled = false;
-        gateAttempts = 0;
-      }, 60000);
-    }
-    var remaining = MAX_ATTEMPTS - gateAttempts;
-    showGateErr('Incorrect password.' + (remaining > 0 ? ' ' + remaining + ' attempt' + (remaining !== 1 ? 's' : '') + ' remaining.' : ''));
-    document.getElementById('gateAttempts').textContent = 'Attempt ' + gateAttempts + ' of ' + MAX_ATTEMPTS;
-    document.getElementById('gatePassword').value = '';
-  }
-}
-
-function showGateErr(msg) {
-  var el = document.getElementById('gateError');
-  el.textContent = msg;
-  el.classList.add('show');
-}
-
-function signOut() {
-  sessionStorage.removeItem('slip_admin_auth');
-  sb.auth.signOut().catch(function(){});
-  location.reload();
-}
-
-// ── DATA FETCH ────────────────────────────────────────────
-async function loadAll() {
-  document.getElementById('tbDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-  document.getElementById('errBanner').classList.remove('show');
-  if (demoMode) { renderDemo(); return; }
-  document.getElementById('loadOverlay').classList.remove('hidden');
-  try {
-    var results = await Promise.all([fetchSubs(), fetchRevenue(), fetchDaily()]);
-    render(results[0], results[1], results[2]);
-    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
-  } catch(err) {
-    showErr(err.message);
-  } finally {
-    document.getElementById('loadOverlay').classList.add('hidden');
-  }
-}
-
-async function fetchSubs() {
-  // Query users table, filter out regard = 'no' rows
-  var res = await sb.from('users')
-    .select('id,email,plan,plan_status,joined_at,last_seen_at,credits_total,credits_used,total_parlays,won_parlays')
-    .or('regard.is.null,regard.eq.yes')
-    .order('joined_at', { ascending: false });
-  if (res.error) throw new Error('users: ' + res.error.message);
-  // Normalise to shape the render() function expects
-  return (res.data || []).map(function(u) {
-    return {
-      id:         u.id,
-      email:      u.email,
-      plan:       u.plan || 'free',
-      status:     u.plan_status || 'active',
-      created_at: u.joined_at,
-      last_seen:  u.last_seen_at,
-      credits_used: u.credits_used || 0,
-      total_parlays: u.total_parlays || 0,
-      won_parlays:   u.won_parlays || 0,
-    };
-  });
-}
-
-async function fetchRevenue() {
-  // Compute monthly revenue cohorts directly from users table
-  var res = await sb.from('users')
-    .select('joined_at,plan,plan_status')
-    .or('regard.is.null,regard.eq.yes')
-    .neq('plan', 'free')
-    .order('joined_at', { ascending: true });
-  if (res.error) { console.warn('revenue compute error:', res.error.message); return []; }
-
-  var months = {};
-  (res.data || []).forEach(function(u) {
-    var m = (u.joined_at || new Date().toISOString()).slice(0, 7);
-    if (!months[m]) months[m] = { month: m, newPaid: 0, gross: 0 };
-    months[m].newPaid++;
-    if (u.plan_status === 'active') months[m].gross += PLAN_PRICES[u.plan] || 0;
-  });
-
-  var sorted = Object.values(months).sort(function(a, b) { return a.month.localeCompare(b.month); });
-  var cumSubs = 0;
-  sorted.forEach(function(r) {
-    cumSubs += r.newPaid;
-    r.subscribers = cumSubs;
-    r.costs = API_COSTS_FIXED;
-    r.net   = r.gross - r.costs;
-  });
-  return sorted;
-}
-
-async function fetchDaily() {
-  var since = new Date(); since.setDate(since.getDate() - 7);
-  var res = await sb.from('users')
-    .select('joined_at,plan')
-    .or('regard.is.null,regard.eq.yes')
-    .gte('joined_at', since.toISOString());
-  if (res.error) throw new Error('daily: ' + res.error.message);
-  return (res.data || []).map(function(u) {
-    return { created_at: u.joined_at, plan: u.plan };
-  });
-}
-
-// ── RENDER LIVE ───────────────────────────────────────────
-function render(subs, revenue, daily) {
-  var now = new Date();
-  var thisMonth = now.toISOString().slice(0,7);
-  var thisYear  = now.getFullYear();
-
-  var active  = subs.filter(function(s){ return s.status === 'active'; });
-  var paid    = active.filter(function(s){ return s.plan !== 'free'; });
-  var free    = active.filter(function(s){ return s.plan === 'free'; });
-  var churned = subs.filter(function(s){ return s.status === 'cancelled' || s.status === 'churned'; });
-  var total   = active.length;
-
-  var mrr       = paid.reduce(function(acc,x){ return acc + (PLAN_PRICES[x.plan]||0); }, 0);
-  var stripeFee = mrr * 0.029 + paid.length * 0.30;
-  var totalCost = API_COSTS_FIXED + stripeFee;
-  var net       = mrr - totalCost;
-
-  var tierCounts = {}, tierRev = {};
-  Object.keys(PLAN_PRICES).forEach(function(p){ tierCounts[p]=0; tierRev[p]=0; });
-  active.forEach(function(s){
-    tierCounts[s.plan] = (tierCounts[s.plan]||0) + 1;
-    tierRev[s.plan]    = (tierRev[s.plan]||0) + (PLAN_PRICES[s.plan]||0);
-  });
-
-  var last2 = revenue.slice(-2);
-  var mom = last2.length>=2 && last2[0].subscribers>0
-    ? ((last2[1].subscribers - last2[0].subscribers) / last2[0].subscribers * 100) : 0;
-  var churnRate = total>0 ? (churned.length/(total+churned.length)*100).toFixed(1) : 0;
-  var convRate  = total>0 ? (paid.length/total*100).toFixed(0) : 0;
-  var ltv       = mom>0 ? Math.round((mrr/Math.max(total,1))/(mom/100)) : 0;
-
-  var yearRevRows  = revenue.filter(function(r){ return r.month && r.month.startsWith(String(thisYear)); });
-  var yearRev      = yearRevRows.length ? yearRevRows.reduce(function(a,r){ return a+(r.gross||0); },0) : mrr;
-  var allTimeRev   = revenue.length ? revenue.reduce(function(a,r){ return a+(r.gross||0); },0) : mrr;
-  var yearProfit   = yearRevRows.length ? yearRevRows.reduce(function(a,r){ return a+(r.net||0); },0) : net*(now.getMonth()+1);
-  var alltimeProfit = revenue.length ? revenue.reduce(function(a,r){ return a+(r.net||0); },0) : net;
-  var arpu = paid.length > 0 ? (mrr/paid.length).toFixed(2) : '0';
-
-  // KPIs
-  s('kpi-subs', fm(total));
-  s('kpi-mrr', '$'+fmo(mrr));
-  s('kpi-profit', '$'+fmo(net));
-  s('kpi-growth', Math.round(mom)+'%');
-  s('kpi-subs-sub', '<span class="kpi-delta delta-'+(mom>=0?'up':'down')+'">'+(mom>=0?'+':'')+Math.round(mom)+'%</span> vs last month');
-  s('kpi-mrr-sub', '$'+arpu+' ARPU · '+paid.length+' paid');
-  s('kpi-profit-sub', 'After $'+Math.round(totalCost)+' costs');
-  s('kpi-growth-sub', convRate+'% free→paid conv');
-
-  // Live counter ring
-  s('liveRingNum', fm(total));
-  ring('liveRing', total, Math.max(total+50,200));
-  bar('bar-paid','val-paid',paid.length,total);
-  bar('bar-free','val-free',free.length,total);
-  bar('bar-churned','val-churned',churned.length,total+churned.length);
-
-  // Today subs
-  var tod = new Date().toDateString();
-  var ysd = new Date(Date.now()-86400000).toDateString();
-  var tc  = daily.filter(function(d){ return new Date(d.created_at).toDateString()===tod; }).length;
-  var yc  = daily.filter(function(d){ return new Date(d.created_at).toDateString()===ysd; }).length;
-  s('todaySubs', fm(tc));
-  s('todayBadge', tc>=yc ? '↑ +' + (tc-yc) + ' vs yesterday' : '↓ ' + (yc-tc) + ' vs yesterday');
-  renderWeekBars(daily);
-
-  // Revenue
-  var thisMonthRevRow = revenue.find(function(r){ return r.month && r.month.slice(0,7)===thisMonth; });
-  s('rev-month', '$'+fmo(thisMonthRevRow ? thisMonthRevRow.gross : mrr));
-  s('rev-month-sub', now.toLocaleDateString('en-GB',{month:'long',year:'numeric'}));
-  s('rev-year', '$'+fmo(yearRev));
-  s('rev-year-sub', 'Jan–'+now.toLocaleDateString('en-GB',{month:'short'})+' '+thisYear);
-  s('rev-alltime', '$'+fmo(allTimeRev));
-  s('rev-arpu', '$'+arpu);
-  renderRevTable(revenue, totalCost);
-
-  // Tiers
-  renderTiers(tierCounts, tierRev, paid.length, free.length);
-  s('tier-paid-total', paid.length+' Paid');
-  s('tier-free-note', '+'+free.length+' Free tier');
-  s('donut-total', '$'+fmo(mrr));
-  drawDonut(tierRev, mrr);
-
-  // Growth
-  var revD = revenue.slice(-6).map(function(r){ return r.subscribers||0; });
-  var revL = revenue.slice(-6).map(function(r){ return r.month ? r.month.slice(0,7) : ''; });
-  s('grow-mom', Math.round(mom)+'%');
-  s('grow-churn', churnRate+'%');
-  s('grow-ltv', ltv>0 ? '$'+ltv : '—');
-  s('grow-conv', convRate+'%');
-  if (revD.length>=2) {
-    s('grow-chart-label', revD[0]+' → '+revD[revD.length-1]);
-    var pct = revD[0]>0 ? Math.round((revD[revD.length-1]-revD[0])/revD[0]*100) : 0;
-    s('grow-pct', '+'+pct+'%');
-  }
-  drawGrowthChart(revD, revL);
-
-  // Projections
-  var mLeft  = 12 - now.getMonth();
-  var rate   = 1 + Math.max(0.01, mom/100);
-  var pSubs  = Math.round(total * Math.pow(rate, mLeft));
-  var pMrr   = Math.round(mrr * Math.pow(rate, mLeft));
-  var pArr   = Math.round(pMrr * 12);
-  var pProfit = Math.round((pMrr - totalCost) * 12);
-  var mToGoal = mrr>0 && mrr<10000 ? Math.ceil(Math.log(10000/mrr)/Math.log(rate)) : (mrr>=10000 ? 0 : '—');
-  s('proj-subs', fm(pSubs));
-  s('proj-mrr', '$'+fmo(pMrr));
-  s('proj-arr', '$'+fmo(pArr));
-  s('proj-profit', '$'+fmo(pProfit));
-  s('proj-founder', '$'+fmo(pProfit/2));
-  s('proj-months', typeof mToGoal==='number' ? mToGoal+' mo' : mToGoal);
-  var pData   = Array.from({length:mLeft+1}, function(_,i){ return Math.round(mrr*Math.pow(rate,i)); });
-  var pLabels = Array.from({length:mLeft+1}, function(_,i){ var d=new Date(now); d.setMonth(d.getMonth()+i); return d.toLocaleDateString('en-GB',{month:'short'}); });
-  drawProjChart(pData, pLabels);
-
-  // Costs
-  s('cost-pct-label', mrr>0 ? (totalCost/mrr*100).toFixed(1)+'% of revenue' : '—');
-  s('cost-stripe', '$'+Math.round(stripeFee)+'/mo');
-  s('cost-total', '$'+Math.round(totalCost)+'/mo');
-  s('cost-profit-note', 'Net profit: $'+fmo(net)+'/mo');
-
-  // Founders
-  s('f-month', '$'+fmo(net/2));
-  s('f-month-sub', 'This month · After costs');
-  s('f-year', '$'+fmo(yearProfit/2));
-  s('f-year-sub', 'Jan–'+now.toLocaleDateString('en-GB',{month:'short'})+' '+thisYear);
-  s('f-alltime', '$'+fmo(alltimeProfit/2));
-  s('f-projected', '$'+fmo(pProfit/2));
-  ['z','r'].forEach(function(p){
-    s(p+'-month',   '$'+fmo(net/2));
-    s(p+'-year',    '$'+fmo(yearProfit/2));
-    s(p+'-alltime', '$'+fmo(alltimeProfit/2));
-    s(p+'-proj',    '$'+fmo(pMrr/2)+'/mo');
-  });
-
-  // Sparklines
-  buildSparkline('spark-subs',   revenue.slice(-8).map(function(r){ return r.subscribers||0; }).concat(total), 'var(--accent)');
-  buildSparkline('spark-mrr',    revenue.slice(-8).map(function(r){ return r.gross||0; }).concat(mrr),         'var(--green)');
-  buildSparkline('spark-profit', revenue.slice(-8).map(function(r){ return r.net||0; }).concat(net),           'var(--gold)');
-  buildSparkline('spark-growth', revenue.slice(-8).map(function(r,i,a){ return i>0 && a[i-1].subscribers>0 ? Math.round((a[i].subscribers-a[i-1].subscribers)/a[i-1].subscribers*100) : 0; }), 'var(--purple)');
-}
-
-// ── RENDER DEMO ───────────────────────────────────────────
-function renderDemo() {
-  document.getElementById('loadOverlay').classList.add('hidden');
-  var now = Date.now();
-  var DEMO = {
-    subs: [].concat(
-      Array.from({length:62}, function(_,i){ return { status:'active', plan:'free',    created_at: new Date(now-i*86400000*2).toISOString() }; }),
-      Array.from({length:18}, function(_,i){ return { status:'active', plan:'starter', created_at: new Date(now-i*86400000*3).toISOString() }; }),
-      Array.from({length:11}, function(_,i){ return { status:'active', plan:'basic',   created_at: new Date(now-i*86400000*4).toISOString() }; }),
-      Array.from({length:7},  function(_,i){ return { status:'active', plan:'pro',     created_at: new Date(now-i*86400000*5).toISOString() }; }),
-      Array.from({length:2},  function(_,i){ return { status:'active', plan:'elite',   created_at: new Date(now-i*86400000*10).toISOString() }; }),
-      Array.from({length:5},  function(_,i){ return { status:'cancelled', plan:'starter', created_at: new Date(now-i*86400000*7).toISOString() }; })
-    ),
-    revenue: [
-      { month:'2025-10', subscribers:12,  gross:89,  costs:185, net:-96  },
-      { month:'2025-11', subscribers:25,  gross:198, costs:190, net:8    },
-      { month:'2025-12', subscribers:41,  gross:312, costs:195, net:117  },
-      { month:'2026-01', subscribers:67,  gross:498, costs:202, net:296  },
-      { month:'2026-02', subscribers:88,  gross:641, costs:208, net:433  },
-      { month:'2026-03', subscribers:100, gross:728, costs:212, net:516  }
-    ],
-    daily: Array.from({length:7}, function(_,i){
-      return Array.from({length: Math.max(0,3-i)}, function(){
-        return { created_at: new Date(now-i*86400000).toISOString(), plan:'free' };
-      });
-    }).reduce(function(a,b){ return a.concat(b); }, [])
-  };
-  render(DEMO.subs, DEMO.revenue, DEMO.daily);
-}
-
-// ── UI HELPERS ────────────────────────────────────────────
-function renderRevTable(revenue, costs) {
-  var rows = revenue.slice(-12);
-  if (!rows.length) {
-    s('revBody','<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:DM Mono;font-size:11px;padding:16px">No revenue history yet — create a <code>revenue_history</code> table in Supabase with columns: month (text), subscribers (int), gross (numeric), costs (numeric), net (numeric)</td></tr>');
-    return;
-  }
-  s('revBody', rows.map(function(r,i,arr){
-    var growth = i>0 && arr[i-1].subscribers>0 ? Math.round((r.subscribers-arr[i-1].subscribers)/arr[i-1].subscribers*100) : null;
-    var rnet   = (r.gross||0) - (r.costs||costs);
-    var isCur  = r.month && r.month.slice(0,7) === new Date().toISOString().slice(0,7);
-    return '<tr'+(isCur?' style="background:rgba(0,232,122,.03)"':'')+'>'
-      +'<td class="col-month"'+(isCur?' style="color:var(--green)"':'')+'>'+fmMonth(r.month)+(isCur?' ●':'')+'</td>'
-      +'<td class="mono"'+(isCur?' style="color:var(--green)"':'')+'>'+fm(r.subscribers||0)+'</td>'
-      +'<td class="mono positive">$'+fmo(r.gross||0)+'</td>'
-      +'<td class="mono" style="color:var(--red)">$'+fmo(r.costs||Math.round(costs))+'</td>'
-      +'<td class="mono positive">$'+fmo(rnet)+'</td>'
-      +'<td class="mono">'+(growth!==null?'<span class="kpi-delta delta-'+(growth>=0?'up':'down')+'">'+(growth>=0?'+':'')+growth+'%</span>':'—')+'</td>'
-      +'<td class="mono positive">$'+fmo(rnet/2)+'</td>'
-      +'</tr>';
-  }).join(''));
-}
-
-function renderTiers(counts, revenues, paidN, freeN) {
-  var total = Object.values(counts).reduce(function(a,v){ return a+v; },0) || 1;
-  var maxC  = Math.max.apply(null, Object.values(counts).concat(1));
-  var tiers = [
-    {key:'free',    label:'Free',    color:'var(--text3)'},
-    {key:'starter', label:'Starter', color:'var(--accent)'},
-    {key:'basic',   label:'Basic',   color:'var(--green)'},
-    {key:'pro',     label:'Pro',     color:'var(--purple)'},
-    {key:'elite',   label:'Elite',   color:'var(--gold)'}
-  ];
-  s('tierGrid', tiers.map(function(t){
-    return '<div class="tier-row">'
-      +'<div class="tier-dot" style="background:'+t.color+'"></div>'
-      +'<div class="tier-name">'+t.label+'</div>'
-      +'<div class="tier-bar-track"><div class="tier-bar-fill" style="width:'+((counts[t.key]||0)/maxC*100)+'%;background:'+t.color+'"></div></div>'
-      +'<div class="tier-count">'+(counts[t.key]||0)+'</div>'
-      +'<div class="tier-pct">'+((counts[t.key]||0)/total*100).toFixed(0)+'%</div>'
-      +'<div class="tier-rev" style="color:'+t.color+'">$'+fmo(revenues[t.key]||0)+'</div>'
-      +'</div>';
-  }).join(''));
-}
-
-function renderWeekBars(daily) {
-  var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var now  = new Date();
-  var counts = Array(7).fill(0);
-  for (var i=6; i>=0; i--) {
-    var d  = new Date(now); d.setDate(now.getDate()-i);
-    var ds = d.toDateString();
-    counts[6-i] = daily.filter(function(x){ return new Date(x.created_at).toDateString()===ds; }).length;
-  }
-  var labels = Array.from({length:7}, function(_,i){
-    var d = new Date(now); d.setDate(now.getDate()-(6-i));
-    var dw = d.getDay(); return days[dw===0?6:dw-1];
-  });
-  var maxV = Math.max.apply(null, counts.concat(1));
-  s('weekBars', counts.map(function(v,i){
-    return '<div class="growth-bar-wrap">'
-      +'<div class="growth-val" style="color:'+(i===6?'var(--green)':'var(--accent)')+';font-size:10px">'+v+'</div>'
-      +'<div class="growth-bar-outer"><div class="growth-bar-fill" style="height:'+((v/maxV)*80)+'px;background:'+(i===6?'var(--green)':'var(--accent)')+'"></div></div>'
-      +'<div class="growth-lbl">'+labels[i]+'</div>'
-      +'</div>';
-  }).join(''));
-}
-
-function drawDonut(tierRev, totalMrr) {
-  var c = document.getElementById('donutChart'); if (!c) return;
-  var ctx = c.getContext('2d'); c.width = c.offsetWidth||200; c.height = 180;
-  var cx=c.width/2, cy=90, r=65, inner=42;
-  var tiers = [{key:'free',color:'#384d60'},{key:'starter',color:'#00d4ff'},{key:'basic',color:'#00e87a'},{key:'pro',color:'#9b6dff'},{key:'elite',color:'#ffcc00'}];
-  var tot = Object.values(tierRev).reduce(function(a,v){ return a+v; },0) || 1;
-  var angle = -Math.PI/2;
-  tiers.forEach(function(t){
-    var v = tierRev[t.key]||0; if (!v) return;
-    var sw = (v/tot)*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+sw); ctx.closePath();
-    ctx.fillStyle = t.color; ctx.fill(); angle += sw;
-  });
-  ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fillStyle='#0b1118'; ctx.fill();
-  ctx.fillStyle='#ddeeff'; ctx.font='bold 16px Outfit'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('$'+fmo(totalMrr),cx,cy-7);
-  ctx.fillStyle='#6a8aa8'; ctx.font='10px DM Mono'; ctx.fillText('MRR',cx,cy+10);
-}
-
-function drawGrowthChart(data, labels) {
-  var c = document.getElementById('growthChart'); if (!c||!data.length) return;
-  var ctx = c.getContext('2d'); c.width = c.offsetWidth||600; c.height = 150;
-  var pad = {left:40,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom;
-  var maxV = Math.max.apply(null,data)*1.1||10;
-  ctx.strokeStyle='#16222e'; ctx.lineWidth=1;
-  for (var i=0; i<=4; i++) {
-    var y = pad.top+(h/4)*i;
-    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+w,y); ctx.stroke();
-  }
-  if (data.length>1) {
-    var grad = ctx.createLinearGradient(0,pad.top,0,pad.top+h);
-    grad.addColorStop(0,'rgba(0,232,122,.3)'); grad.addColorStop(1,'rgba(0,232,122,0)');
-    ctx.beginPath();
-    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
-    ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath();
-    ctx.fillStyle=grad; ctx.fill();
-    ctx.beginPath(); ctx.strokeStyle='#00e87a'; ctx.lineWidth=2.5;
-    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
-    ctx.stroke();
-  }
-  data.forEach(function(v,i){
-    var x = pad.left+(data.length>1?(i/(data.length-1))*w:w/2), yy=pad.top+h-((v/maxV)*h);
-    ctx.beginPath(); ctx.arc(x,yy,4,0,Math.PI*2); ctx.fillStyle='#00e87a'; ctx.fill();
-    ctx.fillStyle='#6a8aa8'; ctx.font='9px DM Mono'; ctx.textAlign='center'; ctx.fillText(labels[i]||'',x,c.height-6);
-    ctx.fillStyle='#ddeeff'; ctx.font='bold 10px Outfit'; ctx.fillText(v,x,yy-10);
-  });
-}
-
-function drawProjChart(data, labels) {
-  var c = document.getElementById('projChart'); if (!c||!data.length) return;
-  var ctx = c.getContext('2d'); c.width = c.offsetWidth||600; c.height = 150;
-  var pad = {left:50,right:20,top:10,bottom:30}, w=c.width-pad.left-pad.right, h=c.height-pad.top-pad.bottom;
-  var maxV = Math.max.apply(null,data)*1.1||100;
-  ctx.strokeStyle='#16222e'; ctx.lineWidth=1;
-  for (var i=0; i<=4; i++) {
-    var y = pad.top+(h/4)*i;
-    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+w,y); ctx.stroke();
-    ctx.fillStyle='#384d60'; ctx.font='9px DM Mono'; ctx.textAlign='right';
-    ctx.fillText('$'+Math.round((maxV-(maxV/4)*i)/1000)+'k', pad.left-6, y+3);
-  }
-  if (data.length>1) {
-    var gradP = ctx.createLinearGradient(0,pad.top,0,pad.top+h);
-    gradP.addColorStop(0,'rgba(255,204,0,.15)'); gradP.addColorStop(1,'rgba(255,204,0,0)');
-    ctx.beginPath();
-    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
-    ctx.lineTo(pad.left+w,pad.top+h); ctx.lineTo(pad.left,pad.top+h); ctx.closePath();
-    ctx.fillStyle=gradP; ctx.fill();
-    ctx.beginPath(); ctx.setLineDash([5,4]); ctx.strokeStyle='#ffcc00'; ctx.lineWidth=2;
-    data.forEach(function(v,i){ var x=pad.left+(i/(data.length-1))*w, yy=pad.top+h-((v/maxV)*h); i===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy); });
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  data.forEach(function(v,i){
-    var x = pad.left+(data.length>1?(i/(data.length-1))*w:w/2);
-    ctx.fillStyle='#6a8aa8'; ctx.font='9px DM Mono'; ctx.textAlign='center'; ctx.fillText(labels[i]||'',x,c.height-6);
-  });
-}
-
-function s(id, html) { var el=document.getElementById(id); if(el) el.innerHTML=html; }
-function fm(n) { return Number(n).toLocaleString(); }
-function fmo(n) { n=Math.round(n); if(n>=10000) return (n/1000).toFixed(1)+'k'; return n.toLocaleString(); }
-function fmMonth(m) { if(!m) return '—'; var d=new Date(m+'T00:00:00'); return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}); }
-function buildSparkline(id, data, color) {
-  var el = document.getElementById(id); if(!el) return;
-  var max = Math.max.apply(null, data.filter(function(v){ return v>0; }).concat(1));
-  el.innerHTML = data.map(function(v,i){
-    return '<div class="spark-bar" style="height:'+Math.max(4,(v/max)*28)+'px;background:'+color+';opacity:'+(0.3+(i/data.length)*0.7)+'"></div>';
-  }).join('');
-}
-function ring(id, val, max) { var el=document.getElementById(id); if(!el) return; var c=175.9; el.style.strokeDashoffset=c-(c*Math.min(val/max,1)); }
-function bar(barId, valId, count, total) {
-  var b=document.getElementById(barId), v=document.getElementById(valId);
-  if(b) b.style.width=(total>0?(count/total*100).toFixed(0):'0')+'%';
-  if(v) v.textContent=fm(count);
-}
-function showErr(msg) {
-  var el=document.getElementById('errBanner');
-  document.getElementById('errText').textContent=msg;
-  el.classList.add('show');
-}
-
-function subscribeRealtime() {
-  sb.channel('admin-rt')
-    .on('postgres_changes', { event:'*', schema:'public', table:'subscriptions' }, function(){
-      if (!demoMode) { console.log('Supabase change → refreshing'); loadAll(); }
+function tryAuth() {
+  var key = document.getElementById('adminKeyInput').value.trim()
+  if (!key) { showAuthErr('Enter admin key'); return }
+  ADMIN_KEY = key
+  // Try fetching stats — if 401, show error
+  fetch('/admin/stats', { headers: { 'x-admin-key': key } })
+    .then(r => {
+      if (r.status === 401) { showAuthErr('Invalid admin key'); return null }
+      return r.json()
     })
-    .subscribe();
+    .then(data => {
+      if (!data) return
+      document.getElementById('authGate').style.display = 'none'
+      document.getElementById('appTopbar').style.display = 'flex'
+      document.getElementById('appPage').style.display = 'block'
+      renderDash(data)
+    })
+    .catch(() => showAuthErr('Connection failed'))
 }
 
-window.addEventListener('resize', function(){
-  setTimeout(function(){ if (demoMode) renderDemo(); }, 100);
-});
+function showAuthErr(msg) {
+  var el = document.getElementById('authErr')
+  el.textContent = msg
+  el.style.display = 'block'
+}
 
-// ── INIT ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', function(){
-  document.getElementById('tbDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-  if (sessionStorage.getItem('slip_admin_auth') === '1') {
-    document.getElementById('gateOverlay').style.display = 'none';
-    document.getElementById('mainShell').style.display   = 'block';
-    document.getElementById('loadOverlay').classList.remove('hidden');
-    loadAll();
-    subscribeRealtime();
+function loadStats() {
+  document.getElementById('dashContent').style.display = 'none'
+  document.getElementById('loadingState').style.display = 'flex'
+  fetch('/admin/stats', { headers: { 'x-admin-key': ADMIN_KEY } })
+    .then(r => r.json())
+    .then(data => renderDash(data))
+    .catch(e => {
+      document.getElementById('loadingState').innerHTML = '<div class="err-box">Failed to load: ' + e.message + '</div>'
+    })
+}
+
+function planBadge(plan) {
+  return '<span class="badge badge-' + (plan||'free') + '">' + (plan||'free').toUpperCase() + '</span>'
+}
+function statusBadge(s) {
+  return '<span class="badge badge-' + (s==='active'?'active':'cancelled') + '">' + (s||'?').toUpperCase() + '</span>'
+}
+function fmt(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'})
+}
+function fmtDT(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+}
+function mask(email) {
+  if (!email) return '—'
+  var parts = email.split('@')
+  if (parts.length < 2) return email
+  var name = parts[0]
+  var masked = name.slice(0,2) + '***' + (name.length > 4 ? name.slice(-1) : '')
+  return masked + '@' + parts[1]
+}
+function kpi(label, value, cls, sub) {
+  return '<div class="kpi ' + (cls||'') + '"><div class="kpi-lbl">' + label + '</div><div class="kpi-val ' + (cls||'') + '">' + value + '</div>' + (sub?'<div class="kpi-sub">'+sub+'</div>':'') + '</div>'
+}
+
+function renderDash(d) {
+  document.getElementById('loadingState').style.display = 'none'
+  document.getElementById('dashContent').style.display = 'block'
+  document.getElementById('generatedAt').textContent = 'UPDATED ' + fmtDT(d.generatedAt)
+
+  // ── KPIs ──
+  document.getElementById('kpiGrid').innerHTML = [
+    kpi('TOTAL USERS', d.totalUsers, 'accent', 'regard = yes only'),
+    kpi('PAID USERS', d.paidUsers, 'green', d.conversionRate + '% conversion'),
+    kpi('FREE USERS', d.freeUsers, '', ''),
+    kpi('MRR', '$' + d.mrr.toLocaleString(), 'gold', 'ARR: $' + d.arr.toLocaleString()),
+    kpi('CHURNED', d.churned, 'red', 'cancelled / expired'),
+    kpi('CONVERSION', d.conversionRate + '%', 'purple', 'free → paid'),
+    kpi('REFERRAL RATE', d.referralConvRate + '%', 'accent', d.usersWithReferral + ' used a code'),
+    kpi('OUT OF CREDITS', d.usersOutOfCredits, 'red', 'upgrade candidates'),
+  ].join('')
+
+  // ── PLAN BREAKDOWN ──
+  var planColors = { free:'#3a5a7a', starter:'#00e5c8', basic:'#00c8f8', plus:'#ff8c42', pro:'#a855f7', elite:'#ffd700', platinum:'#00c8f8' }
+  document.getElementById('planGrid').innerHTML = (d.planRevenue || []).map(p =>
+    '<div class="plan-card plan-' + p.plan + '">' +
+    '<div class="plan-name">' + p.plan.toUpperCase() + '</div>' +
+    '<div class="plan-count" style="color:' + (planColors[p.plan]||'#fff') + '">' + p.count + '</div>' +
+    '<div class="plan-mrr">$' + p.mrr.toFixed(2) + '/mo MRR</div>' +
+    '<div class="plan-price">@ $' + p.price + '/user</div>' +
+    '</div>'
+  ).join('')
+
+  // ── MRR BARS ──
+  var maxMrr = Math.max(...(d.planRevenue || []).map(p => p.mrr), 1)
+  document.getElementById('mrrBars').innerHTML =
+    '<div class="table-title" style="font-family:\'JetBrains Mono\';font-size:8px;letter-spacing:2px;color:var(--text3);margin-bottom:12px">MRR BREAKDOWN</div>' +
+    (d.planRevenue || []).filter(p => p.price > 0).map(p => {
+      var pct = Math.round(p.mrr / maxMrr * 100)
+      return '<div class="mrr-bar-row">' +
+        '<span class="mrr-bar-lbl" style="color:' + (planColors[p.plan]||'#fff') + '">' + p.plan.toUpperCase() + '</span>' +
+        '<div class="mrr-bar-track"><div class="mrr-bar-fill" style="width:' + pct + '%;background:' + (planColors[p.plan]||'#fff') + '"></div></div>' +
+        '<span class="mrr-bar-num">$' + p.mrr.toFixed(0) + '</span>' +
+        '</div>'
+    }).join('') +
+    '<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between">' +
+    '<span style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">TOTAL MRR</span>' +
+    '<span style="font-family:\'Bebas Neue\';font-size:18px;color:var(--gold)">$' + d.mrr.toFixed(2) + '</span>' +
+    '</div>'
+
+  // ── CREDITS ──
+  document.getElementById('creditRings').innerHTML =
+    '<div class="credit-ring"><div class="credit-ring-num" style="color:var(--accent)">' + (d.creditsUsed||0).toLocaleString() + '</div><div class="credit-ring-lbl">TOTAL CREDITS USED</div></div>' +
+    '<div class="credit-ring"><div class="credit-ring-num" style="color:var(--green)">' + (d.creditsBonus||0).toLocaleString() + '</div><div class="credit-ring-lbl">BONUS CREDITS AWARDED</div></div>' +
+    '<div class="credit-ring"><div class="credit-ring-num" style="color:var(--red)">' + (d.usersOutOfCredits||0) + '</div><div class="credit-ring-lbl">USERS OUT OF CREDITS</div></div>'
+
+  // ── PARLAY ──
+  document.getElementById('parlayKpis').innerHTML = [
+    kpi('TOTAL PARLAYS', (d.totalParlays||0).toLocaleString(), 'accent', 'across all users'),
+    kpi('WON PARLAYS', (d.wonParlays||0).toLocaleString(), 'green', ''),
+    kpi('LOST PARLAYS', (d.lostParlays||0).toLocaleString(), 'red', ''),
+    kpi('WIN RATE', (d.winRate||0) + '%', d.winRate >= 50 ? 'green' : 'red', 'overall parlay success'),
+    kpi('BIGGEST WIN', (d.biggestWin||0) + 'x', 'gold', 'odds'),
+  ].join('')
+
+  // ── ACTIVITY ──
+  document.getElementById('activityKpis').innerHTML = [
+    kpi('NEW (30 DAYS)', d.newUsersLast30, 'green', 'signups this month'),
+    kpi('NEW (7 DAYS)', d.newUsersLast7, 'accent', 'signups this week'),
+    kpi('ACTIVE TODAY', d.activeToday, 'teal', 'seen in last 24h'),
+    kpi('ACTIVE (7 DAYS)', d.activeThisWeek, 'purple', 'seen this week'),
+  ].join('')
+
+  // ── RECENT SIGNUPS TABLE ──
+  document.getElementById('recentTable').innerHTML =
+    '<div class="table-hdr"><div class="table-title">RECENT SIGNUPS</div></div>' +
+    '<table><thead><tr>' +
+    '<th>EMAIL</th><th>PLAN</th><th>STATUS</th><th>CREDITS USED</th><th>PARLAYS</th><th>JOINED</th><th>LAST SEEN</th>' +
+    '</tr></thead><tbody>' +
+    (d.recentSignups || []).map(u =>
+      '<tr><td style="color:var(--text)">' + mask(u.email) + '</td>' +
+      '<td>' + planBadge(u.plan) + '</td>' +
+      '<td>' + statusBadge(u.plan_status) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.credits_used||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.total_parlays||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmt(u.joined_at) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmtDT(u.last_seen_at) + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody></table>'
+
+  // ── WINNERS TABLE ──
+  document.getElementById('winnersTable').innerHTML =
+    '<div class="table-hdr"><div class="table-title">TOP WINNERS BY BEST ODDS</div></div>' +
+    '<table><thead><tr>' +
+    '<th>EMAIL</th><th>PLAN</th><th>BIGGEST WIN</th><th>PARLAYS</th><th>WON</th><th>BEST STREAK</th>' +
+    '</tr></thead><tbody>' +
+    (d.topWinners || []).map((u, i) =>
+      '<tr><td style="color:var(--text)">' + (i === 0 ? '🏆 ' : '') + mask(u.email) + '</td>' +
+      '<td>' + planBadge(u.plan) + '</td>' +
+      '<td style="font-family:\'Bebas Neue\';font-size:18px;color:var(--gold)">' + (u.biggest_win_odds||0) + 'x</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.total_parlays||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px;color:var(--green)">' + (u.won_parlays||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px;color:var(--orange)">' + (u.streak_best||0) + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody></table>'
+
+  // ── MOST ACTIVE TABLE ──
+  document.getElementById('activeTable').innerHTML =
+    '<div class="table-hdr"><div class="table-title">MOST ACTIVE — BY CREDITS USED</div></div>' +
+    '<table><thead><tr>' +
+    '<th>EMAIL</th><th>PLAN</th><th>CREDITS USED</th><th>PARLAYS</th><th>LAST SEEN</th>' +
+    '</tr></thead><tbody>' +
+    (d.mostActive || []).map(u =>
+      '<tr><td style="color:var(--text)">' + mask(u.email) + '</td>' +
+      '<td>' + planBadge(u.plan) + '</td>' +
+      '<td>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">' +
+        '<div style="height:100%;background:var(--accent);width:' + Math.min(100, Math.round((u.credits_used||0)/200*100)) + '%"></div>' +
+        '</div>' +
+        '<span style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.credits_used||0) + '</span>' +
+        '</div>' +
+      '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.total_parlays||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmtDT(u.last_seen_at) + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody></table>'
+}
+
+// Auto-load if ADMIN_KEY is in URL (for bookmarking)
+window.addEventListener('DOMContentLoaded', () => {
+  var params = new URLSearchParams(location.search)
+  var k = params.get('key')
+  if (k) {
+    document.getElementById('adminKeyInput').value = k
+    tryAuth()
   }
-});
+})
 </script>
 </body>
 </html>

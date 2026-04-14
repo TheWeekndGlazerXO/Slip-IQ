@@ -21,6 +21,13 @@ const sportWeights     = {
 const weightUpdateLog  = []
 let   lastWeightUpdate = 0
 
+
+
+const PLAN_PRICES = {
+  free: 0, starter: 4.99, basic: 9.99, plus: 19.99,
+  pro: 39.99, elite: 79.99, platinum: 149.99
+}
+ 
 // ── PER-TEAM ADAPTIVE WEIGHTS ─────────────────────────────────────────────
 const teamWeights = new Map()
 const DEFAULT_TEAM_WEIGHTS = () => ({
@@ -487,9 +494,12 @@ async function loadSupabase() {
     if (tr.data) for (const t of tr.data) teamDB.set(t.team_name, t)
     if (pr.data) {
       for (const p of pr.data) {
+        // Only load players with a real Sportmonks ID — skip old generated rows
+        if (!p.sm_player_id) continue
         playerDB.set(`${p.player_name}__${p.team_name}`, p)
         if (!squadDB.has(p.team_name)) squadDB.set(p.team_name, [])
-        squadDB.get(p.team_name).push(p)
+        const sq = squadDB.get(p.team_name)
+        if (!sq.find(x => x.player_name === p.player_name)) sq.push(p)
       }
     }
     if (mr.data) for (const m of mr.data) managerDB.set(m.manager_name, m)
@@ -581,6 +591,56 @@ const ELO_BASE = {
   "Benfica": 1825, "Porto": 1835, "Sporting CP": 1815,
   "Ajax": 1805, "PSV": 1825, "Feyenoord": 1795,
   "Celtic": 1685, "Rangers": 1665, "Galatasaray": 1725, "Fenerbahce": 1705,
+}
+
+// ── PLAYER ELO STARTING VALUES (adaptive system adjusts from here) ─────────
+// Order = descending ability. Non-listed players cap at 1989 so these always lead.
+const PLAYER_ELO_OVERRIDE = {
+  "Harry Kane":2090, "Michael Olise":2082, "Lamine Yamal":2074,
+  "Kylian Mbappe":2068, "Kylian Mbappé":2068,
+  "Vitinha":2062, "Pedri":2056,
+  "Erling Haaland":2050, "Erling Braut Haaland":2050,
+  "Declan Rice":2044, "Bruno Fernandes":2038,
+  "Gabriel Magalhães":2032, "Gabriel Magalhaes":2032,
+  "Nuno Mendes":2026,
+  "João Neves":2020, "Joao Neves":2020,
+  "Reece James":2014, "Hugo Ekitike":2008,
+  "Dominik Szoboszlai":2002, "William Saliba":1996,
+  "David Raya":1990, "Gianluigi Donnarumma":1984,
+  "Luis Díaz":1978, "Luis Diaz":1978, "Manuel Neuer":1972,
+  "Vinicius Junior":1968, "Vinícius Júnior":1968, "Vinicius Jr.":1968,
+  "Jude Bellingham":1964, "Florian Wirtz":1960,
+  "Bukayo Saka":1956, "Rodri":1952,
+  "Martin Ødegaard":1948, "Martin Odegaard":1948,
+  "Phil Foden":1944, "Jamal Musiala":1940,
+  "Federico Valverde":1936, "Raphinha":1932,
+  "Trent Alexander-Arnold":1928, "Mohamed Salah":1924,
+  "Son Heung-min":1920, "Leandro Trossard":1916,
+  "Kai Havertz":1912, "Gabriel Martinelli":1908,
+  "João Cancelo":1904, "Joao Cancelo":1904,
+  "Bernardo Silva":1900, "Kevin De Bruyne":1896,
+  "Ollie Watkins":1892, "Cole Palmer":1888, "Nico Williams":1884,
+  "Antoine Griezmann":1880, "Robert Lewandowski":1876,
+  "Álvaro Morata":1872, "Alvaro Morata":1872,
+  "Dani Carvajal":1868, "Rúben Dias":1864, "Ruben Dias":1864,
+  "Virgil van Dijk":1860, "Alexis Mac Allister":1856,
+  "Granit Xhaka":1852, "Joao Felix":1848, "João Félix":1848,
+  "Rafael Leão":1844, "Rafael Leao":1844,
+  "Xavi Simons":1840, "Warren Zaïre-Emery":1836,
+  "Ousmane Dembélé":1832, "Ousmane Dembele":1832,
+  "Kang-in Lee":1828, "Fabian Ruiz":1824,
+  "Khvicha Kvaratskhelia":1820, "Victor Osimhen":1816,
+  "Marcus Thuram":1812, "Nicolo Barella":1808,
+  "Hakan Calhanoglu":1804, "Alessandro Bastoni":1800,
+}
+
+// Normalise accents for fuzzy matching
+function _normAccents(s) {
+  return (s||'').toLowerCase()
+    .replace(/[àáâãä]/g,'a').replace(/[èéêë]/g,'e')
+    .replace(/[ìíîï]/g,'i').replace(/[òóôõö]/g,'o')
+    .replace(/[ùúûü]/g,'u').replace(/[ñ]/g,'n')
+    .replace(/[ý]/g,'y').replace(/[ç]/g,'c')
 }
 
 function getElo(name, league, approxPos) {
@@ -690,15 +750,25 @@ function getPlaystyleForSport(sport, position, name, elo) {
 }
 
 function buildPlayerElo(name, pos, teamElo, rating, goals, apps) {
+  // 1. Exact override match
+  if (name && PLAYER_ELO_OVERRIDE[name]) return PLAYER_ELO_OVERRIDE[name]
+  // 2. Accent-normalised fuzzy match
+  if (name) {
+    const nk = _normAccents(name)
+    for (const [k, v] of Object.entries(PLAYER_ELO_OVERRIDE)) {
+      if (_normAccents(k) === nk) return v
+    }
+  }
+  // 3. Real Sportmonks rating — cap at 1989 so override players always lead
   if (rating && rating > 0) {
     const rf = (parseFloat(rating) - 5) / 5
-    return Math.round(Math.max(1300, Math.min(2050, 1200 + rf * 250 + (teamElo - 1500) * 0.4)))
+    return Math.round(Math.max(1300, Math.min(1989, 1200 + rf * 250 + (teamElo - 1500) * 0.4)))
   }
   const goalBonus = apps > 0 ? Math.round((goals / apps) * 30) : 0
-  const posBonus  = { ST:35, LW:30, RW:30, CAM:25, CM:10, CDM:5, LB:0, RB:0, CB:-5, LWB:5, RWB:5, GK:-10, RM:15, LM:15 }
+  const posBonus = { ST:35, LW:30, RW:30, CAM:25, CM:10, CDM:5, LB:0, RB:0, CB:-5, LWB:5, RWB:5, GK:-10, RM:15, LM:15 }
   let seed = 0
   for (let i = 0; i < name.length; i++) seed = seed * 31 + name.charCodeAt(i)
-  return Math.round(Math.max(1300, Math.min(2050, teamElo + (posBonus[pos] || 0) + goalBonus + ((Math.abs(seed) % 120) - 60))))
+  return Math.round(Math.max(1300, Math.min(1989, teamElo + (posBonus[pos] || 0) + goalBonus + ((Math.abs(seed) % 120) - 60))))
 }
 
 function buildPlayerAttrs(name, pos, pElo, tElo, rating) {
@@ -763,7 +833,39 @@ const NBA_ELO_BASE = {
   "San Antonio Spurs": 1640, "Orlando Magic": 1680, "Brooklyn Nets": 1620,
   "Charlotte Hornets": 1600, "Washington Wizards": 1560, "Detroit Pistons": 1580,
 }
-
+// ── NBA TOP PLAYERS (for ELO rankings tab) ────────────────────────────────
+const NBA_TOP_PLAYERS = [
+  { name:"Nikola Jokic",       team:"Denver Nuggets",           position:"C",  elo:2080, country:"Serbia" },
+  { name:"Shai Gilgeous-Alexander",team:"Oklahoma City Thunder",position:"PG", elo:2072, country:"Canada" },
+  { name:"Giannis Antetokounmpo",team:"Milwaukee Bucks",        position:"PF", elo:2064, country:"Greece" },
+  { name:"Luka Doncic",        team:"Los Angeles Lakers",        position:"PG", elo:2058, country:"Slovenia" },
+  { name:"LeBron James",       team:"Los Angeles Lakers",        position:"SF", elo:2052, country:"USA" },
+  { name:"Stephen Curry",      team:"Golden State Warriors",     position:"PG", elo:2046, country:"USA" },
+  { name:"Joel Embiid",        team:"Philadelphia 76ers",        position:"C",  elo:2040, country:"France" },
+  { name:"Jayson Tatum",       team:"Boston Celtics",            position:"SF", elo:2034, country:"USA" },
+  { name:"Kevin Durant",       team:"Phoenix Suns",              position:"PF", elo:2028, country:"USA" },
+  { name:"Kawhi Leonard",      team:"LA Clippers",               position:"SF", elo:2022, country:"USA" },
+  { name:"Donovan Mitchell",   team:"Cleveland Cavaliers",       position:"SG", elo:2016, country:"USA" },
+  { name:"Anthony Edwards",    team:"Minnesota Timberwolves",    position:"SG", elo:2010, country:"USA" },
+  { name:"Tyrese Haliburton",  team:"Indiana Pacers",            position:"PG", elo:2004, country:"USA" },
+  { name:"Devin Booker",       team:"Phoenix Suns",              position:"SG", elo:1998, country:"USA" },
+  { name:"Bam Adebayo",        team:"Miami Heat",                position:"C",  elo:1992, country:"USA" },
+  { name:"Damian Lillard",     team:"Milwaukee Bucks",           position:"PG", elo:1986, country:"USA" },
+  { name:"Ja Morant",          team:"Memphis Grizzlies",         position:"PG", elo:1980, country:"USA" },
+  { name:"Darius Garland",     team:"Cleveland Cavaliers",       position:"PG", elo:1974, country:"USA" },
+  { name:"Pascal Siakam",      team:"Indiana Pacers",            position:"PF", elo:1968, country:"Cameroon" },
+  { name:"Jimmy Butler",       team:"Miami Heat",                position:"SF", elo:1962, country:"USA" },
+  { name:"Jaylen Brown",       team:"Boston Celtics",            position:"SG", elo:1956, country:"USA" },
+  { name:"Karl-Anthony Towns", team:"New York Knicks",           position:"C",  elo:1950, country:"USA" },
+  { name:"Anthony Davis",      team:"Los Angeles Lakers",        position:"C",  elo:1944, country:"USA" },
+  { name:"Jalen Brunson",      team:"New York Knicks",           position:"PG", elo:1938, country:"USA" },
+  { name:"Scottie Barnes",     team:"Toronto Raptors",           position:"SF", elo:1932, country:"Canada" },
+  { name:"De'Aaron Fox",       team:"Sacramento Kings",          position:"PG", elo:1926, country:"USA" },
+  { name:"Zion Williamson",    team:"New Orleans Pelicans",      position:"PF", elo:1920, country:"USA" },
+  { name:"Trae Young",         team:"Atlanta Hawks",             position:"PG", elo:1914, country:"USA" },
+  { name:"LaMelo Ball",        team:"Charlotte Hornets",         position:"PG", elo:1908, country:"USA" },
+  { name:"Cade Cunningham",    team:"Detroit Pistons",           position:"PG", elo:1902, country:"USA" },
+]
 async function fetchNBAGames() {
   return cached("nba_games", async () => {
     const today = new Date().toISOString().slice(0,10)
@@ -2177,6 +2279,35 @@ async function callAI(prompt, maxTokens) {
     return JSON.parse(raw)
   } catch(e) { console.log("❌ AI:", e.message?.slice(0, 80)); return { error: "AI failed" } }
 }
+async function warmPredictionsCache() {
+  try {
+    console.log('🔄 Warming predictions cache...')
+    const [smList, oddsMap, liveList] = await Promise.all([
+      smFixtures(14).catch(() => []),
+      fetchOddsAPI().catch(() => ({})),
+      smLive().catch(() => []),
+    ])
+    const all = new Map()
+    for (const f of [...smList, ...liveList]) all.set(f.id, f)
+    const fixtures = [...all.values()].filter(f => {
+      const leagueId = f.league_id || f.league?.id
+      return leagueId && ALLOWED_LEAGUE_IDS.has(leagueId)
+    }).slice(0, 300)
+    const results = []
+    for (let b = 0; b < fixtures.length; b += 15) {
+      const bRes = await Promise.all(fixtures.slice(b, b + 15).map(f => buildPrediction(f, oddsMap || {}).catch(() => null)))
+      results.push(...bRes.filter(Boolean))
+      await sleep(80)
+    }
+    cache.set('predictions_warm', { data: results, ts: Date.now() })
+    console.log(`✅ Cache warmed: ${results.length} predictions`)
+    return results
+  } catch(e) {
+    console.log('⚠️  Cache warm failed:', e.message)
+    return []
+  }
+}
+
 
 // ══════════════════════════════════════════════════════════
 //  AUTO-POPULATE SQUADS
@@ -2289,6 +2420,17 @@ app.get("/predictions", async (req, res) => {
   try {
     const days = Math.min(parseInt(req.query.days || "14"), 14)
     const leagueTier = parseInt(req.query.tier || "0") // 0 = all, 1/2/3 = tiers
+    // Serve instantly from warm cache
+    const warm = cache.get('predictions_warm')
+    if (warm && Date.now() - warm.ts < 3600000) {
+      if (Date.now() - warm.ts > 1800000) warmPredictionsCache().catch(() => {})
+      return res.json(warm.data.sort((a, b) => {
+        const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
+        return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
+      }))
+    }
+
+
     console.log(`\n📊 /predictions (${days}d tier=${leagueTier})`)
 
     const [smList, oddsMap, liveList] = await Promise.all([
@@ -2476,7 +2618,75 @@ app.get('/squad/byname/:teamName', async (req, res) => {
   if (cached && cached.length) return res.json(cached)
   res.json([])
 })
+app.get('/team/profile/:teamName', async (req, res) => {
+  const teamName = decodeURIComponent(req.params.teamName)
+  const tElo = getElo(teamName)
+  let squad = squadDB.get(teamName) || []
 
+  // If no squad cached, try to pull from Sportmonks on-demand
+  if (!squad.length && SM_KEY) {
+    const fixtureCache = cache.get('sm_fix_14')?.data || []
+    for (const f of fixtureCache) {
+      const participant = (f.participants || []).find(p => p.name === teamName)
+      if (participant?.id) {
+        try {
+          squad = await smSquad(participant.id, teamName, f.season_id)
+        } catch(e) {}
+        break
+      }
+    }
+  }
+
+  const keyPlayers = squad.filter(p => p.is_key || p.isKey).sort((a,b)=>(b.elo||0)-(a.elo||0)).slice(0, 6)
+  const fixtureCache = cache.get('sm_fix_14')?.data || []
+  const next5 = fixtureCache
+    .filter(f => (f.participants||[]).some(p => p.name === teamName) && new Date(f.starting_at) > new Date())
+    .slice(0, 5)
+    .map(f => {
+      const hp = (f.participants||[]).find(p => p.meta?.location === 'home')
+      const ap = (f.participants||[]).find(p => p.meta?.location === 'away')
+      return {
+        home: hp?.name||'?', away: ap?.name||'?',
+        date: f.starting_at,
+        league: normLeague(f.league?.name||'') || f.league?.name || '',
+        flag: leagueFlag(f.league?.country?.name||'')
+      }
+    })
+
+  const w = getTeamWeights(teamName)
+  res.json({
+    name: teamName, elo: tElo,
+    tier: tElo >= 1900 ? 'ELITE' : tElo >= 1750 ? 'TOP' : tElo >= 1600 ? 'MID' : 'LOWER',
+    players: squad.length,
+    squad: squad.map(p => ({
+      player_name: p.player_name||p.name, position: p.position||'CM',
+      elo: p.elo||1500, speed: p.speed, attack: p.attack,
+      defense: p.defense, big_match: p.big_match||p.bigMatch,
+      is_key: p.is_key||p.isKey,
+      playstyle_name: p.playstyle?.name||p.playstyle_name,
+      playstyle_icon: p.playstyle?.icon||'⚙️',
+      goals_this_season: p.goals_this_season,
+      assists_this_season: p.assists_this_season,
+      real_rating: p.real_rating, sm_player_id: p.sm_player_id
+    })),
+    keyPlayers: keyPlayers.map(p => ({
+      name: p.player_name||p.name, position: p.position||'CM',
+      elo: p.elo||1500,
+      playstyle: p.playstyle?.name||p.playstyle_name,
+      playstyle_icon: p.playstyle?.icon||'⚙️',
+      speed: p.speed, attack: p.attack, defense: p.defense,
+      bigMatch: p.big_match||p.bigMatch,
+      goals: p.goals_this_season, rating: p.real_rating
+    })),
+    next5,
+    stats: {
+      homeWin: Math.round((w.homeWin||0.62)*100),
+      cleanSheetRate: Math.round((w.cleanSheetRate||0.3)*100),
+      avgPossession: Math.round((w.avgPossession||0.5)*100),
+      matchCount: w.matchCount||0
+    }
+  })
+})
 // ── PARLAY AUTO-BUILD ─────────────────────────────────────
 app.post("/parlay/auto", requireAccess('auto_parlay'), async (req, res) => {
   const { predictions=[], targetOdds=4.0, riskLevel=5, minLegs=2, maxLegs=8,
@@ -2773,7 +2983,15 @@ app.get('/elo/sport/:sport', (req, res) => {
     }
     results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
   } else if (sport === 'basketball') {
-    results = Object.entries(NBA_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'basketball', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
+    const typeParam = req.query.type || 'player'
+    if (typeParam === 'team') {
+      results = Object.entries(NBA_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'basketball', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
+    } else {
+      results = NBA_TOP_PLAYERS.slice(0, limit).map(p => ({
+        ...p, sport:'basketball', type:'player',
+        playstyle: getPlaystyleForSport('basketball', p.position, p.name, p.elo)
+      }))
+    }
   } else if (sport === 'american_football') {
     results = Object.entries(NFL_ELO_BASE).map(([t,e])=>({ name:t, elo:e, sport:'nfl', type:'team' })).sort((a,b)=>b.elo-a.elo).slice(0,limit)
   } else if (sport === 'tennis') {
@@ -3025,7 +3243,196 @@ app.post("/webhook/stripe", async (req, res) => {
     res.json({ received: true })
   } catch(e) { res.status(500).json({ error: e.message }) }
 })
-
+app.get('/admin/stats', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'] || req.query.key
+  if (process.env.ADMIN_KEY && adminKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  if (!sb) return res.status(503).json({ error: 'Supabase not configured' })
+ 
+  try {
+    // Only fetch users where regard = 'yes'
+    const { data: users, error } = await sb
+      .from('users')
+      .select('*')
+      .eq('regard', 'yes')
+ 
+    if (error) return res.status(500).json({ error: error.message })
+ 
+    const now = Date.now()
+    const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString()
+    const sevenDaysAgo  = new Date(now - 7 * 86400000).toISOString()
+    const oneDayAgo     = new Date(now - 86400000).toISOString()
+ 
+    // Plan breakdown (active subscriptions only)
+    const planCounts = {}
+    for (const plan of PLAN_HIERARCHY) {
+      planCounts[plan] = users.filter(u => u.plan === plan && u.plan_status === 'active').length
+    }
+ 
+    // MRR calculation
+    let mrr = 0
+    const planRevenue = PLAN_HIERARCHY.map(plan => {
+      const count = planCounts[plan] || 0
+      const rev   = parseFloat((count * (PLAN_PRICES[plan] || 0)).toFixed(2))
+      mrr += rev
+      return { plan, count, mrr: rev, price: PLAN_PRICES[plan] || 0 }
+    })
+ 
+    // Churn — cancelled/expired
+    const churned = users.filter(u => u.plan_status !== 'active' && u.plan !== 'free').length
+ 
+    // Credits
+    const creditsUsed  = users.reduce((s, u) => s + (u.credits_used  || 0), 0)
+    const creditsBonus = users.reduce((s, u) => s + (u.credits_bonus || 0), 0)
+    const creditsBurnt = users.filter(u => {
+      const avail = (u.monthly_credits || 25) - (u.credits_used || 0) + (u.credits_bonus || 0)
+      return avail <= 0
+    }).length
+ 
+    // Parlay stats
+    const totalParlays = users.reduce((s, u) => s + (u.total_parlays || 0), 0)
+    const wonParlays   = users.reduce((s, u) => s + (u.won_parlays   || 0), 0)
+    const lostParlays  = users.reduce((s, u) => s + (u.lost_parlays  || 0), 0)
+    const biggestWin   = Math.max(...users.map(u => parseFloat(u.biggest_win_odds || 0)))
+ 
+    // Cohort metrics
+    const newUsersLast30 = users.filter(u => (u.joined_at || '') > thirtyDaysAgo).length
+    const newUsersLast7  = users.filter(u => (u.joined_at || '') > sevenDaysAgo).length
+    const activeThisWeek = users.filter(u => (u.last_seen_at || '') > sevenDaysAgo).length
+    const activeToday    = users.filter(u => (u.last_seen_at || '') > oneDayAgo).length
+ 
+    // Referral stats
+    const usersWithReferral = users.filter(u => u.referred_by).length
+    const referralConvRate  = users.length > 0
+      ? parseFloat((usersWithReferral / users.length * 100).toFixed(1)) : 0
+ 
+    // Paid users
+    const paidUsers = users.filter(u => u.plan !== 'free' && u.plan_status === 'active').length
+    const convRate  = users.length > 0
+      ? parseFloat((paidUsers / users.length * 100).toFixed(1)) : 0
+ 
+    // Recent signups (last 10)
+    const recentSignups = users
+      .filter(u => u.joined_at)
+      .sort((a, b) => new Date(b.joined_at) - new Date(a.joined_at))
+      .slice(0, 10)
+      .map(u => ({
+        email:        u.email,
+        plan:         u.plan,
+        plan_status:  u.plan_status,
+        joined_at:    u.joined_at,
+        last_seen_at: u.last_seen_at,
+        credits_used: u.credits_used,
+        total_parlays:u.total_parlays,
+      }))
+ 
+    // Top users by biggest win odds
+    const topWinners = users
+      .filter(u => (u.biggest_win_odds || 0) > 0)
+      .sort((a, b) => (b.biggest_win_odds || 0) - (a.biggest_win_odds || 0))
+      .slice(0, 10)
+      .map(u => ({
+        email:           u.email,
+        plan:            u.plan,
+        biggest_win_odds:u.biggest_win_odds,
+        total_parlays:   u.total_parlays,
+        won_parlays:     u.won_parlays,
+        streak_best:     u.streak_best,
+      }))
+ 
+    // Most active users by credits used
+    const mostActive = users
+      .sort((a, b) => (b.credits_used || 0) - (a.credits_used || 0))
+      .slice(0, 10)
+      .map(u => ({
+        email:        u.email,
+        plan:         u.plan,
+        credits_used: u.credits_used,
+        last_seen_at: u.last_seen_at,
+        total_parlays:u.total_parlays,
+      }))
+ 
+    res.json({
+      // Core counts
+      totalUsers: users.length,
+      paidUsers,
+      freeUsers: users.filter(u => u.plan === 'free').length,
+      churned,
+      // Revenue
+      mrr:        parseFloat(mrr.toFixed(2)),
+      arr:        parseFloat((mrr * 12).toFixed(2)),
+      planRevenue,
+      planCounts,
+      // Conversion
+      conversionRate:     convRate,
+      referralConvRate,
+      usersWithReferral,
+      // Credits
+      creditsUsed,
+      creditsBonus,
+      usersOutOfCredits: creditsBurnt,
+      // Parlay performance
+      totalParlays,
+      wonParlays,
+      lostParlays,
+      winRate: totalParlays > 0 ? parseFloat((wonParlays / totalParlays * 100).toFixed(1)) : 0,
+      biggestWin,
+      // Activity
+      newUsersLast30,
+      newUsersLast7,
+      activeThisWeek,
+      activeToday,
+      // Lists
+      recentSignups,
+      topWinners,
+      mostActive,
+      // Meta
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+ 
+// ── ADMIN USERS LIST ──────────────────────────────────────
+app.get('/admin/users', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'] || req.query.key
+  if (process.env.ADMIN_KEY && adminKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  if (!sb) return res.status(503).json({ error: 'No Supabase' })
+  try {
+    const { data, error } = await sb.from('users')
+      .select('id,email,full_name,plan,plan_status,credits_used,credits_total,monthly_credits,total_parlays,won_parlays,biggest_win_odds,streak_best,joined_at,last_seen_at,regard')
+      .eq('regard', 'yes')
+      .order('joined_at', { ascending: false })
+      .limit(500)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch(e) { res.status(500).json({ error: e.message }) }
+})
+ 
+// ── ADMIN PLAN UPDATE ─────────────────────────────────────
+app.post('/admin/user/plan', async (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (process.env.ADMIN_KEY && adminKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  if (!sb) return res.status(503).json({ error: 'No Supabase' })
+  const { userId, plan } = req.body
+  if (!userId || !plan) return res.status(400).json({ error: 'Missing fields' })
+  const { error } = await sb.from('users').update({
+    plan, plan_status: 'active',
+    monthly_credits: PLAN_CREDITS[plan] || 25,
+    credits_total:   PLAN_CREDITS[plan] || 25,
+    credits_used: 0,
+    updated_at: new Date().toISOString()
+  }).eq('id', userId)
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true })
+})
+ 
 // ── STARTUP ───────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`\n╔═══════════════════════════════════════════════╗`)
@@ -3044,33 +3451,8 @@ app.listen(PORT, async () => {
   console.log("🔄 Pre-warming caches...")
   smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))
 // Pre-warm predictions cache so first user gets fast response
-setTimeout(async () => {
-  try {
-    console.log('🔄 Pre-warming predictions cache...')
-    const [smList, oddsMap, liveList] = await Promise.all([
-      smFixtures(14).catch(() => []),
-      fetchOddsAPI().catch(() => ({})),
-      smLive().catch(() => []),
-    ])
-    const all = new Map()
-    for (const f of [...smList, ...liveList]) all.set(f.id, f)
-    const fixtures = [...all.values()].filter(f => {
-      const leagueId = f.league_id || f.league?.id
-      return leagueId && ALLOWED_LEAGUE_IDS.has(leagueId)
-    }).slice(0, 300)
-    const results = []
-    for (let b = 0; b < fixtures.length; b += 15) {
-      const bRes = await Promise.all(fixtures.slice(b, b+15).map(f => buildPrediction(f, {}).catch(() => null)))
-      results.push(...bRes.filter(Boolean))
-      await sleep(100)
-    }
-    // Keep SM fixture cache warm — don't overwrite if already populated
-    if (!cache.get('sm_fix_14') || cache.get('sm_fix_14').ts === 0) {
-      cache.set('sm_fix_14', { data: [], ts: 0 });
-    }
-    console.log(`✅ Pre-warmed ${results.length} predictions`)
-  } catch(e) { console.log('⚠️  Pre-warm failed:', e.message) }
-}, 25000) // 25s after startup
+setTimeout(() => warmPredictionsCache(), 5000)
+setInterval(() => warmPredictionsCache(), 3600000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
