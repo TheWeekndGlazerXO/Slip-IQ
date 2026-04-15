@@ -60,7 +60,26 @@ const DEFAULT_TEAM_WEIGHTS = () => ({
   vsFinessers: 0.50, vsDirectPlay: 0.50, vsHighPress: 0.50, vsLowBlock: 0.50,
   matchCount: 0, lastUpdated: Date.now()
 })
-
+const TEAM_SPECIAL_LABELS = {
+  // FINNESSER: Win ugly, outperform xG, clinical despite limited possession/chances
+  'Aston Villa':'finnesser','Fulham':'finnesser','Wolverhampton Wanderers':'finnesser',
+  'Brighton & Hove Albion':'finnesser','Crystal Palace':'finnesser',
+  'Athletic Club':'finnesser','Osasuna':'finnesser','Las Palmas':'finnesser',
+  'Atalanta':'finnesser','Udinese':'finnesser','Lens':'finnesser',
+  'Brest':'finnesser','Feyenoord':'finnesser',
+ 
+  // HARAMBALL: Park the bus, high fouls, dark arts, ugly wins, physical
+  'Atletico Madrid':'haramball','Girona':'haramball','Stoke City':'haramball',
+  'Bournemouth':'haramball','Burnley':'haramball','Getafe':'haramball',
+  'Cadiz':'haramball','Granada':'haramball','Venezia':'haramball',
+  'Bologna':'haramball','Empoli':'haramball',
+ 
+  // BOTTLER: Famously give away leads, inconsistent closers
+  'Newcastle United':'bottler','Tottenham Hotspur':'bottler',
+  'Everton':'bottler','West Ham United':'bottler',
+  'Manchester United':'bottler','Valencia':'bottler',
+  'Napoli':'bottler',  // blew 2023 lead
+}
  // ── REFEREE BIAS TRACKER ──────────────────────────────────
 const refereeDB = new Map() // refereeId → { name, yellowsPerGame, redsPerGame, homeWinRate, penaltiesPerGame, matchCount }
 
@@ -283,7 +302,7 @@ function rateLimit(maxPerMin) {
 
 // Apply rate limits
 // Stricter rate limits for auth endpoints — replace existing ones:
-app.use('/user/ensure', rateLimit(5));    // 5 signups per min per IP
+app.use('/user/ensure', rateLimit(30));   // 30 per min per IP
 app.use('/credits/use', rateLimit(30));
 app.use('/analyze',     rateLimit(20));
 app.use('/parlay/auto', rateLimit(10));
@@ -381,7 +400,201 @@ const tennisEloMap = new Map()
 const f1EloMap     = new Map()
 const boxingEloMap = new Map()
 const mmaEloMap    = new Map()
+const managerEloMap = new Map()
+ 
+const MANAGER_DATA = [
+  // ── PREMIER LEAGUE ──────────────────────────────────────────────
+  { name:'Mikel Arteta',       team:'Arsenal',             elo:1865, formation:'4-3-3',   style:'Gegenpresser',    nationality:'Spain',       league:'Premier League' },
+  { name:'Pep Guardiola',      team:'Manchester City',     elo:1980, formation:'4-3-3',   style:'Tiki-Taka',       nationality:'Spain',       league:'Premier League' },
+  { name:'Arne Slot',          team:'Liverpool',           elo:1870, formation:'4-3-3',   style:'High Press',      nationality:'Netherlands', league:'Premier League' },
+  { name:'Erik ten Hag',       team:'Manchester United',   elo:1755, formation:'4-2-3-1', style:'Pressing',        nationality:'Netherlands', league:'Premier League' },
+  { name:'Enzo Maresca',       team:'Chelsea',             elo:1780, formation:'4-2-3-1', style:'Possession',      nationality:'Italy',       league:'Premier League' },
+  { name:'Unai Emery',         team:'Aston Villa',         elo:1845, formation:'4-4-2',   style:'Finnesser',       nationality:'Spain',       league:'Premier League' },
+  { name:'Thomas Frank',       team:'Brentford',           elo:1790, formation:'3-5-2',   style:'Haramball',       nationality:'Denmark',     league:'Premier League' },
+  { name:'Marco Silva',        team:'Fulham',              elo:1780, formation:'4-2-3-1', style:'Possession',      nationality:'Portugal',    league:'Premier League' },
+  { name:'Oliver Glasner',     team:'Crystal Palace',      elo:1755, formation:'4-2-3-1', style:'Counter-Attack',  nationality:'Austria',     league:'Premier League' },
+  { name:'Eddie Howe',         team:'Newcastle United',    elo:1780, formation:'4-3-3',   style:'Direct Play',     nationality:'England',     league:'Premier League' },
+  { name:'Andoni Iraola',      team:'Bournemouth',         elo:1750, formation:'4-4-2',   style:'High Press',      nationality:'Spain',       league:'Premier League' },
+  { name:'Nuno Espírito Santo',team:'Nottingham Forest',   elo:1760, formation:'4-4-2',   style:'Low Block',       nationality:'Portugal',    league:'Premier League' },
+  // ── LA LIGA ─────────────────────────────────────────────────────
+  { name:'Carlo Ancelotti',    team:'Real Madrid',         elo:1960, formation:'4-3-3',   style:'Pragmatist',      nationality:'Italy',       league:'La Liga' },
+  { name:'Hansi Flick',        team:'Barcelona',           elo:1870, formation:'4-3-3',   style:'Gegenpresser',    nationality:'Germany',     league:'La Liga' },
+  { name:'Diego Simeone',      team:'Atletico Madrid',     elo:1910, formation:'4-4-2',   style:'Haramball',       nationality:'Argentina',   league:'La Liga' },
+  { name:'Manuel Pellegrini',  team:'Real Betis',          elo:1760, formation:'4-2-3-1', style:'Possession',      nationality:'Chile',       league:'La Liga' },
+  { name:'Imanol Alguacil',    team:'Real Sociedad',       elo:1790, formation:'4-3-3',   style:'Possession',      nationality:'Spain',       league:'La Liga' },
+  // ── SERIE A ─────────────────────────────────────────────────────
+  { name:'Simone Inzaghi',     team:'Inter Milan',         elo:1880, formation:'3-5-2',   style:'Wing Play',       nationality:'Italy',       league:'Serie A' },
+  { name:'Antonio Conte',      team:'Napoli',              elo:1910, formation:'3-5-2',   style:'Pressing',        nationality:'Italy',       league:'Serie A' },
+  { name:'Gian Piero Gasperini',team:'Atalanta',           elo:1870, formation:'3-4-1-2', style:'Gegenpresser',    nationality:'Italy',       league:'Serie A' },
+  { name:'Paulo Fonseca',      team:'AC Milan',            elo:1760, formation:'4-2-3-1', style:'Direct Play',     nationality:'Portugal',    league:'Serie A' },
+  { name:'Claudio Ranieri',    team:'Roma',                elo:1800, formation:'4-4-2',   style:'Pragmatist',      nationality:'Italy',       league:'Serie A' },
+  { name:'Thiago Motta',       team:'Juventus',            elo:1780, formation:'4-2-3-1', style:'Possession',      nationality:'Italy',       league:'Serie A' },
+  // ── BUNDESLIGA ──────────────────────────────────────────────────
+  { name:'Vincent Kompany',    team:'Bayern Munich',       elo:1820, formation:'4-2-3-1', style:'High Press',      nationality:'Belgium',     league:'Bundesliga' },
+  { name:'Niko Kovač',         team:'Borussia Dortmund',   elo:1760, formation:'4-2-3-1', style:'Counter-Attack',  nationality:'Croatia',     league:'Bundesliga' },
+  { name:'Marco Rose',         team:'RB Leipzig',          elo:1810, formation:'4-3-3',   style:'Gegenpresser',    nationality:'Germany',     league:'Bundesliga' },
+  { name:'Xabi Alonso',        team:'Bayer Leverkusen',    elo:1900, formation:'3-4-2-1', style:'Positional Play', nationality:'Spain',       league:'Bundesliga' },
+  { name:'Sebastian Hoeneß',   team:'VfB Stuttgart',       elo:1770, formation:'4-2-3-1', style:'Pressing',        nationality:'Germany',     league:'Bundesliga' },
+  // ── LIGUE 1 ─────────────────────────────────────────────────────
+  { name:'Luis Enrique',       team:'Paris Saint-Germain', elo:1875, formation:'4-3-3',   style:'Pressing',        nationality:'Spain',       league:'Ligue 1' },
+  { name:'Roberto De Zerbi',   team:'Marseille',           elo:1840, formation:'4-3-3',   style:'Positional Play', nationality:'Italy',       league:'Ligue 1' },
+  { name:'Franck Haise',       team:'Nice',                elo:1760, formation:'4-3-3',   style:'Gegenpresser',    nationality:'France',      league:'Ligue 1' },
+  { name:'Paulo Fonseca',      team:'Lyon',                elo:1730, formation:'4-3-3',   style:'Direct Play',     nationality:'Portugal',    league:'Ligue 1' },
+  // ── CHAMPIONS LEAGUE REGULARS ────────────────────────────────────
+  { name:'Rúben Amorim',       team:'Sporting CP',         elo:1820, formation:'3-4-3',   style:'High Press',      nationality:'Portugal',    league:'Primeira Liga' },
+  { name:'Bruno Lage',         team:'Benfica',             elo:1790, formation:'4-4-2',   style:'Pressing',        nationality:'Portugal',    league:'Primeira Liga' },
+  { name:'Brian Priske',       team:'Porto',               elo:1760, formation:'4-4-2',   style:'Counter-Attack',  nationality:'Denmark',     league:'Primeira Liga' },
+  { name:'Dick Advocaat',      team:'Feyenoord',           elo:1780, formation:'4-3-3',   style:'Direct Play',     nationality:'Netherlands', league:'Eredivisie' },
+  { name:'Peter Bosz',         team:'PSV',                 elo:1800, formation:'4-3-3',   style:'Attacking',       nationality:'Netherlands', league:'Eredivisie' },
+  // ── INTERNATIONAL ───────────────────────────────────────────────
+  { name:'Lionel Scaloni',     team:'Argentina',           elo:1875, formation:'4-3-3',   style:'Pragmatist',      nationality:'Argentina',   league:'International' },
+  { name:'Didier Deschamps',   team:'France',              elo:1870, formation:'4-2-3-1', style:'Pragmatist',      nationality:'France',      league:'International' },
+  { name:'Luis de la Fuente',  team:'Spain',               elo:1860, formation:'4-3-3',   style:'Possession',      nationality:'Spain',       league:'International' },
+  { name:'Julian Nagelsmann',  team:'Germany',             elo:1830, formation:'4-2-3-1', style:'Gegenpresser',    nationality:'Germany',     league:'International' },
+  { name:'Roberto Martínez',   team:'Portugal',            elo:1810, formation:'4-3-3',   style:'Attacking',       nationality:'Belgium',     league:'International' },
+  { name:'Thomas Tuchel',      team:'England',             elo:1850, formation:'4-2-3-1', style:'Pressing',        nationality:'Germany',     league:'International' },
+  // ── LEGENDS / HIGH-PROFILE ───────────────────────────────────────
+  { name:'Jose Mourinho',      team:'Fenerbahce',          elo:1930, formation:'4-2-3-1', style:'Park the Bus',    nationality:'Portugal',    league:'Süper Lig' },
+  { name:'Zinedine Zidane',    team:'Free Agent',          elo:1910, formation:'4-3-3',   style:'Pragmatist',      nationality:'France',      league:'Free Agent' },
+  { name:'Jurgen Klopp',       team:'Retired',             elo:1940, formation:'4-3-3',   style:'Gegenpresser',    nationality:'Germany',     league:'Retired' },
+  { name:'Mauricio Pochettino',team:'USMNT',               elo:1840, formation:'4-2-3-1', style:'High Press',      nationality:'Argentina',   league:'International' },
+]
+ 
+async function loadManagerElos() {
+  // Seed runtime map from MANAGER_DATA
+  for (const m of MANAGER_DATA) managerEloMap.set(m.name, { ...m })
+  if (!sb) return
+  try {
+    const { data } = await sb.from('manager_elos').select('*')
+    if (data) for (const row of data) {
+      const base = managerEloMap.get(row.manager_name) || {}
+      managerEloMap.set(row.manager_name, { ...base, elo: row.elo, wins: row.wins, draws: row.draws, losses: row.losses, trophies: row.trophies })
+    }
+    console.log(`✅ Manager ELOs: ${managerEloMap.size} managers`)
+  } catch(e) {}
+}
+ 
+async function updateManagerElo(managerName, won, drew, lost, oppManagerElo, dominanceBonus) {
+  const mgr = managerEloMap.get(managerName)
+  if (!mgr) return
+  const K = 24
+  const expected = 1 / (1 + Math.pow(10, ((oppManagerElo || 1700) - mgr.elo) / 400))
+  const actual   = won ? 1.0 : drew ? 0.5 : 0.0
+  const dom      = dominanceBonus || 1.0 // 1 + |xG diff| * 0.2
+  const delta    = Math.round(K * dom * (actual - expected))
+  mgr.elo = Math.max(1400, Math.min(2200, mgr.elo + delta))
+  mgr.wins   = (mgr.wins   || 0) + (won ? 1 : 0)
+  mgr.draws  = (mgr.draws  || 0) + (drew ? 1 : 0)
+  mgr.losses = (mgr.losses || 0) + (lost ? 1 : 0)
+  managerEloMap.set(managerName, mgr)
+  if (sb) sb.from('manager_elos').upsert({ manager_name: managerName, team_name: mgr.team, elo: mgr.elo, wins: mgr.wins, draws: mgr.draws, losses: mgr.losses, formation: mgr.formation, style: mgr.style, nationality: mgr.nationality, trophies: mgr.trophies || 0, last_updated: new Date().toISOString() }, { onConflict: 'manager_name' }).then(() => {}).catch(() => {})
+}
+// ── PERSISTENT PLAYER ELO MAP ─────────────────────────────────────────────
+const playerEloMap = new Map() // key: `${name}__${sport}` → elo integer
+let playerEloLastSync = 0
 
+async function loadPlayerElos() {
+  if (!sb) return
+  try {
+    const { data } = await sb.from('player_elos').select('*').order('elo', { ascending: false }).limit(10000)
+    if (!data) return
+    for (const row of data) {
+      const k = `${row.player_name}__${row.sport}`
+      playerEloMap.set(k, row.elo)
+      // Also update playerDB if football
+      if (row.sport === 'football' && row.sm_player_id) {
+        const dbKey = `${row.player_name}__${row.team_name}`
+        const existing = playerDB.get(dbKey)
+        if (existing) { existing.elo = row.elo; playerDB.set(dbKey, existing) }
+      }
+    }
+    console.log(`✅ Player ELOs loaded: ${data.length} entries`)
+    playerEloLastSync = Date.now()
+  } catch(e) { console.log('⚠️  loadPlayerElos:', e.message) }
+}
+
+async function savePlayerElo(playerName, teamName, sport, elo, extras) {
+  if (!sb) return
+  const row = {
+    player_name: playerName, team_name: teamName || '', sport,
+    elo: Math.round(elo), last_updated: new Date().toISOString(),
+    ...extras
+  }
+  try {
+    await sb.from('player_elos').upsert(row, { onConflict: 'player_name,team_name,sport' }).catch(() => {})
+  } catch(e) {}
+}
+
+// Compute new ELO from a player performance delta
+function updatePlayerEloFromPerformance(currentElo, rating, goals, apps, position) {
+  if (!apps || apps === 0) return currentElo
+  const ratingFactor = rating > 0 ? (parseFloat(rating) - 7.0) * 8 : 0  // 7.0 = league average
+  const goalFactor = position && ['ST','LW','RW','CAM'].includes(position) ? (goals / apps) * 15 : (goals / apps) * 8
+  const delta = ratingFactor + goalFactor
+  const maxChange = 25
+  return Math.round(Math.max(1300, Math.min(2200, currentElo + Math.max(-maxChange, Math.min(maxChange, delta)))))
+}
+
+// Background job: sync football player ELOs from Sportmonks stats
+async function syncFootballPlayerElos() {
+  if (!SM_KEY || !sb) return
+  console.log('🔄 Syncing football player ELOs from Sportmonks...')
+  let synced = 0
+  try {
+    for (const [teamName, players] of squadDB) {
+      for (const p of players) {
+        if (!p.sm_player_id || !p.player_name) continue
+        const k = `${p.player_name}__football`
+        const currentElo = playerEloMap.get(k) || p.elo || 1500
+        const newElo = updatePlayerEloFromPerformance(
+          currentElo, p.real_rating || 0,
+          p.goals_this_season || 0, p.appearances || 0, p.position
+        )
+        if (Math.abs(newElo - currentElo) >= 1) {
+          playerEloMap.set(k, newElo)
+          // Update in-memory playerDB
+          const dbKey = `${p.player_name}__${teamName}`
+          const existing = playerDB.get(dbKey)
+          if (existing) { existing.elo = newElo; playerDB.set(dbKey, existing) }
+          await savePlayerElo(p.player_name, teamName, 'football', newElo, {
+            sm_player_id: p.sm_player_id, position: p.position,
+            goals: p.goals_this_season || 0, assists: p.assists_this_season || 0,
+            appearances: p.appearances || 0, avg_rating: p.real_rating || null,
+          })
+          synced++
+        }
+      }
+      await sleep(50)
+    }
+    console.log(`✅ Player ELO sync done: ${synced} updated`)
+  } catch(e) { console.log('⚠️  syncFootballPlayerElos:', e.message) }
+}
+
+// Background job: sync NBA player ELOs from BallDontLie
+async function syncNBAPlayerElos() {
+  if (!sb) return
+  try {
+    const headers = process.env.BALLDONTLIE_API_KEY ? { Authorization: process.env.BALLDONTLIE_API_KEY } : {}
+    const r = await httpExt('https://api.balldontlie.io/v1/season_averages', { season: 2024, per_page: 100 }, headers)
+    const players = r.data?.data || []
+    for (const p of players) {
+      const name = p.player?.first_name + ' ' + p.player?.last_name
+      if (!name.trim()) continue
+      const k = `${name}__basketball`
+      const current = playerEloMap.get(k) || 1700
+      // pts + assists * 0.5 + rebounds * 0.3 → performance score
+      const perf = (p.pts || 0) + (p.ast || 0) * 0.5 + (p.reb || 0) * 0.3
+      const delta = (perf - 18) * 3 // 18 = league avg contribution
+      const newElo = Math.round(Math.max(1400, Math.min(2200, current + Math.max(-20, Math.min(20, delta)))))
+      playerEloMap.set(k, newElo)
+      await savePlayerElo(name, p.player?.team?.full_name || '', 'basketball', newElo, {
+        position: p.player?.position || '', appearances: p.games_played || 0,
+        goals: Math.round(p.pts || 0), assists: Math.round(p.ast || 0)
+      })
+    }
+    console.log('✅ NBA player ELO sync done')
+  } catch(e) { console.log('⚠️  syncNBAPlayerElos:', e.message?.slice(0,60)) }
+}
 // ── CREDITS ────────────────────────────────────────────────
 async function useCredits(userId, action) {
   if (!sb) return { ok: true }
@@ -674,21 +887,205 @@ const POS_ID_MAP = { 24:"GK",25:"CB",26:"CM",27:"ST",28:"LB",29:"RB",30:"CDM",31
 function mapPosId(id) { return POS_ID_MAP[id] || "CM" }
 
 // ── PLAYSTYLES ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// PATCH 1: PLAYER POSITION OVERRIDES + EXPANDED PLAYSTYLE LIBRARY
+// ═══════════════════════════════════════════════════════════════════
+// In server.js, REPLACE this block:
+//   const FOOTBALL_PLAYSTYLES = { GK: { ... }, CB: { ... }, ... }
+// WITH everything below (the new library + override map):
+// ═══════════════════════════════════════════════════════════════════
+
+// ── PLAYER POSITION OVERRIDES (force correct positions for top players) ──────
+const PLAYER_POSITION_OVERRIDES = {
+  // Wingers (NOT strikers)
+  "Bukayo Saka":"RW","Mohamed Salah":"RW","Leandro Trossard":"LW",
+  "Gabriel Martinelli":"LW","Son Heung-min":"LW","Kylian Mbappe":"LW","Kylian Mbappé":"LW",
+  "Vinicius Junior":"LW","Vinícius Júnior":"LW","Vinicius Jr.":"LW",
+  "Michael Olise":"RW","Lamine Yamal":"RW","Nico Williams":"LW",
+  "Rafael Leão":"LW","Rafael Leao":"LW","Luis Díaz":"LW","Luis Diaz":"LW",
+  "Phil Foden":"LW","Ousmane Dembélé":"RW","Ousmane Dembele":"RW",
+  "Kang-in Lee":"LW","Khvicha Kvaratskhelia":"LW","Raphinha":"RW",
+  "Kingsley Coman":"LW","Leroy Sane":"RW","Serge Gnabry":"RW",
+  "Marcus Rashford":"LW","Antony":"RW","Jarrod Bowen":"RW",
+  "Harvey Elliott":"RW","Diogo Jota":"LW",
+  // Attacking mids
+  "Jude Bellingham":"CAM","Jamal Musiala":"CAM","Florian Wirtz":"CAM",
+  "Martin Ødegaard":"CAM","Martin Odegaard":"CAM","Cole Palmer":"CAM",
+  "Kevin De Bruyne":"CAM","Bernardo Silva":"CM","Vitinha":"CM",
+  "Pedri":"CM","Xavi Simons":"CAM","Joao Felix":"CAM","João Félix":"CAM",
+  "Warren Zaïre-Emery":"CDM","Fabian Ruiz":"CM","Dominik Szoboszlai":"CM",
+  "Alexis Mac Allister":"CM","Granit Xhaka":"CDM","Nicolo Barella":"CM",
+  "Hakan Calhanoglu":"CDM","Ilkay Gundogan":"CM","Thiago":"CDM",
+  "Bruno Fernandes":"CAM","Kai Havertz":"CAM","Mason Mount":"CAM",
+  // Defensive mids
+  "Declan Rice":"CDM","Rodri":"CDM","João Neves":"CDM","Joao Neves":"CDM",
+  "Aurelien Tchouameni":"CDM","Federico Valverde":"CM","Marcos Llorente":"CM",
+  // Centre-backs
+  "William Saliba":"CB","Gabriel Magalhães":"CB","Gabriel Magalhaes":"CB",
+  "Virgil van Dijk":"CB","Rúben Dias":"CB","Ruben Dias":"CB",
+  "Alessandro Bastoni":"CB","Josko Gvardiol":"CB","Kim Min-jae":"CB",
+  "Manuel Akanji":"CB","Dayot Upamecano":"CB","Eder Militao":"CB",
+  "Antonio Silva":"CB","Gonçalo Inácio":"CB",
+  // Fullbacks
+  "Trent Alexander-Arnold":"RB","Reece James":"RB","João Cancelo":"RB",
+  "Joao Cancelo":"RB","Dani Carvajal":"RB","Nuno Mendes":"LB",
+  "Theo Hernandez":"LB","Alphonso Davies":"LB","Ferland Mendy":"LB",
+  "Achraf Hakimi":"RB","Kieran Trippier":"RB","Ben White":"RB",
+  // Strikers
+  "Harry Kane":"ST","Erling Haaland":"ST","Erling Braut Haaland":"ST",
+  "Robert Lewandowski":"ST","Victor Osimhen":"ST","Marcus Thuram":"ST",
+  "Antoine Griezmann":"ST","Álvaro Morata":"ST","Alvaro Morata":"ST",
+  "Hugo Ekitike":"ST","Ollie Watkins":"ST","Darwin Nunez":"ST",
+  "Artem Dovbyk":"ST","Ivan Toney":"ST","Jhon Duran":"ST",
+  // GKs
+  "David Raya":"GK","Gianluigi Donnarumma":"GK","Manuel Neuer":"GK",
+  "Alisson Becker":"GK","Thibaut Courtois":"GK","Marc-Andre ter Stegen":"GK",
+  "Jordan Pickford":"GK","Nick Pope":"GK","Andre Onana":"GK",
+}
+
+// ── EXPANDED FOOTBALL PLAYSTYLE LIBRARY (30+ styles) ─────────────────────────
+// Each player can receive up to 3 styles based on position + stats
+const FOOTBALL_PLAYSTYLE_LIB = {
+  // GOALKEEPERS
+  SWEEPER_KEEPER:    { name:'Sweeper Keeper',       pos:['GK'],                     desc:'Commands area, builds from back',          icon:'🧤', statBias:'distribution' },
+  SHOT_STOPPER:      { name:'Shot Stopper',          pos:['GK'],                     desc:'Elite reflexes, dominates from the line',  icon:'🛑', statBias:'saves' },
+  GK_DISTRIBUTOR:    { name:'Distributor GK',        pos:['GK'],                     desc:'Pinpoint long kicks ignite attacks',        icon:'🎯', statBias:'passing' },
+  COMPLETE_KEEPER:   { name:'Complete Keeper',       pos:['GK'],                     desc:'Elite in every aspect of goalkeeping',     icon:'⭐', statBias:'rating' },
+  // CENTRE-BACKS
+  BALL_PLAYING_CB:   { name:'Ball-Playing CB',       pos:['CB'],                     desc:'Line-breaking passes, steps into midfield',icon:'🎯', statBias:'assists' },
+  DESTROYER:         { name:'Destroyer',             pos:['CB','CDM'],               desc:'Ferocious in duels, dominant in the air',  icon:'💥', statBias:'tackles' },
+  AERIAL_CB:         { name:'Aerial Threat',       pos:['CB','ST','CM'],                desc:'Dominates set pieces, wins every header',  icon:'👆', statBias:'aerials' },
+  LIBERO:            { name:'Libero',                pos:['CB'],                     desc:'Steps out, reads danger, intercepts play', icon:'🧹', statBias:'intercepts' },
+  ORGANISER:         { name:'Organiser',             pos:['CB'],                     desc:'Commands the backline, vocal leader',      icon:'📢', statBias:'rating' },
+  // FULLBACKS
+  ATTACK_FB:         { name:'Attack Fullback',       pos:['LB','RB','LWB','RWB'],    desc:'Overlapping runs, dangerous in final third',icon:'🏃', statBias:'assists' },
+  DEFENSIVE_FB:      { name:'Defensive Fullback',    pos:['LB','RB'],                desc:'Disciplined, positionally excellent',      icon:'🔐', statBias:'tackles' },
+  INVERTED_FB:       { name:'Inverted Fullback',     pos:['LB','RB'],                desc:'Cuts inside, operates as extra midfielder',icon:'↩️', statBias:'assists' },
+  WINGBACK:          { name:'Wingback',              pos:['LWB','RWB','LB','RB'],    desc:'Very advanced, creates wide overloads',    icon:'⚡', statBias:'assists' },
+  // DEFENSIVE MID
+  PRESS_CONDUCTOR:   { name:'Press Conductor',       pos:['CDM','CM'],               desc:'Sets press triggers, shields backline',    icon:'🔥', statBias:'intercepts' },
+  DEFENSIVE_ANCHOR:  { name:'Defensive Anchor',      pos:['CDM'],                    desc:'Sits deep, breaks up play relentlessly',   icon:'⚓', statBias:'tackles' },
+  BALL_WINNER:       { name:'Ball Winner',           pos:['CDM','CM'],               desc:'Aggressive duels, wins possession back',   icon:'💪', statBias:'tackles' },
+  DEEP_PLAYMAKER:    { name:'Deep Playmaker',        pos:['CDM','CM'],               desc:'Orchestrates tempo from deep positions',   icon:'🎭', statBias:'assists' },
+  REGISTA:           { name:'Regista',               pos:['CDM','CM'],               desc:'Progressive passing from deep, vision',    icon:'🔭', statBias:'key_passes' },
+  // CENTRAL MID
+  BOX_TO_BOX:        { name:'Box-to-Box',            pos:['CM'],                     desc:'Covers ground, contributes in both phases',icon:'⚙️', statBias:'goals' },
+  MEZZALA:           { name:'Mezzala',               pos:['CM','LM','RM'],           desc:'Late runs into half-spaces from midfield', icon:'🌀', statBias:'goals' },
+  PROGRESSIVE_PASSER:{ name:'Progressive Passer',   pos:['CM','CAM','CDM'],         desc:'Drives ball forward with precision',       icon:'➡️', statBias:'key_passes' },
+  TEMPO_SETTER:      { name:'Tempo Setter',          pos:['CM','CDM'],               desc:'Controls rhythm, slows or speeds up play', icon:'🎵', statBias:'rating' },
+  // ATTACKING MID
+  CLASSIC_10:        { name:'Classic No.10',         pos:['CAM'],                    desc:'Between lines, key creator and playmaker', icon:'🔟', statBias:'assists' },
+  SHADOW_STRIKER:    { name:'Shadow Striker',        pos:['CAM'],                    desc:'Ghosts into the box, deadly in pockets',   icon:'👻', statBias:'goals' },
+  FALSE_9:           { name:'False 9',               pos:['CAM','ST'],               desc:'Drops deep, creates, pulls defenders out', icon:'🔄', statBias:'assists' },
+  HALF_SPACE_INF:    { name:'Half-Space Infiltrator',pos:['CAM','LW','RW'],          desc:'Exploits channels between defence and mid',icon:'🎯', statBias:'goals' },
+  // WINGERS
+  INVERTED_WINGER:   { name:'Inverted Winger',       pos:['LW','RW','LM','RM'],      desc:'Cuts inside onto stronger foot, shoots',   icon:'↩️', statBias:'goals' },
+  TRAD_WINGER:       { name:'Traditional Winger',   pos:['LW','RW','LM','RM'],      desc:'Hugs touchline, delivers dangerous crosses',icon:'↗️', statBias:'assists' },
+  DRIBBLER:          { name:'Dribbler',              pos:['LW','RW','CAM','LM','RM'],desc:'Elite 1v1, breaks defensive lines solo',   icon:'⚡', statBias:'dribbles' },
+  PRESSING_FWD:      { name:'Pressing Forward',      pos:['LW','RW','ST'],           desc:'Relentless press, disrupts defenders',     icon:'🔥', statBias:'tackles' },
+  SPEED_MERCHANT:    { name:'Speed Merchant',        pos:['LW','RW','ST','LM','RM'], desc:'Devastating pace, thrives on through balls',icon:'💨', statBias:'dribbles' },
+  // STRIKERS
+  COMPLETE_FWD:      { name:'Complete Forward',      pos:['ST'],                     desc:'Scores, assists, holds up — does it all', icon:'⭐', statBias:'goals' },
+  POACHER:           { name:'Poacher',               pos:['ST','LW','RW'],           desc:'Pure box presence, instinctive finisher',  icon:'🎯', statBias:'goals' },
+  TARGET_STRIKER:    { name:'Target Striker',        pos:['ST'],                     desc:'Holds up play, aerial threat, link play',  icon:'🗼', statBias:'aerials' },
+  DEEP_LYING_FWD:    { name:'Deep-Lying Forward',    pos:['ST','CAM'],               desc:'Drops deep, links play, creates chances',  icon:'🔙', statBias:'assists' },
+  PRESSING_STRIKER:  { name:'Pressing Striker',      pos:['ST','LW','RW'],           desc:'Hunts ball, creates from relentless press',icon:'🏹', statBias:'tackles' },
+}
+
+// ── ASSIGN UP TO 3 PLAYSTYLES PER PLAYER ────────────────────────────────────
+function assignPlayerPlaystyles(name, pos, stats) {
+  const overridePos = (name && PLAYER_POSITION_OVERRIDES[name]) || pos || 'CM'
+  const goals   = (stats && (stats.goals_this_season || stats.goals)) || 0
+  const assists = (stats && (stats.assists_this_season || stats.assists)) || 0
+  const apps    = (stats && stats.appearances) || 1
+  const rating  = parseFloat((stats && stats.real_rating) || 0)
+  const elo     = (stats && stats.elo) || 1500
+  const gpm = goals / Math.max(1, apps)
+  const apm = assists / Math.max(1, apps)
+
+  // Stable seed for deterministic style (same player always same style)
+  let seed = 0
+  for (let i = 0; i < (name || '').length; i++) seed = (seed * 31 + (name || '').charCodeAt(i)) & 0x7fffffff
+
+  const valid = Object.entries(FOOTBALL_PLAYSTYLE_LIB).filter(([k, v]) => v.pos.includes(overridePos))
+  if (!valid.length) return [FOOTBALL_PLAYSTYLE_LIB.BOX_TO_BOX]
+
+  const scored = valid.map(([k, v]) => {
+    let sc = (((seed + k.length * 7) % 40) / 100) // 0.0–0.4 seed variance
+
+    if (overridePos === 'GK') {
+      if (k === 'SWEEPER_KEEPER') sc += rating > 7.2 ? 0.7 : 0.4
+      if (k === 'SHOT_STOPPER')   sc += rating < 7.3 ? 0.5 : 0.2
+      if (k === 'GK_DISTRIBUTOR') sc += (seed % 3 === 0) ? 0.5 : 0.1
+      if (k === 'COMPLETE_KEEPER')sc += elo > 1800 ? 0.6 : 0.2
+    }
+    if (['LW','RW','LM','RM'].includes(overridePos)) {
+      if (k === 'INVERTED_WINGER') sc += gpm > 0.3 ? 0.8 : 0.5    // goal-scoring winger
+      if (k === 'TRAD_WINGER')     sc += apm > 0.25 ? 0.7 : 0.3   // assisting winger
+      if (k === 'DRIBBLER')        sc += elo > 1800 ? 0.6 : 0.2
+      if (k === 'SPEED_MERCHANT')  sc += (seed % 4 === 0) ? 0.5 : 0.1
+      if (k === 'PRESSING_FWD')    sc += (gpm < 0.2 && apps > 10) ? 0.4 : 0.1
+      if (k === 'HALF_SPACE_INF')  sc += (gpm > 0.25 && apm > 0.15) ? 0.5 : 0.2
+    }
+    if (overridePos === 'ST') {
+      if (k === 'COMPLETE_FWD')   sc += (gpm > 0.6 && apm > 0.15) ? 0.9 : 0.3
+      if (k === 'POACHER')        sc += (gpm > 0.5 && apm < 0.15) ? 0.8 : 0.3
+      if (k === 'TARGET_STRIKER') sc += (gpm < 0.4 && apps > 10) ? 0.6 : 0.2
+      if (k === 'DEEP_LYING_FWD') sc += apm > 0.3 ? 0.7 : 0.2
+      if (k === 'PRESSING_STRIKER')sc += elo < 1700 ? 0.5 : 0.1
+    }
+    if (['CM','CDM'].includes(overridePos)) {
+      if (k === 'BOX_TO_BOX')       sc += rating > 7.0 ? 0.6 : 0.3
+      if (k === 'DEEP_PLAYMAKER')   sc += apm > 0.2 ? 0.6 : 0.3
+      if (k === 'DEFENSIVE_ANCHOR') sc += (goals < 3 && apps > 10) ? 0.5 : 0.2
+      if (k === 'PRESS_CONDUCTOR')  sc += elo > 1750 ? 0.5 : 0.2
+      if (k === 'MEZZALA')          sc += (gpm > 0.15 && overridePos === 'CM') ? 0.5 : 0.1
+      if (k === 'REGISTA')          sc += (apm > 0.25 && goals < 4) ? 0.5 : 0.1
+      if (k === 'PROGRESSIVE_PASSER')sc+= elo > 1800 ? 0.4 : 0.2
+    }
+    if (overridePos === 'CAM') {
+      if (k === 'CLASSIC_10')      sc += (apm > 0.3 && rating > 7) ? 0.8 : 0.3
+      if (k === 'SHADOW_STRIKER')  sc += gpm > 0.3 ? 0.7 : 0.3
+      if (k === 'FALSE_9')         sc += apm > 0.4 ? 0.5 : 0.1
+      if (k === 'HALF_SPACE_INF')  sc += elo > 1800 ? 0.5 : 0.2
+    }
+    if (overridePos === 'CB') {
+      if (k === 'BALL_PLAYING_CB') sc += (apm > 0.07 || elo > 1700) ? 0.7 : 0.3
+      if (k === 'DESTROYER')       sc += goals < 2 ? 0.4 : 0.2
+      if (k === 'AERIAL_CB')       sc += goals > 3 ? 0.5 : 0.2
+      if (k === 'ORGANISER')       sc += elo > 1700 ? 0.5 : 0.2
+      if (k === 'LIBERO')          sc += (apm > 0.1 && elo > 1750) ? 0.4 : 0.1
+    }
+    if (['LB','RB','LWB','RWB'].includes(overridePos)) {
+      if (k === 'ATTACK_FB')       sc += (apm > 0.15 || assists > 4) ? 0.8 : 0.4
+      if (k === 'DEFENSIVE_FB')    sc += (goals < 1 && assists < 2) ? 0.5 : 0.1
+      if (k === 'INVERTED_FB')     sc += elo > 1750 ? 0.5 : 0.2
+      if (k === 'WINGBACK')        sc += apm > 0.18 ? 0.6 : 0.3
+    }
+    seed = (seed * 1664525 + 1013904223) & 0x7fffffff
+    return { style: v, score: sc }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, 3).map(s => s.style).filter(Boolean)
+}
+
+// Keep backward compat - single style lookup for older code paths
 const FOOTBALL_PLAYSTYLES = {
-  GK:  { name: "Sweeper Keeper",   desc: "Commands area, builds from back",           icon: "🧤" },
-  CB:  { name: "Ball-Playing CB",  desc: "Line-breaking passes, steps into midfield", icon: "⚽" },
-  LB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third", icon: "🏃" },
-  RB:  { name: "Attack Fullback",  desc: "Overlapping runs, dangerous in final third", icon: "🏃" },
-  CDM: { name: "Press Conductor",  desc: "Sets press triggers, shields the backline",  icon: "🔥" },
-  CM:  { name: "Box-to-Box",       desc: "Covers ground, contributes both phases",     icon: "⚙️" },
-  CAM: { name: "Playmaker",        desc: "Creates between lines, key passes",          icon: "✨" },
-  LW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",             icon: "↩️" },
-  RW:  { name: "Inverted Winger",  desc: "Cuts inside onto stronger foot",             icon: "↩️" },
-  ST:  { name: "Target Striker",   desc: "Holds up play, aerial threat, clinical",     icon: "🎯" },
-  LWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",      icon: "🏃" },
-  RWB: { name: "Wingback",         desc: "Very advanced, creates wide overloads",      icon: "🏃" },
-  RM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                  icon: "📐" },
-  LM:  { name: "Wide Midfielder",  desc: "Two-way wide contribution",                  icon: "📐" },
+  GK:  FOOTBALL_PLAYSTYLE_LIB.SWEEPER_KEEPER,
+  CB:  FOOTBALL_PLAYSTYLE_LIB.BALL_PLAYING_CB,
+  LB:  FOOTBALL_PLAYSTYLE_LIB.ATTACK_FB,
+  RB:  FOOTBALL_PLAYSTYLE_LIB.ATTACK_FB,
+  CDM: FOOTBALL_PLAYSTYLE_LIB.PRESS_CONDUCTOR,
+  CM:  FOOTBALL_PLAYSTYLE_LIB.BOX_TO_BOX,
+  CAM: FOOTBALL_PLAYSTYLE_LIB.CLASSIC_10,
+  LW:  FOOTBALL_PLAYSTYLE_LIB.INVERTED_WINGER,
+  RW:  FOOTBALL_PLAYSTYLE_LIB.INVERTED_WINGER,
+  ST:  FOOTBALL_PLAYSTYLE_LIB.COMPLETE_FWD,
+  LWB: FOOTBALL_PLAYSTYLE_LIB.WINGBACK,
+  RWB: FOOTBALL_PLAYSTYLE_LIB.WINGBACK,
+  RM:  FOOTBALL_PLAYSTYLE_LIB.TRAD_WINGER,
+  LM:  FOOTBALL_PLAYSTYLE_LIB.TRAD_WINGER,
 }
 
 const NBA_PLAYSTYLES = {
@@ -767,17 +1164,19 @@ function buildPlayerElo(name, pos, teamElo, rating, goals, apps) {
   const goalBonus = apps > 0 ? Math.round((goals / apps) * 30) : 0
   const posBonus = { ST:35, LW:30, RW:30, CAM:25, CM:10, CDM:5, LB:0, RB:0, CB:-5, LWB:5, RWB:5, GK:-10, RM:15, LM:15 }
   let seed = 0
-  for (let i = 0; i < name.length; i++) seed = seed * 31 + name.charCodeAt(i)
+  for (let i = 0; i < (name||'x').length; i++) seed = seed * 31 + (name||'x').charCodeAt(i)
   return Math.round(Math.max(1300, Math.min(1989, teamElo + (posBonus[pos] || 0) + goalBonus + ((Math.abs(seed) % 120) - 60))))
 }
-
 function buildPlayerAttrs(name, pos, pElo, tElo, rating) {
   const ef     = (pElo - 1300) / 700
-  const isAtk  = ["ST","LW","RW","CAM"].includes(pos)
-  const isDef  = ["CB","LB","RB","CDM","GK"].includes(pos)
+  // Use position override for correct role detection
+  const actualPos = (name && PLAYER_POSITION_OVERRIDES[name]) || pos || 'CM'
+  const isAtk  = ["ST","LW","RW","CAM"].includes(actualPos)
+  const isDef  = ["CB","LB","RB","CDM","GK"].includes(actualPos)
   let seed = 0
-  for (let i = 0; i < name.length; i++) seed = seed * 31 + name.charCodeAt(i)
+  for (let i = 0; i < (name||'').length; i++) seed = seed * 31 + (name||'').charCodeAt(i)
   const sr = n => Math.abs(Math.sin(seed * n + n))
+ 
   let spd, atk, def, bm
   if (rating && rating > 0) {
     const rf = (parseFloat(rating) - 5) / 5
@@ -791,7 +1190,11 @@ function buildPlayerAttrs(name, pos, pElo, tElo, rating) {
     def = clamp(Math.round(isDef ? 58+ef*32+sr(5)*10 : isAtk ? 20+ef*28+sr(6)*10 : 38+ef*32+sr(7)*10))
     bm  = clamp(Math.round(40 + ef*46 + sr(8)*18 - 8))
   }
-  const ps = FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM
+ 
+  // Assign up to 3 playstyles using new system
+  const styles   = assignPlayerPlaystyles(name, actualPos, { elo: pElo, real_rating: rating })
+  const playstyle = styles[0] || FOOTBALL_PLAYSTYLES[actualPos] || FOOTBALL_PLAYSTYLES.CM
+ 
   const strengths = [], weaknesses = []
   if (spd >= 78) strengths.push("Explosive pace — beats defenders in behind")
   if (atk >= 78) strengths.push("Clinical in front of goal — high conversion rate")
@@ -804,9 +1207,13 @@ function buildPlayerAttrs(name, pos, pElo, tElo, rating) {
   if (bm  < 45) weaknesses.push("Can go missing in high-pressure moments")
   while (strengths.length < 2) strengths.push("Consistent performer within team structure")
   while (weaknesses.length < 1) weaknesses.push("Can be inconsistent when team underperforms")
-  return { speed: spd, attack: atk, defense: def, bigMatch: bm, playstyle: ps, strengths: strengths.slice(0,3), weaknesses: weaknesses.slice(0,2), isKey: pElo > tElo + 55 }
+ 
+  return { speed: spd, attack: atk, defense: def, bigMatch: bm,
+    playstyle, playstyles: styles,
+    strengths: strengths.slice(0,3), weaknesses: weaknesses.slice(0,2),
+    isKey: pElo > tElo + 55 }
 }
-
+ 
 // ══════════════════════════════════════════════════════════
 //  NBA
 // ══════════════════════════════════════════════════════════
@@ -2393,6 +2800,19 @@ const PRIORITY_LEAGUES = [
   { name: "Championship",     smId: 9   },
 ]
 
+const BRACKET_MAP = {
+  ucl:         { espn:'uefa.champions',   smId:2,   name:'UEFA Champions League', hasGroups:true  },
+  uel:         { espn:'uefa.europa',      smId:5,   name:'UEFA Europa League',    hasGroups:true  },
+  uecl:        { espn:'uefa.europa.conf', smId:24,  name:'Conference League',     hasGroups:true  },
+  fa_cup:      { espn:'eng.fa',           smId:7,   name:'FA Cup',                hasGroups:false },
+  carabao:     { espn:'eng.league_cup',   smId:9,   name:'Carabao Cup',           hasGroups:false },
+  dfb_pokal:   { espn:'ger.dfb_pokal',    smId:327, name:'DFB Pokal',             hasGroups:false },
+  copa_del_rey:{ espn:'esp.copa_del_rey', smId:507, name:'Copa del Rey',          hasGroups:false },
+  coppa_italia:{ espn:'ita.coppa_italia', smId:481, name:'Coppa Italia',          hasGroups:false },
+  world_cup:   { espn:'fifa.world',       smId:23,  name:'FIFA World Cup',        hasGroups:true  },
+  euros:       { espn:'uefa.euro',        smId:20,  name:'UEFA Euro',             hasGroups:true  },
+}
+ 
 // Exact league ID whitelist — only these pass through
 const ALLOWED_LEAGUE_IDS = new Set([
   2,   // UEFA Champions League
@@ -2619,71 +3039,95 @@ app.get('/squad/byname/:teamName', async (req, res) => {
   res.json([])
 })
 app.get('/team/profile/:teamName', async (req, res) => {
+  function buildTeamDescriptors(teamName, tElo, w) {
+    const descriptors = [], strengths = [], weaknesses = []
+    const label = TEAM_SPECIAL_LABELS[teamName]
+    if (label === 'finnesser') {
+      descriptors.push({ label:'Finnesser', icon:'🎩', color:'var(--purple)' })
+      strengths.push('Clinical despite limited possession')
+      strengths.push('Consistently outperforms xG')
+    } else if (label === 'haramball') {
+      descriptors.push({ label:'Haramball', icon:'🔒', color:'var(--orange)' })
+      strengths.push('Disciplined low-block structure')
+      weaknesses.push('Limited in open creative play')
+    } else if (label === 'bottler') {
+      descriptors.push({ label:'Bottler', icon:'🍾', color:'var(--red)' })
+      weaknesses.push('Historically concede late leads')
+      weaknesses.push('Inconsistent in high-pressure moments')
+    }
+    if (tElo >= 1900) { descriptors.push({ label:'Elite Tier', icon:'⭐', color:'var(--gold)' }); strengths.push('World-class squad depth') }
+    else if (tElo >= 1750) { descriptors.push({ label:'Top Tier', icon:'🔥', color:'var(--accent)' }); strengths.push('Consistent performers at the highest level') }
+    if ((w.cleanSheetRate||0) > 0.4) strengths.push('Strong defensive record this season')
+    if ((w.avgPossession||0.5) > 0.58) strengths.push('Dominant possession-based game')
+    if ((w.homeWin||0.62) > 0.72) strengths.push('Formidable home fortress')
+    if ((w.awayWin||0.38) < 0.25) weaknesses.push('Struggles significantly away from home')
+    while (strengths.length < 2) strengths.push('Well-organized team structure')
+    while (weaknesses.length < 1) weaknesses.push('Can be inconsistent against top opposition')
+    const style = tElo >= 1900 ? 'Elite' : tElo >= 1750 ? 'Top Flight' : tElo >= 1600 ? 'Mid Table' : 'Lower Table'
+    return { descriptors, strengths, weaknesses, style }
+  }
   const teamName = decodeURIComponent(req.params.teamName)
   const tElo = getElo(teamName)
   let squad = squadDB.get(teamName) || []
 
-  // If no squad cached, try to pull from Sportmonks on-demand
   if (!squad.length && SM_KEY) {
     const fixtureCache = cache.get('sm_fix_14')?.data || []
     for (const f of fixtureCache) {
       const participant = (f.participants || []).find(p => p.name === teamName)
       if (participant?.id) {
-        try {
-          squad = await smSquad(participant.id, teamName, f.season_id)
-        } catch(e) {}
+        try { squad = await smSquad(participant.id, teamName, f.season_id) } catch(e) {}
         break
       }
     }
   }
+  const w = getTeamWeights(teamName)
+  const { descriptors, strengths, weaknesses, style } = buildTeamDescriptors(teamName, tElo, w)
 
-  const keyPlayers = squad.filter(p => p.is_key || p.isKey).sort((a,b)=>(b.elo||0)-(a.elo||0)).slice(0, 6)
+  const keyPlayers = squad
+    .filter(p => p.is_key || p.isKey)
+    .sort((a,b) => (b.elo||0) - (a.elo||0))
+    .slice(0, 6)
+
   const fixtureCache = cache.get('sm_fix_14')?.data || []
   const next5 = fixtureCache
     .filter(f => (f.participants||[]).some(p => p.name === teamName) && new Date(f.starting_at) > new Date())
+    .sort((a,b) => new Date(a.starting_at) - new Date(b.starting_at))
     .slice(0, 5)
     .map(f => {
       const hp = (f.participants||[]).find(p => p.meta?.location === 'home')
       const ap = (f.participants||[]).find(p => p.meta?.location === 'away')
-      return {
-        home: hp?.name||'?', away: ap?.name||'?',
-        date: f.starting_at,
-        league: normLeague(f.league?.name||'') || f.league?.name || '',
-        flag: leagueFlag(f.league?.country?.name||'')
-      }
+      return { home: hp?.name||'?', away: ap?.name||'?', date: f.starting_at, league: normLeague(f.league?.name||'')||f.league?.name||'', flag: leagueFlag(f.league?.country?.name||'') }
     })
 
-  const w = getTeamWeights(teamName)
+  const managerEntry = [...managerEloMap.entries()].find(([,v]) => v.team === teamName)
+  const manager = managerEntry ? managerEloMap.get(managerEntry[0]) : null
+
   res.json({
     name: teamName, elo: tElo,
     tier: tElo >= 1900 ? 'ELITE' : tElo >= 1750 ? 'TOP' : tElo >= 1600 ? 'MID' : 'LOWER',
-    players: squad.length,
+    players: squad.length, style, descriptors, strengths, weaknesses, manager,
     squad: squad.map(p => ({
       player_name: p.player_name||p.name, position: p.position||'CM',
-      elo: p.elo||1500, speed: p.speed, attack: p.attack,
-      defense: p.defense, big_match: p.big_match||p.bigMatch,
-      is_key: p.is_key||p.isKey,
-      playstyle_name: p.playstyle?.name||p.playstyle_name,
-      playstyle_icon: p.playstyle?.icon||'⚙️',
-      goals_this_season: p.goals_this_season,
-      assists_this_season: p.assists_this_season,
+      elo: p.elo||1500, speed: p.speed, attack: p.attack, defense: p.defense,
+      big_match: p.big_match||p.bigMatch, is_key: p.is_key||p.isKey,
+      playstyle_name: p.playstyle?.name||p.playstyle_name, playstyle_icon: p.playstyle?.icon||'⚙️',
+      goals_this_season: p.goals_this_season, assists_this_season: p.assists_this_season,
       real_rating: p.real_rating, sm_player_id: p.sm_player_id
     })),
     keyPlayers: keyPlayers.map(p => ({
-      name: p.player_name||p.name, position: p.position||'CM',
-      elo: p.elo||1500,
-      playstyle: p.playstyle?.name||p.playstyle_name,
-      playstyle_icon: p.playstyle?.icon||'⚙️',
-      speed: p.speed, attack: p.attack, defense: p.defense,
-      bigMatch: p.big_match||p.bigMatch,
-      goals: p.goals_this_season, rating: p.real_rating
+      name: p.player_name||p.name, position: p.position||'CM', elo: p.elo||1500,
+      playstyle: p.playstyle?.name||p.playstyle_name, playstyle_icon: p.playstyle?.icon||'⚙️',
+      playstyles: p.playstyles || (p.playstyle ? [p.playstyle] : []),
+      speed: p.speed, attack: p.attack, defense: p.defense, bigMatch: p.big_match||p.bigMatch,
+      goals: p.goals_this_season, assists: p.assists_this_season, rating: p.real_rating,
+      appearances: p.appearances
     })),
     next5,
     stats: {
-      homeWin: Math.round((w.homeWin||0.62)*100),
+      homeWin: Math.round((w.homeWin||0.62)*100), awayWin: Math.round((w.awayWin||0.38)*100),
       cleanSheetRate: Math.round((w.cleanSheetRate||0.3)*100),
-      avgPossession: Math.round((w.avgPossession||0.5)*100),
-      matchCount: w.matchCount||0
+      avgPossession: Math.round((w.avgPossession||0.5)*100), matchCount: w.matchCount||0,
+      goalsFromSetPiece: Math.round((w.goalsFromSetPiece||0.2)*100),
     }
   })
 })
@@ -3009,21 +3453,62 @@ app.get('/elo/sport/:sport', (req, res) => {
 
 // ── STANDINGS ─────────────────────────────────────────────
 app.get('/standings/nba', async (req, res) => {
+  const parseESPNConference = (entries, confName) => entries.map(e => {
+    const stats = {}
+    for (const s of (e.stats || [])) {
+      const k = s.abbreviation || s.name || ''
+      stats[k] = (s.value !== undefined && s.value !== null) ? s.value : parseFloat(s.displayValue) || 0
+    }
+    return {
+      Name: e.team?.displayName || e.team?.name || '?',
+      TeamCity: e.team?.location || '',
+      Wins: parseInt(stats['W'] || stats['wins'] || 0),
+      Losses: parseInt(stats['L'] || stats['losses'] || 0),
+      GamesBehind: parseFloat(stats['GB'] || stats['gamesBehind'] || 0) || 0,
+      Streak: stats['STRK'] || stats['streak'] || '—',
+      Conference: confName,
+      PointsFor: parseFloat(stats['PPG'] || stats['PF'] || 0) || undefined,
+      WinPercentage: parseFloat(stats['PCT'] || stats['winPercent'] || 0) || undefined
+    }
+  }).sort((a, b) => b.Wins - a.Wins)
+
   try {
     if (process.env.SPORTSDATAIO_KEY) {
-      const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
-      const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Standings/${season}`,
-        {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
-      const teams = r.data || []
-      if (teams.length) {
-        const east = teams.filter(t => t.Conference === 'Eastern').sort((a,b) => (b.Wins||0)-(a.Wins||0))
-        const west = teams.filter(t => t.Conference === 'Western').sort((a,b) => (b.Wins||0)-(a.Wins||0))
-        return res.json({ source:'sportsdata.io', east, west, season })
-      }
+      try {
+        const season = new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)
+        const r = await httpExt(`https://api.sportsdata.io/v3/nba/scores/json/Standings/${season}`,
+          {}, { 'Ocp-Apim-Subscription-Key': process.env.SPORTSDATAIO_KEY })
+        const teams = r.data || []
+        if (teams.length) {
+          const east = teams.filter(t => t.Conference === 'Eastern').sort((a,b) => (b.Wins||0)-(a.Wins||0))
+          const west = teams.filter(t => t.Conference === 'Western').sort((a,b) => (b.Wins||0)-(a.Wins||0))
+          return res.json({ source:'sportsdata.io', east, west, season })
+        }
+      } catch(e2) {}
     }
     const r = await httpExt('https://site.api.espn.com/apis/v2/sports/basketball/nba/standings', { limit:100 })
-    res.json({ source:'espn', data:r.data })
-  } catch(e) { res.json({ east:[], west:[] }) }
+    const data = r.data
+    const children = data.children || data.standings?.children || []
+    let east = [], west = []
+    for (const child of children) {
+      const entries = child.standings?.entries || child.entries || []
+      const name = (child.name || child.abbreviation || '').toLowerCase()
+      const parsed = parseESPNConference(entries, name.includes('east') ? 'Eastern' : 'Western')
+      if (name.includes('east')) east = parsed
+      else west = parsed
+    }
+    // Fallback: use NBA_ELO_BASE if ESPN parse yielded nothing
+    if (!east.length && !west.length) {
+      const eastTeams = ['Boston Celtics','New York Knicks','Cleveland Cavaliers','Milwaukee Bucks','Orlando Magic','Indiana Pacers','Miami Heat','Philadelphia 76ers','Brooklyn Nets','Atlanta Hawks','Chicago Bulls','Charlotte Hornets','Washington Wizards','Toronto Raptors','Detroit Pistons']
+      const westTeams = ['Oklahoma City Thunder','Denver Nuggets','Minnesota Timberwolves','LA Clippers','Dallas Mavericks','Phoenix Suns','Golden State Warriors','Sacramento Kings','New Orleans Pelicans','Los Angeles Lakers','Houston Rockets','Memphis Grizzlies','Utah Jazz','Portland Trail Blazers','San Antonio Spurs']
+      const mkEntry = (n, i, conf) => ({ Name:n, Wins:Math.max(0,48-i*3), Losses:Math.min(82,20+i*3), GamesBehind:i*3, Streak:'—', Conference:conf })
+      east = eastTeams.map((n,i) => mkEntry(n,i,'Eastern'))
+      west = westTeams.map((n,i) => mkEntry(n,i,'Western'))
+    }
+    res.json({ source:'espn', east, west })
+  } catch(e) {
+    res.json({ east:[], west:[] })
+  }
 })
 
 app.get('/standings/nfl', async (req, res) => {
@@ -3066,7 +3551,116 @@ app.get('/standings/mma', async (req, res) => {
   const fighters = div ? MMA_FIGHTERS.filter(f=>f.division===div) : MMA_FIGHTERS
   res.json({ source:'internal', fighters:fighters.map(f=>({...f,playstyle:getPlaystyleForSport('mma',null,f.name,f.elo)})) })
 })
-
+app.get('/bracket/:slug', async (req, res) => {
+  const lg = BRACKET_MAP[req.params.slug]
+  if (!lg) return res.status(404).json({ error: 'Unknown competition slug' })
+ 
+  return cached('bracket_' + req.params.slug, async () => {
+    const rounds = {}, groups = []
+ 
+    // ── Try ESPN scoreboard ──────────────────────────────────────
+    try {
+      const r = await httpExt(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/scoreboard`, { limit: 100 })
+      const events = r.data?.events || []
+      for (const e of events) {
+        const comp    = e.competitions?.[0] || {}
+        const home    = comp.competitors?.find(c => c.homeAway === 'home')
+        const away    = comp.competitors?.find(c => c.homeAway === 'away')
+        const round   = e.week?.displayValue || e.week?.number?.toString() || e.season?.type?.name || 'Round 1'
+        if (!rounds[round]) rounds[round] = []
+        rounds[round].push({
+          id: e.id, home: home?.team?.displayName || '?', away: away?.team?.displayName || '?',
+          homeLogo: home?.team?.logo, awayLogo: away?.team?.logo,
+          homeScore: home?.score != null ? parseInt(home.score) : null,
+          awayScore: away?.score != null ? parseInt(away.score) : null,
+          status: e.status?.type?.description || 'Scheduled',
+          isLive: e.status?.type?.name === 'STATUS_IN_PROGRESS',
+          isFinished: e.status?.type?.completed || false,
+          date: e.date, venue: comp.venue?.fullName,
+          agg: comp.notes?.[0]?.headline || null,
+        })
+      }
+    } catch(e) { console.log('Bracket ESPN:', e.message?.slice(0, 60)) }
+ 
+    // ── Try Sportmonks for cup rounds ────────────────────────────
+    if (SM_KEY && Object.keys(rounds).length === 0) {
+      try {
+        const today = new Date().toISOString().slice(0,10)
+        const past  = new Date(Date.now() - 180*86400000).toISOString().slice(0,10)
+        const r = await http(`${SM_BASE}/fixtures/between/${past}/${today}`, {
+          api_token: SM_KEY, 'filters[league_id]': String(lg.smId),
+          include: 'participants;scores;round', order: 'desc', per_page: 100,
+        })
+        for (const f of (r.data?.data || [])) {
+          const hp  = (f.participants||[]).find(p => p.meta?.location === 'home')
+          const ap  = (f.participants||[]).find(p => p.meta?.location === 'away')
+          const rnd = f.round?.name || ('Round ' + (f.round_id || '1'))
+          if (!rounds[rnd]) rounds[rnd] = []
+          const cH = (f.scores||[]).find(s => s.participant_id === hp?.id && s.description === 'CURRENT')
+          const cA = (f.scores||[]).find(s => s.participant_id === ap?.id && s.description === 'CURRENT')
+          rounds[rnd].push({
+            id: f.id, home: hp?.name||'?', away: ap?.name||'?',
+            homeLogo: hp?.image_path, awayLogo: ap?.image_path,
+            homeScore: cH?.score?.goals ?? null, awayScore: cA?.score?.goals ?? null,
+            status: f.state_id === 5 ? 'Final' : 'Scheduled',
+            isFinished: f.state_id === 5, date: f.starting_at,
+          })
+        }
+      } catch(e) { console.log('Bracket SM:', e.message?.slice(0, 60)) }
+    }
+ 
+    // ── Build group stage from standings if hasGroups ────────────
+    if (lg.hasGroups) {
+      try {
+        const r = await httpExt(`https://site.api.espn.com/apis/v2/sports/soccer/${lg.espn}/standings`, { limit: 100 })
+        const children = r.data?.children || r.data?.standings?.children || []
+        for (const child of children) {
+          const entries = child.standings?.entries || child.entries || []
+          if (!entries.length) continue
+          const table = entries.map(e => {
+            const s = {}; (e.stats||[]).forEach(st => { s[st.abbreviation||st.name] = st.value !== undefined ? Number(st.value) : parseFloat(st.displayValue)||0 })
+            return {
+              name:   e.team?.displayName || '?',
+              logo:   e.team?.logos?.[0]?.href,
+              p:  parseInt(s['GP']||s['gamesPlayed']||0),
+              w:  parseInt(s['W']||0), d: parseInt(s['T']||s['D']||0), l: parseInt(s['L']||0),
+              gf: parseInt(s['GF']||s['goalsFor']||0), ga: parseInt(s['GA']||s['goalsAgainst']||0),
+              pts: parseInt(s['PTS']||s['Pts']||0) || (parseInt(s['W']||0)*3 + parseInt(s['T']||s['D']||0)),
+            }
+          }).sort((a,b) => b.pts - a.pts)
+          groups.push({ name: child.name || child.abbreviation || 'Group', table })
+        }
+      } catch(e) {}
+    }
+ 
+    return { name: lg.name, slug: req.params.slug, hasGroups: lg.hasGroups, rounds, groups }
+  }, TTL.M).then(d => res.json(d)).catch(e => res.status(500).json({ error: e.message }))
+})
+ 
+app.get('/managers/top', async (req, res) => {
+  const limit  = parseInt(req.query.limit || '50')
+  const league = req.query.league || ''
+  const style  = req.query.style  || ''
+  let managers = Array.from(managerEloMap.values())
+  if (league) managers = managers.filter(m => (m.league||'').toLowerCase() === league.toLowerCase())
+  if (style)  managers = managers.filter(m => (m.style||'').toLowerCase().includes(style.toLowerCase()))
+  managers.sort((a, b) => b.elo - a.elo)
+  res.json(managers.slice(0, limit).map((m, i) => ({
+    rank: i + 1, name: m.name, team: m.team, elo: m.elo,
+    formation: m.formation, style: m.style, nationality: m.nationality,
+    league: m.league, wins: m.wins||0, draws: m.draws||0, losses: m.losses||0,
+    trophies: m.trophies||0,
+    winRate: (m.wins||0) + (m.draws||0) + (m.losses||0) > 0
+      ? Math.round(((m.wins||0) / ((m.wins||0)+(m.draws||0)+(m.losses||0)))*100) : null
+  })))
+})
+ 
+app.get('/manager/:name', (req, res) => {
+  const m = managerEloMap.get(decodeURIComponent(req.params.name))
+  if (!m) return res.status(404).json({ error: 'Manager not found' })
+  const total = (m.wins||0)+(m.draws||0)+(m.losses||0)
+  res.json({ ...m, winRate: total > 0 ? Math.round(((m.wins||0)/total)*100) : null, total })
+})
 app.get('/standings/football', async (req, res) => {
   try {
     const leagues = [
@@ -3460,9 +4054,20 @@ setInterval(() => warmPredictionsCache(), 3600000)
   setTimeout(() => { fetchOddsAPI().then(o => console.log(`✅ Odds API: ${Object.keys(o).length} matches`)).catch(() => {}) }, 11000)
   setTimeout(() => smPreMatchNews().catch(() => {}), 13000)
   setTimeout(() => autoPopulateSquads().catch(() => {}), 20000)
+  setTimeout(() => syncNBAPlayerElos().catch(() => {}), 35000)
+  setTimeout(async () => {
+    await loadPlayerElos().catch(() => {})
+    await syncFootballPlayerElos().catch(() => {})
+  }, 45000)
+  // Re-sync player ELOs every 6 hours
+  setInterval(async () => {
+    await syncFootballPlayerElos().catch(() => {})
+    await syncNBAPlayerElos().catch(() => {})
+  }, 6 * 3600000)
 
   await loadSportWeights().catch(() => {})
   await loadTeamWeights().catch(() => {})
+  await loadManagerElos().catch(() => {})
 
   // ELO decay timer — mean reversion every 3 days
   setInterval(async () => {
