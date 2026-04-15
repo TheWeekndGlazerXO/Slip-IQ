@@ -7,8 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="/js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- Cloudflare Turnstile (free captcha) -->
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
 <style>
 :root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8)}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -24,17 +23,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .field label{display:block;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;color:var(--text3);margin-bottom:5px}
 .field input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:11px 14px;color:var(--text);font-family:'DM Sans';font-size:14px;outline:none;transition:border-color .2s}
 .field input:focus{border-color:var(--accent)}
-.field input.error{border-color:var(--red)}
 .tcs-wrap{display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:7px}
 .tcs-wrap input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:var(--accent);cursor:pointer}
 .tcs-text{font-size:11px;color:var(--text2);line-height:1.5}
 .tcs-text a{color:var(--accent);text-decoration:none}
-.captcha-wrap{margin:14px 0;display:flex;justify-content:center}
 .btn-main{width:100%;background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:12px;font-weight:700;letter-spacing:1px;padding:13px;border-radius:8px;border:none;cursor:pointer;margin-top:6px;transition:opacity .2s}
 .btn-main:disabled{opacity:.5;cursor:not-allowed}
-.btn-google{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border2);color:var(--text);font-family:'DM Sans';font-size:13px;font-weight:500;padding:12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;transition:background .2s}
-.btn-google:hover{background:rgba(255,255,255,.1)}
-.btn-google svg{width:18px;height:18px;flex-shrink:0}
+.btn-google{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--text3);font-family:'DM Sans';font-size:13px;font-weight:500;padding:12px;border-radius:8px;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;opacity:.55}
+.btn-google svg{width:18px;height:18px;flex-shrink:0;opacity:.5}
+.soon-badge{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;background:rgba(0,200,248,.12);color:var(--accent);border:1px solid rgba(0,200,248,.2);padding:2px 7px;border-radius:4px;margin-left:4px}
 .divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border2)}
 .err-msg{background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:'JetBrains Mono';font-size:10px;padding:10px 12px;border-radius:6px;margin-bottom:14px;display:none}
@@ -51,7 +48,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="logo">SLIP IQ</div>
   <div class="logo-sub">BETTING INTELLIGENCE v14</div>
 
-  <button class="btn-google" onclick="signInWithGoogle()">
+  <button class="btn-google" disabled title="Coming soon">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -59,6 +56,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
     </svg>
     Continue with Google
+    <span class="soon-badge">COMING SOON</span>
   </button>
 
   <div class="divider">OR</div>
@@ -102,23 +100,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <label>PASSWORD (min 8 chars)</label>
       <input type="password" id="suPass" placeholder="••••••••" autocomplete="new-password">
     </div>
-    <!-- T&Cs checkbox — mandatory -->
     <div class="tcs-wrap">
       <input type="checkbox" id="tcsCheck">
       <div class="tcs-text">
-        I agree to the <a href="terms.html" target="_blank">Terms & Conditions</a> and 
-        <a href="privacy.html" target="_blank">Privacy Policy</a>. I confirm I am 18+ years old 
+        I agree to the <a href="terms.html" target="_blank">Terms &amp; Conditions</a> and
+        <a href="privacy.html" target="_blank">Privacy Policy</a>. I confirm I am 18+ years old
         and understand this service is for informational purposes only — not financial advice.
-      </div>
-    </div>
-    <!-- Turnstile captcha widget -->
-    <div class="captcha-wrap">
-      <div class="cf-turnstile" 
-           data-sitekey="0x4AAAAAABkMGHKdpF9lQr8s"
-           data-theme="dark"
-           data-callback="onCaptchaSuccess"
-           data-expired-callback="onCaptchaExpired"
-           id="turnstileWidget">
       </div>
     </div>
     <button class="btn-main" id="btnSignup" onclick="doSignUp()">CREATE ACCOUNT</button>
@@ -139,22 +126,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 <script>
 let sbClient = null
-let captchaToken = null
-let captchaVerified = false
 
-// Rate limiting state (client-side backup — server should also rate limit)
 const RATE_LIMIT = { attempts: 0, lockedUntil: 0 }
 const MAX_ATTEMPTS = 5
-const LOCKOUT_MS = 15 * 60 * 1000 // 15 minutes
-
-function onCaptchaSuccess(token) {
-  captchaToken = token
-  captchaVerified = true
-}
-function onCaptchaExpired() {
-  captchaToken = null
-  captchaVerified = false
-}
+const LOCKOUT_MS = 15 * 60 * 1000
 
 window.addEventListener('load', () => {
   const cfg = window.NEXUS_CONFIG || {}
@@ -164,24 +139,21 @@ window.addEventListener('load', () => {
   const { createClient } = supabase
   sbClient = createClient(url, key)
 
-  // If already logged in, redirect — clear bounce flag either way
   sbClient.auth.getSession().then(({ data }) => {
     if (data?.session?.user) {
-      sessionStorage.setItem('_slipiq_auth_ok', '1'); // Tell home.html to trust this
-      redirectHome();
+      sessionStorage.setItem('_slipiq_auth_ok', '1')
+      redirectHome()
     } else {
-      sessionStorage.removeItem('_slipiq_auth_ok'); // Genuinely no session
+      sessionStorage.removeItem('_slipiq_auth_ok')
     }
   })
 
-  // Handle OAuth callback
   sbClient.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session?.user) {
       ensureUserRow(session.user).then(() => redirectHome())
     }
   })
 
-  // Check for tab param
   const tab = new URLSearchParams(location.search).get('tab')
   if (tab === 'signup') switchTab('signup')
 })
@@ -237,20 +209,6 @@ function recordAttempt(success) {
   }
 }
 
-async function signInWithGoogle() {
-  if (!sbClient) return
-  clearMsgs()
-  try {
-    const { error } = await sbClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/home.html'
-      }
-    })
-    if (error) showErr(error.message)
-  } catch(e) { showErr('Google sign-in failed') }
-}
-
 async function doSignIn() {
   if (!sbClient || isRateLimited()) return
   clearMsgs()
@@ -266,7 +224,7 @@ async function doSignIn() {
     const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass })
     if (error) {
       recordAttempt(false)
-      showErr(error.message === 'Invalid login credentials' 
+      showErr(error.message === 'Invalid login credentials'
         ? 'Invalid email or password.' : error.message)
     } else {
       recordAttempt(true)
@@ -290,7 +248,6 @@ async function doSignUp() {
   if (!name || !email || !pass) { showErr('Please fill in all fields'); return }
   if (!tcs) { showErr('You must agree to the Terms & Conditions to create an account.'); return }
   if (pass.length < 8) { showErr('Password must be at least 8 characters.'); return }
-  if (!captchaVerified) { showErr('Please complete the captcha verification.'); return }
 
   const btn = document.getElementById('btnSignup')
   btn.disabled = true
@@ -300,15 +257,11 @@ async function doSignUp() {
     const { data, error } = await sbClient.auth.signUp({
       email,
       password: pass,
-      options: {
-        data: { full_name: name },
-        captchaToken // pass to Supabase if you enable captcha in Auth settings
-      }
+      options: { data: { full_name: name } }
     })
     if (error) {
       showErr(error.message)
     } else if (data.user && !data.session) {
-      // Email confirmation required
       showOk('✓ Account created! Check your email to confirm your account, then sign in.')
       switchTab('signin')
     } else if (data.user && data.session) {
@@ -338,8 +291,8 @@ async function ensureUserRow(user, name) {
     await fetch('/user/ensure', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        user_id: user.id, 
+      body: JSON.stringify({
+        user_id: user.id,
         email: user.email,
         full_name: name || user.user_metadata?.full_name || ''
       })
