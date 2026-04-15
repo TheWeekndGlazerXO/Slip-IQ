@@ -330,6 +330,7 @@ var currentTab   = 'standings';
 var sidebarCollapsed = false;
 var allEloRows   = [];
 var allTeamData  = [];
+var _mgrCache    = [];
 var USER_ID = localStorage.getItem('slipiq_uid') || 'guest';
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -695,15 +696,15 @@ async function loadManagerRankings(){
     var r=await fetch('/managers/top?'+params.toString());
     if(!r.ok) throw new Error('Server '+r.status);
     var managers=await r.json();
+    _mgrCache = managers;
     document.getElementById('mgrCount').textContent=managers.length+' MANAGERS';
     if(!managers.length){el.innerHTML='<div style="padding:20px;text-align:center;font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">No managers match these filters.</div>';return;}
-    el.innerHTML='<div class="mgr-grid">'+managers.map(function(m){
+    el.innerHTML='<div class="mgr-grid">'+managers.map(function(m,i){
       var col=STYLE_COLORS[m.style]||'var(--text2)';
       var icon=STYLE_ICONS[m.style]||'⚙️';
       var eloGrade=m.elo>=1900?'LEGENDARY':m.elo>=1850?'WORLD CLASS':m.elo>=1800?'ELITE':m.elo>=1750?'TOP':'QUALITY';
       var total=(m.wins||0)+(m.draws||0)+(m.losses||0);
-      var mStr=JSON.stringify(m).replace(/"/g,'&quot;');
-      return '<div class="mgr-card" onclick="openManagerModal(\''+esc(JSON.stringify(m))+'\')">'+
+      return '<div class="mgr-card" onclick="openManagerModal('+i+')">'+
         '<div style="display:flex;align-items:center;gap:10px">'+
           '<div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--text3);min-width:28px">'+m.rank+'</div>'+
           '<div style="flex:1">'+
@@ -730,7 +731,9 @@ async function loadManagerRankings(){
   }
 }
 
-function openManagerModal(mjson){
+function openManagerModal(idx){
+  var m = _mgrCache[idx];
+  if(!m) return;
   var m; try{m=JSON.parse(mjson);}catch(e){return;}
   var total=(m.wins||0)+(m.draws||0)+(m.losses||0);
   var col=STYLE_COLORS[m.style]||'var(--text2)';
@@ -912,9 +915,30 @@ function renderTeamBody(teamName,sport,d){
   var squad=d.squad||[],keyPlayers=d.keyPlayers||[],elo=d.elo||0,descriptors=d.descriptors||[],strengths=d.strengths||[],weaknesses=d.weaknesses||[],next5=d.next5||[],stats=d.stats||{},manager=d.manager||null;
 
   // ── Stat strip ────────────────────────────────────────────────
+  var pe = d.positionalElos || {};
   var statHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">'+
-    [{l:'ELO',v:elo||'—',c:'var(--accent)'},{l:'SQUAD',v:squad.length||'—',c:'var(--green)'},{l:'TIER',v:d.tier||(elo>=1900?'ELITE':elo>=1750?'TOP':elo>=1600?'MID':'LOWER'),c:'var(--gold)'}]
+    [{l:'TEAM ELO',v:elo||'—',c:'var(--accent)'},{l:'SQUAD',v:squad.length||'—',c:'var(--green)'},{l:'TIER',v:d.tier||(elo>=1900?'ELITE':elo>=1750?'TOP':elo>=1600?'MID':'LOWER'),c:'var(--gold)'}]
     .map(function(x){return'<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center"><div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:1px">'+x.l+'</div><div style="font-family:\'Bebas Neue\';font-size:19px;color:'+x.c+'">'+x.v+'</div></div>';}).join('')+'</div>';
+  
+  // Positional ELO bars  
+  if(pe.attack !== null && pe.attack !== undefined){
+    statHtml += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:10px">';
+    statHtml += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:8px">POSITIONAL ELO RATINGS</div>';
+    var pGroups=[{l:'⚔️ ATTACK',v:pe.attack||0,top:pe.attack_top,elo:pe.attack_elo,c:'var(--red)'},{l:'⚙️ MIDFIELD',v:pe.midfield||0,top:pe.midfield_top,elo:pe.midfield_elo,c:'var(--accent)'},{l:'🛡️ DEFENSE',v:pe.defense||0,top:pe.defense_top,elo:pe.defense_elo,c:'var(--teal)'}];
+    pGroups.forEach(function(g){
+      statHtml+='<div style="margin-bottom:7px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
+          '<span style="font-size:10px;font-weight:600;color:'+g.c+'">'+g.l+'</span>'+
+          '<div style="text-align:right"><span style="font-family:\'Bebas Neue\';font-size:16px;color:'+g.c+'">'+g.v+'/300</span>'+
+          (g.top?'<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3)">★ '+g.top+(g.elo?' ('+g.elo+')':'')+'</div>':'')+
+          '</div>'+
+        '</div>'+
+        '<div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">'+
+          '<div style="width:'+Math.round(g.v/300*100)+'%;height:100%;background:'+g.c+';border-radius:3px;transition:width .6s"></div>'+
+        '</div></div>';
+    });
+    statHtml += '</div>';
+  }
 
   // ── Deep stats ────────────────────────────────────────────────
   var deepStats='';
@@ -930,7 +954,7 @@ function renderTeamBody(teamName,sport,d){
     descHtml='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">'+
       descriptors.map(function(d2){
         var badgeCls=d2.label==='Finnesser'?' badge-finnesser':d2.label==='Haramball'?' badge-haramball':d2.label==='Bottler'?' badge-bottler':'';
-        return'<span class="ps-chip'+badgeCls+'" style="'+(badgeCls?'':' color:'+(d2.color||'var(--accent)')+';">'+(d2.icon||'')+' '+d2.label+'</span>';
+        return'<span class="ps-chip'+badgeCls+'" style="'+(badgeCls?'':' color:'+(d2.color||'var(--accent)')+';">'+(d2.icon||'')+' '+d2.label+'</span>');
       }).join('')+'</div>';
   }
 
@@ -938,7 +962,8 @@ function renderTeamBody(teamName,sport,d){
   var mgrHtml='';
   if(manager){
     var mc=STYLE_COLORS[manager.style]||'var(--text2)';
-    mgrHtml='<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 11px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="openManagerModal(\''+esc(JSON.stringify(manager))+'\')">'+
+    var _tmpMgrIdx = _mgrCache.push(manager)-1;
+    mgrHtml='<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 11px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="openManagerModal('+_tmpMgrIdx+')">'+
       '<div style="font-size:18px">👔</div>'+
       '<div style="flex:1">'+
         '<div style="font-size:12px;font-weight:600;color:var(--text)">'+manager.name+'</div>'+

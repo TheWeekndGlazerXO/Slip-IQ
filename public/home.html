@@ -436,7 +436,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
   <a class="nav-item" href="leagues.html"><span class="nav-icon">🏆</span><span class="nav-label">Leagues</span></a>
   <div class="nav-section-lbl">ACCOUNT</div>
   <a class="nav-item" href="account.html"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></a>
-  <a class="nav-item" href="subscriptions.html"><span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span></a>
+  <a class="nav-item" href="store.html"><span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span></a>
   <a class="nav-item" href="info.html"><span class="nav-icon">ℹ️</span><span class="nav-label">How To Use</span></a>
   <a class="nav-item" href="index.html"><span class="nav-icon">🏡</span><span class="nav-label">Home Page</span></a>
   <div class="nav-bottom">
@@ -553,12 +553,9 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       <div class="pp-config">
         <div class="cfg-row">
           <div class="cfg-lbl">TARGET ODDS <span style="color:var(--gold);font-family:'Bebas Neue';font-size:13px" id="oddsDisplay">4.00</span></div>
-          <input type="range" min="150" max="2000" value="400" oninput="updateTargetOdds(this.value)">
+          <input type="range" min="105" max="250000" value="400" oninput="updateTargetOdds(this.value)">
         </div>
-        <div class="cfg-row">
-          <div class="cfg-lbl">RISK <span style="color:var(--accent);font-size:9px" id="riskLabel">Moderate (4/10)</span></div>
-          <input type="range" min="1" max="10" value="4" oninput="updateRisk(this.value)">
-        </div>
+        
         <div class="cfg-row">
           <div class="cfg-lbl">LEGS MIN / MAX</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
@@ -754,13 +751,14 @@ var LEAGUE_IMPORTANCE = {
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 var allMatches = [], parlaySelections = [], currentView = "all";
-var riskLevel = 4, targetOdds = 4.0, chatOpen = false, sidebarCollapsed = false;
+var riskLevel = 5, targetOdds = 4.0, chatOpen = false, sidebarCollapsed = false;
 var leagueSet = new Set(), selectedLeagues = new Set();
 var filteredMatches = [], currentPage = 1;
 var allNewsArticles = [], savedParlays = [];
 var currentSport = 'football';
 var currentSub = null;
 var PAGE_SIZE = 15;
+var globalMatchCache = {}; // persists across sport tab switches for cross-sport parlay
 
 // ─── SPORT CONFIG ─────────────────────────────────────────────────────────────
 var SPORT_CONFIG = {
@@ -829,6 +827,8 @@ async function loadCurrentSport() {
     var data = raw.predictions || raw;
     if (!Array.isArray(data)) data = [];
     allMatches = data;
+    // Merge into global cache for cross-sport parlay
+    data.forEach(function(m){ globalMatchCache[String(m.id)] = Object.assign({}, m, {sport: currentSport}); });
     leagueSet = new Set(allMatches.map(function(m){ return m.league; }).filter(Boolean));
     selectedLeagues = new Set(leagueSet);
     renderLeagues();
@@ -1233,7 +1233,7 @@ function renderLineupsPane(m) {
               currentSport === 'american_football' ? 'KEY PLAYERS' :
               currentSport === 'boxing' || currentSport === 'mma' ? 'FIGHTER PROFILES' :
               currentSport === 'tennis' ? 'PLAYER PROFILES' :
-              'LINEUPS (SPORTMONKS)';
+              m.lineupsConfirmed ? 'CONFIRMED LINEUPS ✅' : 'PREDICTED LINEUP (SQUAD DATA) 🔮';
 
   var pRow = function(p, tName) {
     var pos = p.position || 'CM';
@@ -1487,7 +1487,7 @@ function closePM() { document.getElementById("pmOverlay").classList.remove("open
 // ─── PARLAY ───────────────────────────────────────────────────────────────────
 function toggleParlay(matchId, pick, label, odds, prob) {
   var idx = parlaySelections.findIndex(function(s){ return s.matchId === matchId; });
-  var m = allMatches.find(function(x){ return x.id === matchId; });
+  var m = allMatches.find(function(x){ return x.id === matchId; }) || globalMatchCache[String(matchId)];
   if (!m) return;
   var entry = { matchId: matchId, pick: pick, label: label, odds: odds, prob: prob, matchName: (m.home||'?') + " vs " + (m.away||'?'), league: m.league, confidence: m.confidence||prob, hasRealOdds: m.hasRealOdds };
   if (idx > -1) { if (parlaySelections[idx].pick === pick) parlaySelections.splice(idx, 1); else parlaySelections[idx] = entry; }
@@ -1640,47 +1640,46 @@ async function autoParlay() {
     var markets = getEnabledMarkets();
     var allCandidates = [];
 
-    // Collect football matches
-    if (enabledSports.indexOf('football') !== -1) {
-      allCandidates = allCandidates.concat(
-        allMatches.filter(function(m){ return !m.isLive && !m.isFinished; })
-                  .map(function(m){ return Object.assign({}, m, { sport: 'football' }); })
-      );
-    }
+    // Always include current sport's matches
+    var now = Date.now(), maxMs = timeframe * 86400000;
+    var currentMatches = allMatches.filter(function(m){
+      if (m.isLive || m.isFinished) return false;
+      if (!m.date) return true;
+      var t = new Date(m.date).getTime();
+      return t >= now - 3600000 && t <= now + maxMs;
+    }).map(function(m){ return Object.assign({}, m, { sport: currentSport }); });
+    allCandidates = allCandidates.concat(currentMatches);
 
-    // Fetch other sports in parallel
-    var otherSports = enabledSports.filter(function(s){ return s !== 'football'; });
+    // Fetch all other enabled sports in parallel
+    var otherSports = enabledSports.filter(function(s){ return s !== currentSport; });
     var sportFetches = otherSports.map(function(sport) {
       var cfg = SPORT_CONFIG[sport];
       if (!cfg) return Promise.resolve([]);
-      return fetch(API + cfg.endpoint)
+      return fetch(API + cfg.endpoint, { headers: { 'x-user-id': USER_ID } })
         .then(function(r){ return r.ok ? r.json() : []; })
         .then(function(d){
           var arr = d.predictions || d;
           if (!Array.isArray(arr)) return [];
-          return arr.filter(function(m){ return !m.isLive && !m.isFinished; })
-                    .map(function(m){ return Object.assign({}, m, { sport: sport }); });
+          var result = arr.filter(function(m){ 
+            if (m.isLive || m.isFinished) return false;
+            if (!m.date) return true;
+            var t = new Date(m.date).getTime();
+            return t >= now - 3600000 && t <= now + maxMs;
+          }).map(function(m){ return Object.assign({}, m, { sport: sport }); });
+          // Merge into global cache
+          result.forEach(function(m){ globalMatchCache[String(m.id)] = m; });
+          return result;
         })
         .catch(function(){ return []; });
     });
     var sportResults = await Promise.all(sportFetches);
     sportResults.forEach(function(arr){ allCandidates = allCandidates.concat(arr); });
 
-    // Filter by timeframe
-    var now = Date.now();
-    var maxMs = timeframe * 86400000;
-    allCandidates = allCandidates.filter(function(m){
-      if (!m.date) return true;
-      var t = new Date(m.date).getTime();
-      return t >= now - 3600000 && t <= now + maxMs;
-    });
-
     if (!allCandidates.length) {
-      alert("No matches found for selected sports/timeframe.");
+      showToast("⚠️ No matches found for selected sports/timeframe.");
       return;
     }
 
-    // Send to server with full market + odds context
     var res = await fetch(API + "/parlay/auto", {
       method: "POST",
       headers: authHeaders(),
@@ -1706,22 +1705,27 @@ async function autoParlay() {
     var data = await res.json();
 
     if (data.notEnoughMatches || !data.parlay || !data.parlay.length) {
-      showToast("⚠️ No parlay possible for these filters — try adjusting target odds, markets or timeframe.");
+      showToast("⚠️ Could not build parlay — try lowering min legs or expanding sports/timeframe.");
       return;
     }
 
     parlaySelections = data.parlay || [];
+    // Merge any new matches into global cache
+    parlaySelections.forEach(function(leg){
+      if (leg.matchId && !globalMatchCache[String(leg.matchId)]) {
+        globalMatchCache[String(leg.matchId)] = { id: leg.matchId, home: leg.matchName && leg.matchName.split(' vs ')[0], away: leg.matchName && leg.matchName.split(' vs ')[1], league: leg.league, sport: leg.sport };
+      }
+    });
     renderParlay();
     renderPage();
-    showToast("⚡ Optimal parlay built — " + parlaySelections.length + " legs @ " + (data.combinedOdds||'?') + "x");
+    showToast("⚡ " + parlaySelections.length + " legs built @ " + (data.combinedOdds||'?') + "x · Score: " + (data.score||'?') + "/100");
   } catch(err) {
-    alert("Auto-build failed: " + err.message);
+    showToast("⚠️ Auto-build failed: " + err.message);
   } finally {
     btn.textContent = "⚡ AUTO-BUILD OPTIMAL PARLAY";
     btn.disabled = false;
   }
 }
-
 async function saveParlay() {
   if (!parlaySelections.length) { alert("Add selections first."); return; }
   var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1);
@@ -1803,7 +1807,11 @@ function updateRisk(v) {
   document.getElementById("riskLabel").textContent = labels[v] + " (" + v + "/10)";
   if (parlaySelections.length) renderParlay();
 }
-function updateTargetOdds(v) { targetOdds = v/100; document.getElementById("oddsDisplay").textContent = targetOdds.toFixed(2); }
+function updateTargetOdds(v) {
+  targetOdds = v/100;
+  var disp = targetOdds >= 1000 ? Math.round(targetOdds).toLocaleString() : targetOdds >= 100 ? Math.round(targetOdds) : targetOdds.toFixed(2);
+  document.getElementById("oddsDisplay").textContent = disp;
+}
 function switchView(el, view) {
   currentView = view;
   document.querySelectorAll(".view-tab").forEach(function(t){ t.classList.remove("active"); });

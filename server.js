@@ -2541,6 +2541,98 @@ async function smTeamFatigue(teamId, matchDate) {
   }, TTL.M)
 }
 // ── CORE FOOTBALL PREDICTION BUILDER ─────────────────────
+// ── EXPECTED LINEUP FROM SQUAD DATA ──────────────────────────────────────────
+function buildExpectedLineupFromSquad(teamName, teamElo) {
+  const squad = squadDB.get(teamName) || []
+  if (!squad.length) return []
+
+  // 4-3-3 shape: GK, RB, CB, CB, LB, CDM, CM, CM, RW, ST, LW
+  const needs = [
+    { pos: 'GK',  count: 1, fallbacks: [] },
+    { pos: 'RB',  count: 1, fallbacks: ['LB','LWB','RWB'] },
+    { pos: 'CB',  count: 2, fallbacks: [] },
+    { pos: 'LB',  count: 1, fallbacks: ['RB','LWB','RWB'] },
+    { pos: 'CDM', count: 1, fallbacks: ['CM'] },
+    { pos: 'CM',  count: 2, fallbacks: ['CDM','CAM','LM','RM'] },
+    { pos: 'RW',  count: 1, fallbacks: ['RM','CAM'] },
+    { pos: 'ST',  count: 1, fallbacks: ['LW','RW','CAM'] },
+    { pos: 'LW',  count: 1, fallbacks: ['LM','CAM'] },
+  ]
+
+  const used = new Set()
+  const lineup = []
+
+  for (const req of needs) {
+    const allPos = [req.pos, ...req.fallbacks]
+    const pool = squad
+      .filter(p => allPos.includes(p.position) && !used.has(p.player_name) && p.player_name)
+      .sort((a, b) => (b.elo || 0) - (a.elo || 0))
+
+    for (let i = 0; i < req.count; i++) {
+      const p = pool[i]
+      if (!p) break
+      used.add(p.player_name)
+      const pos = p.position || req.pos
+      lineup.push({
+        number: lineup.length + 1,
+        name: p.player_name,
+        position: pos,
+        elo: p.elo || 1500,
+        isKey: p.is_key || p.isKey || false,
+        speed: p.speed || 60,
+        attack: p.attack || 60,
+        defense: p.defense || 60,
+        bigMatch: p.big_match || p.bigMatch || 60,
+        playstyle: p.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM,
+        goals_this_season: p.goals_this_season || null,
+        assists_this_season: p.assists_this_season || null,
+        real_rating: p.real_rating || null,
+        appearances: p.appearances || null,
+        sm_player_id: p.sm_player_id || null,
+        _fromSquad: true // flag that this is predicted, not confirmed
+      })
+    }
+  }
+
+  return lineup
+}
+
+// ── POSITIONAL ELOs (Attack / Midfield / Defense) ─────────────────────────────
+function buildPositionalElos(teamName) {
+  const squad = squadDB.get(teamName) || []
+  if (!squad.length) return null
+
+  const groups = {
+    attack:   ['ST','LW','RW','CAM'],
+    midfield: ['CM','CDM','RM','LM'],
+    defense:  ['CB','LB','RB','LWB','RWB']
+  }
+
+  const result = {}
+  for (const [role, positions] of Object.entries(groups)) {
+    const players = squad.filter(p => positions.includes(p.position) && (p.elo||0) > 1300)
+    if (!players.length) { result[role] = null; continue }
+
+    // Weighted average — top 3 players count more
+    const sorted = players.sort((a,b) => (b.elo||0)-(a.elo||0))
+    const weights = [0.45, 0.30, 0.15, 0.10]
+    let weighted = 0, totalW = 0
+    sorted.slice(0, 4).forEach((p, i) => {
+      const w = weights[i] || 0.05
+      weighted += (p.elo||1500) * w
+      totalW += w
+    })
+    const avg = weighted / totalW
+    // Scale 1300–2100 → 0–300
+    result[role] = Math.round(Math.max(0, Math.min(300, (avg - 1300) / 800 * 300)))
+    result[role+'_top'] = sorted[0]?.player_name || null
+    result[role+'_elo'] = Math.round(avg)
+    result[role+'_count'] = players.length
+  }
+
+  return result
+}
+
 async function buildPrediction(smFix, oddsMap) {
   try {
     const now   = Date.now()
@@ -2619,8 +2711,12 @@ async function buildPrediction(smFix, oddsMap) {
       const attrs = db || buildPlayerAttrs(pName, pos, pElo, tElo, null)
       return { number: l.jersey_number || idx + 1, name: pName, position: pos, elo: pElo, isKey: attrs?.is_key || false, speed: attrs?.speed || 60, attack: attrs?.attack || 60, defense: attrs?.defense || 60, bigMatch: attrs?.bigMatch || attrs?.big_match || 60, playstyle: attrs?.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM, goals_this_season: attrs?.goals_this_season || null, real_rating: attrs?.real_rating || null }
     })
-    const homeLineup = buildLu(homeId, home, hElo)
-    const awayLineup = buildLu(awayId, away, aElo)
+    let homeLineup = buildLu(homeId, home, hElo)
+    let awayLineup = buildLu(awayId, away, aElo)
+    
+    // Fallback to squad data when no confirmed lineup
+    if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
+    if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
     const mismatches = detectMismatches(homeLineup, awayLineup, home, away)
     const gameApproach = buildGameApproach(hElo, aElo, hForm, aForm, hxg, axg, league, hW, aW)
 
@@ -2652,6 +2748,7 @@ async function buildPrediction(smFix, oddsMap) {
       homeTactics: inferTactics(hElo, hForm), awayTactics: inferTactics(aElo, aForm),
       homeFormation: "4-3-3", awayFormation: "4-3-3",
       homeLineup, awayLineup, mismatches, h2h,
+      lineupsConfirmed: lus.length > 0,
       factors: buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW),
       markets, bttsProb: markets.bttsYesPct, over25Prob: markets.over25Prob,
       ouProbs: markets.ouProbs, ouOdds: markets.ouOdds, bttsOdds: markets.bttsOdds, correctScores: markets.correctScores,
@@ -3102,10 +3199,13 @@ app.get('/team/profile/:teamName', async (req, res) => {
   const managerEntry = [...managerEloMap.entries()].find(([,v]) => v.team === teamName)
   const manager = managerEntry ? managerEloMap.get(managerEntry[0]) : null
 
+  const positionalElos = buildPositionalElos(teamName)
+
   res.json({
     name: teamName, elo: tElo,
     tier: tElo >= 1900 ? 'ELITE' : tElo >= 1750 ? 'TOP' : tElo >= 1600 ? 'MID' : 'LOWER',
     players: squad.length, style, descriptors, strengths, weaknesses, manager,
+    positionalElos,
     squad: squad.map(p => ({
       player_name: p.player_name||p.name, position: p.position||'CM',
       elo: p.elo||1500, speed: p.speed, attack: p.attack, defense: p.defense,
@@ -3158,7 +3258,8 @@ app.post("/parlay/auto", requireAccess('auto_parlay'), async (req, res) => {
       const edge = prob - impliedProb
       const leagueBonus = (m.league && ['Premier League','La Liga','Champions League','Serie A','Bundesliga','NBA','NFL'].includes(m.league)) ? 4 : 0
       const realOddsBonus = m.hasRealOdds ? 8 : 0
-      const score = (prob * 0.45) + (edge * 3) + (m.confidence||0) * 0.15 + leagueBonus + realOddsBonus + (10-riskLevel)*0.5
+      // Score purely by confidence + edge (no risk level penalty)
+      const score = (prob * 0.55) + (edge * 3.5) + (m.confidence||0) * 0.15 + leagueBonus + realOddsBonus
       candidates.push({ matchId:m.id, pick, label, odds:parseFloat(parseFloat(odds).toFixed(2)), prob:Math.round(prob), matchName:(m.home||'?')+' vs '+(m.away||'?'), league:m.league, confidence:m.confidence||prob, hasRealOdds:m.hasRealOdds, sport, score, edge:parseFloat(edge.toFixed(2)), date:m.date })
     }
 
@@ -3168,54 +3269,68 @@ app.post("/parlay/auto", requireAccess('auto_parlay'), async (req, res) => {
       addLeg('away', (m.away||'?')+' Win', m.awayOdds, m.awayProb)
     }
     if (mkts.some(k => ['btts','auto'].includes(k)) && m.bttsOdds?.yes && m.bttsProb) {
-      addLeg('btts_yes', 'Both Teams Score', m.bttsOdds.yes, m.bttsProb)
+      addLeg('btts_yes', 'BTTS — Yes', m.bttsOdds.yes, m.bttsProb)
     }
-    const ouLines = { 'ou_1.5':1.5,'ou_2.5':2.5,'ou_3.5':3.5,'ou_4.5':4.5 }
+    if (mkts.some(k => ['btts_no'].includes(k)) && m.bttsOdds?.no) {
+      addLeg('btts_no', 'BTTS — No', m.bttsOdds.no, 100-(m.bttsProb||50))
+    }
+    const ouLines = { 'ou_0.5':0.5,'ou_1.5':1.5,'ou_2.5':2.5,'ou_3.5':3.5,'ou_4.5':4.5,'ou_5.5':5.5 }
     for (const [mktKey, pts] of Object.entries(ouLines)) {
-      if (mkts.some(k => [mktKey,'auto'].includes(k)) && m.ouOdds?.[pts]) {
-        const ou = m.ouOdds[pts], op = m.ouProbs?.[pts]
-        if (ou.over && op?.overPct) addLeg('over_'+pts, 'Over '+pts, ou.over, op.overPct)
-        if (ou.under && op?.underPct) addLeg('under_'+pts, 'Under '+pts, ou.under, op.underPct)
+      if (!mkts.some(k => [mktKey,'auto'].includes(k))) continue
+      const ou = m.ouOdds?.[pts]
+      const op = m.ouProbs?.[pts]
+      if (ou?.over && op?.overPct) addLeg('over_'+pts, 'Over '+pts, ou.over, op.overPct)
+      if (ou?.under && op?.underPct) addLeg('under_'+pts, 'Under '+pts, ou.under, op.underPct)
+    }
+    // Double chance markets
+    if (mkts.some(k => ['dc','auto'].includes(k))) {
+      if (m.homeProb && m.drawProb) {
+        const dcProb = Math.round((m.homeProb + m.drawProb) * 0.97)
+        const dcOdds = parseFloat((1/Math.max(0.01,dcProb/100)*1.05).toFixed(2))
+        addLeg('dc_home', (m.home||'?') + ' or Draw', dcOdds, dcProb)
       }
     }
   }
 
-  if (!candidates.length) return res.json({ parlay: [], notEnoughMatches: "No valid legs" })
+  if (!candidates.length) return res.json({ parlay: [], notEnoughMatches: "No valid legs found for selected markets" })
 
+  // Sort purely by score descending (highest confidence first)
   candidates.sort((a, b) => b.score - a.score)
 
   const used = new Set()
   const selected = []
   let combinedOdds = 1.0
 
+  // Fill up to maxLegs with highest confidence picks (one pick per match)
   for (const c of candidates) {
     if (selected.length >= maxLegs) break
     if (used.has(c.matchId)) continue
-    if (c.prob < Math.max(15, 55 - riskLevel * 4)) continue
-    selected.push(c); used.add(c.matchId); combinedOdds *= c.odds
-    if (combinedOdds >= targetOdds && selected.length >= minLegs) break
-  }
-
-  if (selected.length > minLegs && combinedOdds > targetOdds * 2.5) {
-    let bestRemoveIdx = -1, bestDiff = Infinity
-    for (let i = 0; i < selected.length; i++) {
-      const newOdds = combinedOdds / selected[i].odds
-      const diff = Math.abs(newOdds - targetOdds)
-      if (diff < bestDiff && selected.length - 1 >= minLegs) { bestDiff = diff; bestRemoveIdx = i }
-    }
-    if (bestRemoveIdx >= 0) { combinedOdds /= selected[bestRemoveIdx].odds; selected.splice(bestRemoveIdx, 1) }
+    if (c.prob < 10) continue // absolute minimum sanity check
+    selected.push(c)
+    used.add(c.matchId)
+    combinedOdds *= c.odds
   }
 
   if (!selected.length || selected.length < minLegs) {
-    return res.json({ parlay: [], notEnoughMatches: "Could not build parlay — try lower target odds" })
+    return res.json({ parlay: [], notEnoughMatches: "Could not build parlay — try lower min legs or add more sports/markets" })
   }
 
   const avgConf = selected.reduce((s, c) => s + c.prob, 0) / selected.length
-  const score = Math.max(10, Math.min(99, Math.round(avgConf - Math.max(0,(selected.length-3)*5) + (10-riskLevel)*2)))
+  const score = Math.max(10, Math.min(99, Math.round(avgConf - Math.max(0, (selected.length-3)*3))))
+  const sportsUsed = [...new Set(selected.map(s=>s.sport))]
+  const marketsUsed = [...new Set(selected.map(s=>s.pick.split('_')[0]))]
 
-  res.json({ parlay:selected, combinedOdds:parseFloat(combinedOdds.toFixed(2)), targetOdds, score, legCount:selected.length, markets:[...new Set(selected.map(s=>s.pick.split('_')[0]))], sports:[...new Set(selected.map(s=>s.sport))] })
+  res.json({ 
+    parlay: selected, 
+    combinedOdds: parseFloat(combinedOdds.toFixed(2)), 
+    targetOdds, 
+    score, 
+    legCount: selected.length, 
+    markets: marketsUsed,
+    sports: sportsUsed,
+    avgConfidence: Math.round(avgConf)
+  })
 })
-
 // ── PARLAYS ───────────────────────────────────────────────
 app.post("/parlays/save", async (req, res) => {
   if (!sb) return res.status(503).json({ error: "Supabase not configured" })
