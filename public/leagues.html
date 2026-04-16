@@ -571,8 +571,9 @@ async function loadElo(){
   el.innerHTML=loading('LOADING ELO RANKINGS...');
   var limit=document.getElementById('eloLimit').value||'50';
   var pos=document.getElementById('eloPos').value||'';
+  var type=document.getElementById('eloType').value||'player';
   try{
-    var url='/elo/sport/'+currentSport+'?limit='+limit+(pos?'&position='+encodeURIComponent(pos):'');
+    var url='/elo/sport/'+currentSport+'?limit='+limit+'&type='+type+(pos?'&position='+encodeURIComponent(pos):'');
     var r=await fetch(url); if(!r.ok) throw new Error('Server '+r.status);
     var data=await r.json();
     allEloRows=data.results||data||[];
@@ -591,13 +592,29 @@ function renderEloRows(results){
     var col=p.elo>=1900?'var(--green)':p.elo>=1700?'var(--accent)':p.elo>=1500?'var(--orange)':'var(--text3)';
     var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     var psName=(p.playstyle&&(p.playstyle.name||p.playstyle))||'';
+    var pe = p.positionalElos || null;
+    var positionalHtml = '';
+    if (pe && (pe.attack||pe.midfield||pe.defense)) {
+      positionalHtml = '<div style="display:flex;gap:6px;margin-top:4px">' +
+        [['⚔️',pe.attack,'var(--red)'],['⚙️',pe.midfield,'var(--accent)'],['🛡️',pe.defense,'var(--teal)']].map(function(g){
+          if (!g[1]) return '';
+          return '<div style="display:flex;align-items:center;gap:3px">'+
+            '<span style="font-size:9px">'+g[0]+'</span>'+
+            '<div style="width:40px;height:3px;background:var(--border);border-radius:2px">'+
+              '<div style="width:'+Math.round(g[1]/300*100)+'%;height:100%;background:'+g[2]+';border-radius:2px"></div>'+
+            '</div>'+
+            '<span style="font-family:\'JetBrains Mono\';font-size:8px;color:'+g[2]+'">'+g[1]+'</span>'+
+          '</div>';
+        }).join('') + '</div>';
+    }
     return '<div class="elo-row" onclick="openProfileModal(\''+esc(p.name||'?')+'\',\''+currentSport+'\')">'+
       '<div class="elo-rank">'+medal+(i+1)+'.</div>'+
       '<div class="elo-name">'+
-        '<div class="elo-name-main">'+( p.name||'?')+
+        '<div class="elo-name-main">'+(p.name||'?')+
           (p.position?' <span style="font-family:\'JetBrains Mono\';font-size:7px;padding:1px 4px;background:rgba(0,200,248,.12);border:1px solid rgba(0,200,248,.25);color:var(--accent);border-radius:2px">'+p.position+'</span>':'')+
         '</div>'+
         '<div class="elo-name-sub">'+(p.country||p.team||'')+(psName?' · '+psName:'')+'</div>'+
+        positionalHtml+
       '</div>'+
       '<div class="elo-bar-wrap"><div class="elo-bar-fill" style="width:'+barW+'%;background:'+col+'"></div></div>'+
       '<div class="elo-num" style="color:'+col+'">'+p.elo+'</div></div>';

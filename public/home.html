@@ -572,6 +572,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <label class="mkt-cb"><input type="checkbox" id="mkt-ou15"> Over 1.5</label>
             <label class="mkt-cb"><input type="checkbox" id="mkt-ou35"> Over 3.5</label>
             <label class="mkt-cb"><input type="checkbox" id="mkt-ou45"> Over 4.5</label>
+            <label class="mkt-cb"><input type="checkbox" id="mkt-dc"> Double Chance</label>
           </div>
         </div>
         <div class="cfg-row">
@@ -1269,7 +1270,27 @@ function renderMarketsPane(m) {
 
   var resultHtml = '<div class="asection"><div class="asection-title">RESULT — ' + (m.hasRealOdds ? '● REAL ODDS · ' + (m.bookmaker||'') : '◎ MODEL ODDS') + '</div>' +
     '<div style="display:grid;grid-template-columns:' + (m.drawOdds ? '1fr 1fr 1fr' : '1fr 1fr') + ';gap:7px;margin-bottom:4px">';
-
+// Double Chance markets
+var dcHtml = ''
+if (m.dcOdds && m.dcProbs && m.drawOdds) {
+  dcHtml = '<div class="asection"><div class="asection-title">DOUBLE CHANCE — ADD TO PARLAY</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">'
+  var dcOptions = [
+    { l:(m.home||'')+ ' or Draw', pick:'dc_homeDraw', odds:m.dcOdds.homeDraw, prob:m.dcProbs.homeDraw },
+    { l:'Either Team Wins',       pick:'dc_either',   odds:m.dcOdds.either,   prob:m.dcProbs.either   },
+    { l:(m.away||'')+ ' or Draw', pick:'dc_awayDraw', odds:m.dcOdds.awayDraw, prob:m.dcProbs.awayDraw },
+  ]
+  dcOptions.forEach(function(x) {
+    dcHtml += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;cursor:pointer" ' +
+      'onclick="toggleParlay(' + mid + ',\'' + x.pick + '\',\'' + esc(x.l) + '\',' + x.odds + ',' + x.prob + ')" ' +
+      'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+      '<div style="font-size:9px;color:var(--text3);margin-bottom:3px">' + x.l + '</div>' +
+      '<div style="font-family:\'Bebas Neue\';font-size:24px;color:var(--orange)">' + x.odds + '</div>' +
+      '<div style="font-size:9px;color:var(--text3)">' + x.prob + '%</div></div>'
+  })
+  dcHtml += '</div></div>'
+}
+document.getElementById("mp2").innerHTML = resultHtml + dcHtml + goalsHtml + ouSel + csHtml;
   var picks = [{l:(m.home||'')+" Win",p:m.homeProb,o:m.homeOdds,pick:"home"},{l:(m.away||'')+" Win",p:m.awayProb,o:m.awayOdds,pick:"away"}];
   if (m.drawOdds) picks.splice(1,0,{l:"Draw",p:m.drawProb,o:m.drawOdds,pick:"draw"});
 
@@ -1501,14 +1522,15 @@ function removeParlay(mid) {
 }
 
 function getEnabledMarkets() {
-  var mkts = [];
-  if (document.getElementById("mkt-h2h") && document.getElementById("mkt-h2h").checked) mkts.push("h2h");
-  if (document.getElementById("mkt-btts") && document.getElementById("mkt-btts").checked) mkts.push("btts");
-  if (document.getElementById("mkt-ou25") && document.getElementById("mkt-ou25").checked) mkts.push("ou_2.5");
-  if (document.getElementById("mkt-ou15") && document.getElementById("mkt-ou15").checked) mkts.push("ou_1.5");
-  if (document.getElementById("mkt-ou35") && document.getElementById("mkt-ou35").checked) mkts.push("ou_3.5");
-  if (document.getElementById("mkt-ou45") && document.getElementById("mkt-ou45").checked) mkts.push("ou_4.5");
-  return mkts.length ? mkts : ["h2h"];
+  var mkts = []
+  if (document.getElementById("mkt-h2h")?.checked)  mkts.push("h2h")
+  if (document.getElementById("mkt-btts")?.checked) mkts.push("btts")
+  if (document.getElementById("mkt-ou25")?.checked) mkts.push("ou_2.5")
+  if (document.getElementById("mkt-ou15")?.checked) mkts.push("ou_1.5")
+  if (document.getElementById("mkt-ou35")?.checked) mkts.push("ou_3.5")
+  if (document.getElementById("mkt-ou45")?.checked) mkts.push("ou_4.5")
+  if (document.getElementById("mkt-dc")?.checked)   mkts.push("dc")
+  return mkts.length ? mkts : ["h2h","ou_2.5"]
 }
 function renderParlay() {
   var count = parlaySelections.length;
@@ -1651,27 +1673,31 @@ async function autoParlay() {
     allCandidates = allCandidates.concat(currentMatches);
 
     // Fetch all other enabled sports in parallel
-    var otherSports = enabledSports.filter(function(s){ return s !== currentSport; });
-    var sportFetches = otherSports.map(function(sport) {
-      var cfg = SPORT_CONFIG[sport];
-      if (!cfg) return Promise.resolve([]);
-      return fetch(API + cfg.endpoint, { headers: { 'x-user-id': USER_ID } })
-        .then(function(r){ return r.ok ? r.json() : []; })
-        .then(function(d){
-          var arr = d.predictions || d;
-          if (!Array.isArray(arr)) return [];
-          var result = arr.filter(function(m){ 
-            if (m.isLive || m.isFinished) return false;
-            if (!m.date) return true;
-            var t = new Date(m.date).getTime();
-            return t >= now - 3600000 && t <= now + maxMs;
-          }).map(function(m){ return Object.assign({}, m, { sport: sport }); });
-          // Merge into global cache
-          result.forEach(function(m){ globalMatchCache[String(m.id)] = m; });
-          return result;
+    var otherSports = enabledSports.filter(function(s){ return s !== currentSport; })
+var sportFetches = otherSports.map(function(sport) {
+  var cfg = SPORT_CONFIG[sport]
+  if (!cfg) return Promise.resolve([])
+  var url = API + cfg.endpoint
+  if (sport === 'football') url += '?days=7'
+  return fetch(url, { headers: { 'x-user-id': USER_ID || '' } })
+    .then(function(r) { return r.ok ? r.json() : [] })
+    .then(function(d) {
+      var arr = Array.isArray(d) ? d : (d.predictions || [])
+      return arr
+        .filter(function(m) {
+          if (m.isLive || m.isFinished) return false
+          if (!m.date) return true
+          var t = new Date(m.date).getTime()
+          return t >= now - 3600000 && t <= now + maxMs
         })
-        .catch(function(){ return []; });
-    });
+        .map(function(m) { 
+          var out = Object.assign({}, m, { sport: sport })
+          globalMatchCache[String(m.id)] = out
+          return out
+        })
+    })
+    .catch(function() { return [] })
+})
     var sportResults = await Promise.all(sportFetches);
     sportResults.forEach(function(arr){ allCandidates = allCandidates.concat(arr); });
 
@@ -1745,7 +1771,30 @@ async function saveParlay() {
     showToast("✅ Saved locally!");
   }
 }
-
+async function markParlayResult(parlayId, legsResults) {
+  // legsResults: [{ matchId, pick, hit: bool, homeScore, awayScore, actualWinner }]
+  try {
+    var res = await fetch('/parlays/result', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ parlay_id: parlayId, user_id: USER_ID, legs_results: legsResults })
+    })
+    var data = await res.json()
+    // Update localStorage too
+    var local = JSON.parse(localStorage.getItem('slipiq_parlays')||'[]')
+    var idx = local.findIndex(function(p){ return String(p.id) === String(parlayId) })
+    if (idx > -1) {
+      local[idx].status = data.status
+      local[idx].hits_count = data.hitsCount
+      local[idx].leg_results = legsResults
+      localStorage.setItem('slipiq_parlays', JSON.stringify(local))
+    }
+    showToast(data.status === 'won' ? '🎉 Parlay WON! ' + data.hitsCount+'/'+data.totalLegs + ' legs hit' : '❌ Parlay lost — ' + data.hitsCount+'/'+data.totalLegs + ' legs hit')
+    return data
+  } catch(e) {
+    showToast('⚠️ Could not save result: ' + e.message)
+  }
+}
 async function analyzeParlay() {
   if (!parlaySelections.length) { alert("Add selections first."); return; }
   var sc = calcScore();
@@ -1876,7 +1925,10 @@ async function openSavedParlay(idx) {
         '<div style="font-size:10px;color:var(--accent);font-family:\'JetBrains Mono\';margin-top:1px">⚡ ' + (l.label||l.pick) + (l.hasRealOdds?" ●":"") + '</div></div>' +
         '<div style="text-align:right"><div style="font-family:\'JetBrains Mono\';font-size:16px;color:var(--gold)">' + l.odds + '</div><div style="font-size:10px;color:' + ((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)") + '">' + (l.prob||50) + '%</div></div></div></div>';
     }).join("") + '</div>' +
-    '<div style="padding:7px 0;text-align:right"><button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder(' + idx + ')">↺ REBUILD IN BUILDER</button></div>' +
+    '<div style="padding:7px 0;display:flex;gap:7px;justify-content:flex-end">' +
+  '<button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder(' + idx + ')">↺ REBUILD IN BUILDER</button>' +
+  '<button style="background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="openResultEntry(' + idx + ')">✅ ENTER RESULTS</button>' +
+'</div>' +
     '</div>';
 }
 
@@ -1887,7 +1939,58 @@ function reAddToBuilder(idx) {
   renderParlay(); renderPage();
   showToast("↺ Parlay loaded into builder!");
 }
+function openResultEntry(parlayIdx) {
+  var p = savedParlays[parlayIdx]
+  if (!p) return
+  var legs = typeof p.legs === 'string' ? JSON.parse(p.legs) : p.legs || []
+  var html = '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:18px;max-width:500px;margin:0 auto">'
+  html += '<div style="font-family:\'Bebas Neue\';font-size:18px;letter-spacing:2px;color:var(--text);margin-bottom:14px">ENTER MATCH RESULTS</div>'
+  html += '<div id="result-legs">'
+  legs.forEach(function(leg, i) {
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:8px">'
+    html += '<div style="font-size:12px;font-weight:600;margin-bottom:6px">' + (leg.matchName||'Match') + '</div>'
+    html += '<div style="font-size:10px;color:var(--accent);margin-bottom:8px">Picked: ' + (leg.label||leg.pick) + '</div>'
+    html += '<div style="display:flex;gap:8px">'
+    html += '<button onclick="setLegResult('+i+',true,this)" style="flex:1;padding:6px;border-radius:5px;border:1px solid rgba(0,255,136,.3);background:rgba(0,255,136,.1);color:var(--green);font-family:\'JetBrains Mono\';font-size:9px;cursor:pointer">✅ HIT</button>'
+    html += '<button onclick="setLegResult('+i+',false,this)" style="flex:1;padding:6px;border-radius:5px;border:1px solid rgba(255,59,92,.3);background:rgba(255,59,92,.1);color:var(--red);font-family:\'JetBrains Mono\';font-size:9px;cursor:pointer">❌ MISS</button>'
+    html += '</div>'
+    html += '<input type="hidden" id="leg-result-'+i+'" value="">'
+    html += '</div>'
+  })
+  html += '</div>'
+  html += '<button onclick="submitResults(\''+p.id+'\','+legs.length+')" style="width:100%;margin-top:10px;background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:10px;font-weight:700;padding:10px;border-radius:7px;border:none;cursor:pointer">💾 SAVE RESULTS</button>'
+  html += '</div>'
+  document.getElementById('parlayDetail').innerHTML = html
+  window._resultLegs = legs
+}
 
+function setLegResult(idx, hit, btn) {
+  document.getElementById('leg-result-'+idx).value = hit ? 'hit' : 'miss'
+  var parent = btn.parentElement
+  parent.querySelectorAll('button').forEach(function(b) { b.style.opacity = '0.4' })
+  btn.style.opacity = '1'
+  btn.style.border = '2px solid ' + (hit ? 'var(--green)' : 'var(--red)')
+}
+
+async function submitResults(parlayId, legCount) {
+  var legsResults = []
+  var legs = window._resultLegs || []
+  for (var i = 0; i < legCount; i++) {
+    var val = (document.getElementById('leg-result-'+i)||{}).value
+    if (!val) { showToast('⚠️ Mark all legs before saving'); return }
+    legsResults.push({
+      matchId: legs[i] && legs[i].matchId,
+      pick: legs[i] && legs[i].pick,
+      label: legs[i] && legs[i].label,
+      hit: val === 'hit',
+      prob: legs[i] && legs[i].prob,
+      odds: legs[i] && legs[i].odds,
+      sport: legs[i] && (legs[i].sport || 'football')
+    })
+  }
+  await markParlayResult(parlayId, legsResults)
+  setTimeout(loadSavedParlays, 500)
+}
 // ─── NEWS ─────────────────────────────────────────────────────────────────────
 async function loadNews(force) {
   document.getElementById("newsList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING NEWS...</div></div>';

@@ -2357,7 +2357,24 @@ function buildAllMarkets(hxg, axg, smOdds, smPred, realOdds) {
   const cs = []
   for (let ch = 0; ch <= 5; ch++) for (let ca = 0; ca <= 5; ca++) cs.push({ score: `${ch}-${ca}`, prob: Math.round(pcs(hxg, axg, ch, ca) * 1000) / 10 })
   cs.sort((a, b) => b.prob - a.prob)
-  return { homeProb, drawProb, awayProb, ouProbs, ouOdds, bttsYesPct: Math.round(Number(bttsFin)), bttsNoPct: 100 - Math.round(Number(bttsFin)), bttsOdds, over25Prob: Math.round(Number(over25)), correctScores: cs.slice(0, 9), hxg: parseFloat(hxg.toFixed(2)), axg: parseFloat(axg.toFixed(2)) }
+// Add DC odds to the return
+const dcHomeDrawProb = Math.min(99, homeProb + drawProb)
+const dcAwayDrawProb = Math.min(99, awayProb + drawProb)
+const dcHomeProb     = Math.min(99, homeProb + awayProb) // either team wins (no draw)
+
+const dcOdds = {
+  homeDraw:  parseFloat((1/Math.max(0.01, dcHomeDrawProb/100)*1.06).toFixed(2)),
+  awayDraw:  parseFloat((1/Math.max(0.01, dcAwayDrawProb/100)*1.06).toFixed(2)),
+  either:    parseFloat((1/Math.max(0.01, dcHomeProb/100)*1.06).toFixed(2)),
+}
+
+return { homeProb, drawProb, awayProb, ouProbs, ouOdds,
+  bttsYesPct: Math.round(Number(bttsFin)), bttsNoPct: 100-Math.round(Number(bttsFin)),
+  bttsOdds, over25Prob: Math.round(Number(over25)),
+  correctScores: cs.slice(0,9), hxg: parseFloat(hxg.toFixed(2)), axg: parseFloat(axg.toFixed(2)),
+  dcProbs: { homeDraw: dcHomeDrawProb, awayDraw: dcAwayDrawProb, either: dcHomeProb },
+  dcOdds
+}
 }
 
 function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW) {
@@ -2713,7 +2730,23 @@ async function buildPrediction(smFix, oddsMap) {
     })
     let homeLineup = buildLu(homeId, home, hElo)
     let awayLineup = buildLu(awayId, away, aElo)
-    
+
+
+// Fallback to squad data
+if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
+if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
+
+// If STILL empty, trigger background squad pull for these teams
+if (!homeLineup.length && homeId && SM_KEY) {
+  smSquad(homeId, home, smFix.season_id).then(sq => {
+    if (sq.length) console.log(`📥 Lazy-loaded squad: ${home} (${sq.length} players)`)
+  }).catch(()=>{})
+}
+if (!awayLineup.length && awayId && SM_KEY) {
+  smSquad(awayId, away, smFix.season_id).then(sq => {
+    if (sq.length) console.log(`📥 Lazy-loaded squad: ${away} (${sq.length} players)`)
+  }).catch(()=>{})
+}
     // Fallback to squad data when no confirmed lineup
     if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
     if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
@@ -2729,6 +2762,8 @@ async function buildPrediction(smFix, oddsMap) {
 
     return {
       id: smFix.id, smId: smFix.id, homeId, awayId,
+      dcOdds: markets.dcOdds || {},
+dcProbs: markets.dcProbs || {},
       sport: 'football',
       leagueId: smFix.league_id, seasonId: smFix.season_id,
       home, away, league, leagueName: league, flag: leagueFlag(country), country,
@@ -3139,6 +3174,8 @@ app.get('/team/profile/:teamName', async (req, res) => {
   function buildTeamDescriptors(teamName, tElo, w) {
     const descriptors = [], strengths = [], weaknesses = []
     const label = TEAM_SPECIAL_LABELS[teamName]
+  
+    // Special label descriptors
     if (label === 'finnesser') {
       descriptors.push({ label:'Finnesser', icon:'🎩', color:'var(--purple)' })
       strengths.push('Clinical despite limited possession')
@@ -3152,16 +3189,70 @@ app.get('/team/profile/:teamName', async (req, res) => {
       weaknesses.push('Historically concede late leads')
       weaknesses.push('Inconsistent in high-pressure moments')
     }
-    if (tElo >= 1900) { descriptors.push({ label:'Elite Tier', icon:'⭐', color:'var(--gold)' }); strengths.push('World-class squad depth') }
-    else if (tElo >= 1750) { descriptors.push({ label:'Top Tier', icon:'🔥', color:'var(--accent)' }); strengths.push('Consistent performers at the highest level') }
-    if ((w.cleanSheetRate||0) > 0.4) strengths.push('Strong defensive record this season')
-    if ((w.avgPossession||0.5) > 0.58) strengths.push('Dominant possession-based game')
-    if ((w.homeWin||0.62) > 0.72) strengths.push('Formidable home fortress')
-    if ((w.awayWin||0.38) < 0.25) weaknesses.push('Struggles significantly away from home')
+  
+    // ELO-based tier descriptor
+    if (tElo >= 1900) {
+      descriptors.push({ label:'Elite Tier', icon:'⭐', color:'var(--gold)' })
+      strengths.push('World-class squad depth')
+    } else if (tElo >= 1800) {
+      descriptors.push({ label:'Top Tier', icon:'🔥', color:'var(--accent)' })
+      strengths.push('Consistent performers at the highest level')
+    } else if (tElo >= 1650) {
+      descriptors.push({ label:'Mid Table', icon:'📊', color:'var(--teal)' })
+    } else {
+      descriptors.push({ label:'Lower Table', icon:'📉', color:'var(--text3)' })
+      weaknesses.push('Struggles against top opposition')
+    }
+  
+    // Stats-based descriptors (up to 1 more)
+    const poss = w.avgPossession || 0.5
+    const cs   = w.cleanSheetRate || 0.3
+    const hw   = w.homeWin || 0.62
+    const aw   = w.awayWin || 0.38
+    const sp   = w.goalsFromSetPiece || 0.2
+    const sot  = w.shotsOnTargetRatio || 0.5
+  
+    if (poss > 0.58) {
+      descriptors.push({ label:'Possession', icon:'⚽', color:'var(--accent)' })
+      strengths.push('Dominant possession-based game')
+    } else if (poss < 0.40) {
+      descriptors.push({ label:'Counter Attack', icon:'⚡', color:'var(--orange)' })
+      strengths.push('Dangerous on the break')
+    }
+  
+    if (cs > 0.42) {
+      descriptors.push({ label:'Defensively Solid', icon:'🛡️', color:'var(--teal)' })
+      strengths.push('Strong defensive record this season')
+    }
+  
+    if (sp > 0.35) {
+      descriptors.push({ label:'Set Piece Threat', icon:'🎯', color:'var(--gold)' })
+      strengths.push('Dangerous from set pieces')
+    }
+  
+    if (hw > 0.74) {
+      descriptors.push({ label:'Home Fortress', icon:'🏰', color:'var(--green)' })
+      strengths.push('Formidable home fortress')
+    }
+  
+    if (aw > 0.52) {
+      descriptors.push({ label:'Away Specialist', icon:'✈️', color:'var(--purple)' })
+      strengths.push('Exceptional away from home')
+    } else if (aw < 0.22) {
+      weaknesses.push('Struggles significantly away from home')
+    }
+  
+    if (sot > 0.65) {
+      descriptors.push({ label:'High Press', icon:'💨', color:'var(--red)' })
+      strengths.push('Relentless pressing game')
+    }
+  
     while (strengths.length < 2) strengths.push('Well-organized team structure')
     while (weaknesses.length < 1) weaknesses.push('Can be inconsistent against top opposition')
-    const style = tElo >= 1900 ? 'Elite' : tElo >= 1750 ? 'Top Flight' : tElo >= 1600 ? 'Mid Table' : 'Lower Table'
-    return { descriptors, strengths, weaknesses, style }
+  
+    const style = tElo >= 1900 ? 'Elite' : tElo >= 1800 ? 'Top Flight' : tElo >= 1650 ? 'Mid Table' : 'Lower Table'
+    // Limit to max 3 descriptors
+    return { descriptors: descriptors.slice(0,3), strengths: strengths.slice(0,3), weaknesses: weaknesses.slice(0,2), style }
   }
   const teamName = decodeURIComponent(req.params.teamName)
   const tElo = getElo(teamName)
@@ -3534,13 +3625,34 @@ app.get('/elo/sport/:sport', (req, res) => {
   const posFilter = req.query.position
   let results = []
   if (sport === 'football') {
-    const all = []
-    for (const [k, v] of playerDB) {
-      const p = typeof v === 'object' ? v : {}
-      if (posFilter && p.position !== posFilter) continue
-      all.push({ name:p.player_name||k.split('__')[0], team:p.team_name||k.split('__')[1], elo:p.elo||1500, position:p.position, playstyle:p.playstyle?.name||p.playstyle_name, sport:'football' })
+    const typeParam = req.query.type || 'player'
+    if (typeParam === 'team') {
+      const teams = [], seen = new Set()
+      for (const [k, v] of clubEloMap) {
+        const n = k.charAt(0).toUpperCase() + k.slice(1)
+        if (!seen.has(n) && v > 1300) {
+          seen.add(n)
+          const pe = buildPositionalElos(n)
+          teams.push({ name:n, elo:Math.round(v), sport:'football', type:'team', positionalElos: pe })
+        }
+      }
+      for (const [n, v] of Object.entries(ELO_BASE)) {
+        if (!seen.has(n)) {
+          seen.add(n)
+          const pe = buildPositionalElos(n)
+          teams.push({ name:n, elo:v, sport:'football', type:'team', positionalElos: pe })
+        }
+      }
+      results = teams.sort((a,b)=>b.elo-a.elo).slice(0,limit)
+    } else {
+      const all = []
+      for (const [k, v] of playerDB) {
+        const p = typeof v === 'object' ? v : {}
+        if (posFilter && p.position !== posFilter) continue
+        all.push({ name:p.player_name||k.split('__')[0], team:p.team_name||k.split('__')[1], elo:p.elo||1500, position:p.position, playstyle:p.playstyle?.name||p.playstyle_name, sport:'football' })
+      }
+      results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
     }
-    results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
   } else if (sport === 'basketball') {
     const typeParam = req.query.type || 'player'
     if (typeParam === 'team') {
@@ -4141,7 +4253,64 @@ app.post('/admin/user/plan', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   res.json({ ok: true })
 })
- 
+ // ── PARLAY RESULT RECORDING ───────────────────────────────────────────────────
+app.post('/parlays/result', async (req, res) => {
+  const { parlay_id, user_id, legs_results, actual_outcome } = req.body
+  // legs_results = [{ matchId, pick, actualWinner, homeScore, awayScore, hit: bool }]
+  if (!parlay_id || !user_id) return res.status(400).json({ error: 'Missing fields' })
+
+  const hitsCount = (legs_results||[]).filter(l => l.hit).length
+  const totalLegs = (legs_results||[]).length
+  const status = hitsCount === totalLegs ? 'won' : 'lost'
+
+  // Save to localStorage-compatible format (also Supabase if available)
+  if (sb) {
+    await sb.from('saved_parlays').update({
+      status,
+      hits_count: hitsCount,
+      leg_count: totalLegs,
+      leg_results: JSON.stringify(legs_results),
+      settled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq('id', parlay_id).eq('user_id', user_id).catch(()=>{})
+  }
+
+  // Update accuracy log for the AI learning system
+  for (const leg of (legs_results||[])) {
+    if (leg.matchId && leg.actualWinner !== undefined) {
+      await recordOutcome(leg.matchId, leg.actualWinner, leg.homeScore||0, leg.awayScore||0)
+      // Also update team weights if football
+      if (leg.sport === 'football' && leg.homeTeam && leg.awayTeam) {
+        await updateTeamWeights(leg.homeTeam, leg.awayTeam, leg.homeScore||0, leg.awayScore||0, true, {}).catch(()=>{})
+      }
+    }
+  }
+
+  res.json({ ok:true, status, hitsCount, totalLegs })
+})
+
+// Quick accuracy stats endpoint (no Supabase required - uses in-memory prediction log)
+app.get('/accuracy/stats', (req, res) => {
+  const predictions = [...predictionLog.values()]
+  const resolved = predictions.filter(p => p.resolved)
+  const correct = resolved.filter(p => p.correct)
+  const byLeague = {}
+  resolved.forEach(p => {
+    const lg = p.league || 'Unknown'
+    if (!byLeague[lg]) byLeague[lg] = { total:0, correct:0 }
+    byLeague[lg].total++
+    if (p.correct) byLeague[lg].correct++
+  })
+  res.json({
+    total: predictions.length,
+    resolved: resolved.length,
+    correct: correct.length,
+    winRate: resolved.length > 0 ? parseFloat((correct.length/resolved.length*100).toFixed(1)) : null,
+    byLeague,
+    sportWeights,
+    lastUpdated: new Date().toISOString()
+  })
+})
 // ── STARTUP ───────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`\n╔═══════════════════════════════════════════════╗`)

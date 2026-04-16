@@ -161,41 +161,43 @@ async function init() {
 
 // ─── LOAD DATA ────────────────────────────────────────────────────────────────
 async function loadData() {
-  document.getElementById('mainContent').innerHTML = '<div style="text-align:center;padding:60px 20px"><div class="spinner"></div><div style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3);margin-top:12px">LOADING DATA...</div></div>';
+  document.getElementById('mainContent').innerHTML = '<div style="text-align:center;padding:60px 20px"><div class="spinner"></div></div>'
 
-  var parlays = [];
+  var parlays = []
 
-  // Try server API first
+  // Load from server parlays endpoint
   if (USER_ID) {
     try {
-      var r = await fetch('/parlays/' + USER_ID);
-      if (r.ok) {
-        var data = await r.json();
-        parlays = Array.isArray(data) ? data : [];
-      }
+      var r = await fetch('/parlays/' + USER_ID)
+      if (r.ok) parlays = await r.json()
     } catch(e) {}
   }
 
-  // Merge with localStorage
-  var local = [];
-  try { local = JSON.parse(localStorage.getItem('slipiq_parlays') || '[]'); } catch(e) {}
-  var serverIds = new Set(parlays.map(function(p){ return String(p.id); }));
-  local.forEach(function(lp){ if (!serverIds.has(String(lp.id))) parlays.push(lp); });
+  // Merge localStorage
+  var local = []
+  try { local = JSON.parse(localStorage.getItem('slipiq_parlays') || '[]') } catch(e) {}
+  var serverIds = new Set(parlays.map(function(p){ return String(p.id) }))
+  local.forEach(function(lp){ if (!serverIds.has(String(lp.id))) parlays.push(lp) })
 
-  // Parse legs
-  parlays = parlays.map(function(p) {
-    var legs = p.legs;
-    if (typeof legs === 'string') { try { legs = JSON.parse(legs); } catch(e) { legs = []; } }
-    var legResults = p.leg_results || null;
-    if (typeof legResults === 'string') { try { legResults = JSON.parse(legResults); } catch(e) { legResults = null; } }
-    return Object.assign({}, p, { legs: legs || [], leg_results: legResults });
-  }).sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });
+  // Also pull server accuracy stats (prediction log)
+  var serverStats = null
+  try {
+    var sr = await fetch('/accuracy/stats')
+    if (sr.ok) serverStats = await sr.json()
+  } catch(e) {}
 
-  allParlays = parlays;
-  document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-  render();
+  allParlays = parlays.map(function(p) {
+    var legs = p.legs
+    if (typeof legs === 'string') { try { legs = JSON.parse(legs) } catch(e) { legs = [] } }
+    var lr = p.leg_results
+    if (typeof lr === 'string') { try { lr = JSON.parse(lr) } catch(e) { lr = null } }
+    return Object.assign({}, p, { legs: legs||[], leg_results: lr })
+  }).sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at) })
+
+  window._serverStats = serverStats
+  document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  render()
 }
-
 // ─── COMPUTE METRICS ─────────────────────────────────────────────────────────
 function computeMetrics(parlays) {
   var settled = parlays.filter(function(p){ return p.status === 'won' || p.status === 'lost'; });

@@ -17,6 +17,6 @@ window.NEXUS_CONFIG = {
   
     // ── ADMIN ACCESS ─────────────────────────────────────────
     ADMIN_EMAILS: [
-      "zioncmulangala@gmail.com"
+      "zioncmulangala@gmail.com","raphael@bluueco.com"
     ]
   }
