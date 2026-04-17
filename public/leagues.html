@@ -306,6 +306,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
         <button class="cup-btn" onclick="loadBracket('dfb_pokal',this)">🇩🇪 DFB Pokal</button>
         <button class="cup-btn" onclick="loadBracket('copa_del_rey',this)">🇪🇸 Copa del Rey</button>
         <button class="cup-btn" onclick="loadBracket('coppa_italia',this)">🇮🇹 Coppa Italia</button>
+        <button class="cup-btn" onclick="loadBracket('world_cup',this)">🌍 World Cup 2026</button>
+        <button class="cup-btn" onclick="loadBracket('euros',this)">🏆 Euros</button>
+        <button class="cup-btn" onclick="loadBracket('copa_america',this)">🌎 Copa América</button>
       </div>
       <div class="scroll-inner" id="bracketInner">
         <div class="loading-box"><div class="spinner"></div><div class="loading-text">LOADING BRACKET...</div></div>
@@ -395,20 +398,20 @@ async function loadStandings(){
 
 async function loadFootballStandings(el){
   var leagues=[
-    {slug:'eng.1',name:'Premier League',flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',clSpots:4,elSpots:2,relSpots:3},
-    {slug:'esp.1',name:'La Liga',flag:'🇪🇸',clSpots:4,elSpots:2,relSpots:3},
-    {slug:'ger.1',name:'Bundesliga',flag:'🇩🇪',clSpots:4,elSpots:2,relSpots:3},
-    {slug:'ita.1',name:'Serie A',flag:'🇮🇹',clSpots:4,elSpots:3,relSpots:3},
-    {slug:'fra.1',name:'Ligue 1',flag:'🇫🇷',clSpots:3,elSpots:3,relSpots:3},
-    {slug:'por.1',name:'Primeira Liga',flag:'🇵🇹',clSpots:3,elSpots:1,relSpots:3},
-    {slug:'ned.1',name:'Eredivisie',flag:'🇳🇱',clSpots:3,elSpots:1,relSpots:3},
-    {slug:'tur.1',name:'Süper Lig',flag:'🇹🇷',clSpots:3,elSpots:1,relSpots:3},
-    {slug:'sco.1',name:'Scottish Premiership',flag:'🏴󠁧󠁢󠁳󠁣󠁴󠁿',clSpots:1,elSpots:2,relSpots:2},
-    {slug:'bel.1',name:'Belgian Pro League',flag:'🇧🇪',clSpots:2,elSpots:1,relSpots:2},
-    {slug:'eng.2',name:'Championship',flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',clSpots:3,elSpots:0,relSpots:3},
-    {slug:'gre.1',name:'Greek Super League',flag:'🇬🇷',clSpots:2,elSpots:1,relSpots:3},
-    {slug:'den.1',name:'Danish Superliga',flag:'🇩🇰',clSpots:2,elSpots:1,relSpots:3},
-  ];
+  {slug:'uefa.champions',  name:'Champions League',    flag:'🌟',clSpots:0,elSpots:0,relSpots:0,isCup:true},
+  {slug:'uefa.europa',     name:'Europa League',        flag:'🟠',clSpots:0,elSpots:0,relSpots:0,isCup:true},
+  {slug:'eng.1',           name:'Premier League',       flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',clSpots:4,elSpots:2,relSpots:3},
+  {slug:'esp.1',           name:'La Liga',              flag:'🇪🇸',clSpots:4,elSpots:2,relSpots:3},
+  {slug:'ger.1',           name:'Bundesliga',           flag:'🇩🇪',clSpots:4,elSpots:2,relSpots:3},
+  {slug:'ita.1',           name:'Serie A',              flag:'🇮🇹',clSpots:4,elSpots:3,relSpots:3},
+  {slug:'fra.1',           name:'Ligue 1',              flag:'🇫🇷',clSpots:3,elSpots:3,relSpots:3},
+  {slug:'por.1',           name:'Primeira Liga',        flag:'🇵🇹',clSpots:3,elSpots:1,relSpots:3},
+  {slug:'ned.1',           name:'Eredivisie',           flag:'🇳🇱',clSpots:3,elSpots:1,relSpots:3},
+  {slug:'tur.1',           name:'Süper Lig',            flag:'🇹🇷',clSpots:3,elSpots:1,relSpots:3},
+  {slug:'sco.1',           name:'Scottish Premiership', flag:'🏴󠁧󠁢󠁳󠁣󠁴󠁿',clSpots:1,elSpots:2,relSpots:2},
+  {slug:'bel.1',           name:'Belgian Pro League',   flag:'🇧🇪',clSpots:2,elSpots:1,relSpots:2},
+  {slug:'eng.2',           name:'Championship',         flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',clSpots:3,elSpots:0,relSpots:3},
+];
   setStatus('Loading '+leagues.length+' leagues...');
   var results=await Promise.allSettled(leagues.map(function(lg){return fetchLeagueStandings(lg);}));
   var html='', loaded=0;
@@ -451,7 +454,7 @@ async function fetchLeagueStandings(lg){
       return{position:parseInt(stats['rank']||stats['Rank']||stats['RK'])||(idx+1),name:e.team&&(e.team.displayName||e.team.shortDisplayName||e.team.name)||'?',played:parseInt(stats['GP']||stats['gamesPlayed']||w+d+l||0),won:w,drawn:d,lost:l,gf:gf,ga:ga,gd:gd,pts:pts,form:form.split('')};
     }).sort(function(a,b){return a.position-b.position||b.pts-a.pts;});
 
-    var total=table.length, relStart=total-lg.relSpots, elEnd=lg.clSpots+lg.elSpots;
+    var total=table.length, relStart=lg.isCup?9999:total-lg.relSpots, elEnd=lg.clSpots+lg.elSpots;
     var rows=table.map(function(t){
       var rowCls=t.position<=lg.clSpots?'cl-row':t.position>relStart?'rel-row':(t.position>lg.clSpots&&t.position<=elEnd)?'el-row':'';
       var posColor=t.position<=lg.clSpots?'var(--accent)':t.position>relStart?'var(--red)':'var(--text3)';
@@ -735,7 +738,7 @@ async function loadManagerRankings(){
         '</div>'+
         '<div style="display:flex;align-items:center;gap:6px;margin-top:7px">'+
           '<span class="formation-badge">'+(m.formation||'4-3-3')+'</span>'+
-          '<span class="ps-chip" style="color:'+col+'">'+icon+' '+(m.style||'')+'</span>'+
+          '<span class="ps-chip" onclick="openPlaystyleOverlay(\''+esc(m.style||'')+'\')" style="cursor:pointer;color:'+col+'">'+icon+' '+(m.style||'')+' <span style=\'opacity:.5;font-size:8px\'>ⓘ</span></span>'+
           (m.nationality?'<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);margin-left:auto">🌍 '+m.nationality+'</span>':'')+
         '</div>'+
         (total>0?'<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:5px">'+
@@ -751,7 +754,6 @@ async function loadManagerRankings(){
 function openManagerModal(idx){
   var m = _mgrCache[idx];
   if(!m) return;
-  var m; try{m=JSON.parse(mjson);}catch(e){return;}
   var total=(m.wins||0)+(m.draws||0)+(m.losses||0);
   var col=STYLE_COLORS[m.style]||'var(--text2)';
   var icon=STYLE_ICONS[m.style]||'⚙️';
@@ -763,7 +765,7 @@ function openManagerModal(idx){
       '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin-top:2px">MANAGER ELO RATING</div>'+
       '<div style="display:flex;gap:7px;justify-content:center;margin-top:8px">'+
         '<span class="formation-badge">'+(m.formation||'4-3-3')+'</span>'+
-        '<span class="ps-chip" style="color:'+col+'">'+icon+' '+(m.style||'')+'</span>'+
+        '<span class="ps-chip" onclick="openPlaystyleOverlay(\''+esc(m.style||'')+'\')" style="cursor:pointer;color:'+col+'">'+icon+' '+(m.style||'')+' <span style=\'opacity:.5;font-size:8px\'>ⓘ</span></span>'+
       '</div>'+
       (m.nationality?'<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);margin-top:6px">🌍 '+m.nationality+'</div>':'')+
     '</div>'+
@@ -888,8 +890,11 @@ async function bracketMatchAI(home,away,round){
     '<div id="pmTeamBody">'+loading('AI ANALYZING...')+'</div>';
   document.getElementById('pmOverlay').classList.add('open');
   try{
-    var r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':USER_ID},body:JSON.stringify({match:{home:home,away:away,league:round,homeProb:50,awayProb:50,drawProb:20,homeElo:1700,awayElo:1700,sport:'football'},type:'match'})});
-    var d=r.ok?await r.json():{};
+    var hElo=1700,aElo=1700;
+    try{var eR=await fetch('/elo/sport/football?limit=300');var eD=eR.ok?await eR.json():{};var eMap={};(eD.results||[]).forEach(function(x){eMap[(x.name||'').toLowerCase()]=x.elo;});hElo=eMap[home.toLowerCase()]||1700;aElo=eMap[away.toLowerCase()]||1700;}catch(e2){}
+    var r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({match:{home:home,away:away,league:round,homeProb:50,awayProb:50,drawProb:20,homeElo:hElo,awayElo:aElo,sport:'football'},type:'match'})});
+    var d=(r.ok||(r.status===402))?await r.json():{};
+    if(r.status===402||d.error){throw new Error(d.error||'Access denied');}
     document.getElementById('pmTeamBody').innerHTML=
       '<div style="font-size:12px;color:var(--text2);line-height:1.7">'+(d.mainAnalysis||d.profile||'AI unavailable').replace(/\n/g,'<br>')+'</div>'+
       (d.recommendation?'<div style="margin-top:8px;font-family:\'JetBrains Mono\';font-size:10px;color:var(--accent)">→ '+d.recommendation+'</div>':'')+
@@ -958,11 +963,26 @@ function renderTeamBody(teamName,sport,d){
   }
 
   // ── Deep stats ────────────────────────────────────────────────
-  var deepStats='';
-  if(stats.avgPossession||stats.cleanSheetRate){
-    deepStats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px">'+
-      [{l:'POSSESSION',v:(stats.avgPossession||50)+'%'},{l:'CLEAN SHT',v:(stats.cleanSheetRate||0)+'%'},{l:'HOME WIN',v:(stats.homeWin||62)+'%'},{l:'AWAY WIN',v:(stats.awayWin||38)+'%'}]
-      .map(function(x){return'<div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px;text-align:center"><div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:1px">'+x.l+'</div><div style="font-family:\'Bebas Neue\';font-size:15px;color:var(--accent)">'+x.v+'</div></div>';}).join('')+'</div>';
+  var isRealStats = (stats.gamesTracked || 0) > 0;
+var deepStats='';
+  if(stats.avgPossession||stats.cleanSheetRate||stats.avgGoalsScored){
+    var statsItems = [
+      {l:'POSSESSION',v:(stats.avgPossession||50)+'%'},
+      {l:'CLEAN SHT',v:(stats.cleanSheetRate||0)+'%'},
+      {l:'HOME WIN',v:(stats.homeWin||62)+'%'},
+      {l:'AWAY WIN',v:(stats.awayWin||38)+'%'},
+    ];
+    if(stats.avgGoalsScored) statsItems.push({l:'AVG GOALS FOR',v:stats.avgGoalsScored.toFixed(2)});
+    if(stats.avgGoalsConceded) statsItems.push({l:'AVG GOALS AGAINST',v:stats.avgGoalsConceded.toFixed(2)});
+    if(stats.avgXgFor) statsItems.push({l:'AVG xG FOR',v:stats.avgXgFor.toFixed(2)});
+    if(stats.gamesTracked) statsItems.push({l:'GAMES TRACKED',v:stats.gamesTracked});
+    deepStats='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+      '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:1px">TEAM STATISTICS</div>'+
+      '<div style="font-family:\'JetBrains Mono\';font-size:7px;padding:1px 5px;border-radius:2px;background:'+(isRealStats?'rgba(0,255,136,.1)':'rgba(255,140,66,.1)')+';color:'+(isRealStats?'var(--green)':'var(--orange)')+'">'+
+        (isRealStats?'✓ '+stats.gamesTracked+' REAL GAMES':'~ MODEL ESTIMATE')+
+      '</div></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px">'+
+      statsItems.map(function(x){return'<div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px;text-align:center"><div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:1px">'+x.l+'</div><div style="font-family:\'Bebas Neue\';font-size:15px;color:var(--accent)">'+x.v+'</div></div>';}).join('')+'</div>';
   }
 
   // ── Descriptors (Finnesser / Haramball / Bottler / stats badges) ──
@@ -971,7 +991,7 @@ function renderTeamBody(teamName,sport,d){
     descHtml='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">'+
       descriptors.map(function(d2){
         var badgeCls=d2.label==='Finnesser'?' badge-finnesser':d2.label==='Haramball'?' badge-haramball':d2.label==='Bottler'?' badge-bottler':'';
-        return'<span class="ps-chip'+badgeCls+'" style="'+(badgeCls?'':' color:'+(d2.color||'var(--accent)')+';">'+(d2.icon||'')+' '+d2.label+'</span>');
+        return '<span class="ps-chip'+badgeCls+'" onclick="openPlaystyleOverlay(\''+esc(d2.label)+'\')" style="cursor:pointer;'+(badgeCls?'':' color:'+(d2.color||'var(--accent)')+';')+'">'+(d2.icon||'')+' '+d2.label+' <span style=\'font-size:8px;opacity:.6\'>ⓘ</span></span>';
       }).join('')+'</div>';
   }
 
@@ -1139,10 +1159,12 @@ function renderPlayerProfile(p,sport){
   if(p.championships) extraInfo+='<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--gold);margin-bottom:3px">🏆 '+p.championships+' Championship'+(p.championships!==1?'s':'')+'</div>';
   if(p.titles&&p.titles.length) extraInfo+='<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--gold);margin-bottom:3px">'+p.titles.join(' · ')+'</div>';
 
+  const playerImg = p.image_path || p.photo || ''
   el.innerHTML=
     // ELO Hero
     '<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:8px;padding:12px;display:flex;gap:14px;margin-bottom:12px">'+
       '<div style="text-align:center;flex-shrink:0">'+
+        (playerImg ? `<img src="${playerImg}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,200,248,.3);margin-bottom:6px;display:block" onerror="this.style.display='none'">` : '')+
         '<div style="font-family:\'Bebas Neue\';font-size:44px;color:'+eloColor+';line-height:1">'+elo+'</div>'+
         '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:2px">ELO RATING</div>'+
         '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:'+eloColor+';margin-top:2px">'+eloGrade+'</div>'+
@@ -1153,11 +1175,13 @@ function renderPlayerProfile(p,sport){
     (styles.length?'<div style="margin-bottom:12px"><div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:5px">PLAYSTYLES</div>'+
       styles.slice(0,3).map(function(s,i){
         var border=i===0?'1px solid rgba(0,200,248,.4)':'1px solid rgba(255,255,255,.07)';
-        return'<div style="background:var(--bg);border:'+border+';border-radius:6px;padding:7px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px">'+
-          '<span style="font-size:16px">'+(s.icon||'⚙️')+'</span>'+
-          '<div><div style="font-size:12px;font-weight:700;color:'+(i===0?'var(--accent)':'var(--text)')+'">'+s.name+'</div>'+
-          (s.desc?'<div style="font-size:10px;color:var(--text3)">'+s.desc+'</div>':'')+
-          '</div></div>';
+        return'<div onclick="openPlaystyleOverlay(\''+esc(s.name||'')+'\')" style="background:var(--bg);border:'+border+';border-radius:6px;padding:7px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;cursor:pointer" onmouseover="this.style.opacity=\'0.8\'" onmouseout="this.style.opacity=\'1\'">'+
+  '<span style="font-size:16px">'+(s.icon||'⚙️')+'</span>'+
+  '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:'+(i===0?'var(--accent)':'var(--text)')+'">'+s.name+'</div>'+
+  (s.desc?'<div style="font-size:10px;color:var(--text3)">'+s.desc+'</div>':'')+
+  '</div>'+
+  '<span style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">ⓘ</span>'+
+  '</div>';
       }).join('')+'</div>':'')+ 
     // Stats grid
     (statItems.some(function(x){return x.v&&x.v!=='—'&&x.v!==0;})?
@@ -1232,13 +1256,284 @@ async function loadCredits(){
     if(btn&&u.credits_available!==undefined) btn.textContent='💳 '+(u.plan==='platinum'?'∞':u.credits_available)+' CREDITS';
   }catch(e){}
 }
+// ─── PLAYSTYLE OVERLAY ────────────────────────────────────────────────────────
+var PLAYSTYLE_DETAILS = {
+  'Sweeper Keeper':      { icon:'🧤', desc:'Commands the penalty area beyond their line, comfortable with feet. Starts attacks with accurate distribution and sweeps up through balls behind the defence.' },
+  'Shot Stopper':        { icon:'🛑', desc:'Elite reflexes and positioning on the goal line. Dominates crosses and one-on-one situations. Less adventurous with feet — lets the defence do the work.' },
+  'Ball-Playing CB':     { icon:'🎯', desc:'Progresses play from the back with line-breaking passes. Steps into midfield in possession phases. Think: Virgil van Dijk, William Saliba.' },
+  'Destroyer':           { icon:'💥', desc:'Ferocious in the tackle, dominant in aerial duels. Focused purely on stopping attacks rather than starting them. Old-school defensive stalwart.' },
+  'Libero':              { icon:'🧹', desc:'Reads danger before it happens. Steps out of the defensive line to intercept, covers space intelligently. Sweeper role in a modern package.' },
+  'Organiser':           { icon:'📢', desc:'The voice of the backline. Marshals teammates, controls defensive shape, wins headers, rarely caught out of position.' },
+  'Attack Fullback':     { icon:'🏃', desc:'Gets forward constantly, delivers dangerous crosses, arrives late into the box. Think: Trent Alexander-Arnold, Theo Hernandez.' },
+  'Inverted Fullback':   { icon:'↩️', desc:'Cuts inside into central midfield rather than overlapping. Creates overloads, shoots from distance, acts as an extra midfielder.' },
+  'Wingback':            { icon:'⚡', desc:'A winger who defends. Very high up the pitch, creates crossing opportunities, tracks back when needed. Vital in 3-5-2 systems.' },
+  'Press Conductor':     { icon:'🔥', desc:'Sets press triggers — the signal everyone else follows. Covers massive ground, breaks up play in the opposition half, shields the backline.' },
+  'Defensive Anchor':    { icon:'⚓', desc:'Sits in front of the defence and breaks up play. Minimal attacking involvement. The safety net for more adventurous midfielders.' },
+  'Deep Playmaker':      { icon:'🎭', desc:'Orchestrates from deep — slow tempo, precise passes, controls the game\'s rhythm without necessarily pressing high. Classic No.6.' },
+  'Regista':             { icon:'🔭', desc:'The Italian version of a deep playmaker. Long-range vision, switches play, dictates tempo. Think: Pirlo, Xabi Alonso, Rodri.' },
+  'Box-to-Box':          { icon:'⚙️', desc:'Covers every blade of grass. Contributes defensively AND offensively. Scores important goals, wins tackles, appears everywhere.' },
+  'Mezzala':             { icon:'🌀', desc:'Arrives late into the box from midfield. Makes penetrating runs into half-spaces, ghost runs behind defences. Goals and assists.' },
+  'Classic No.10':       { icon:'🔟', desc:'The traditional attacking midfielder. Operates between the lines, creates chances, scores, and links play. Think: Odegaard, De Bruyne.' },
+  'Shadow Striker':      { icon:'👻', desc:'Ghosts into the penalty area from a deeper position. Reads when to make the run, clinical in the box. Defenders lose track of them.' },
+  'False 9':             { icon:'🔄', desc:'A striker who drops into midfield. Creates space for runners, connects play, pulls defenders out of position. Think: early Messi at Barca.' },
+  'Inverted Winger':     { icon:'↩️', desc:'Wide player who cuts inside onto their stronger foot to shoot. Creates danger in central areas rather than crossing from wide.' },
+  'Traditional Winger':  { icon:'↗️', desc:'Hugs the touchline, beats their full-back for pace, delivers early crosses. Direct, fast, crossing-based output.' },
+  'Dribbler':            { icon:'⚡', desc:'Elite at taking on defenders 1v1. Breaks defensive lines solo through sheer skill. The crowd\'s favourite — unpredictable and direct.' },
+  'Speed Merchant':      { icon:'💨', desc:'Pure pace as the primary weapon. Devastates on the break, stretches defences, thrives on through balls in behind.' },
+  'Complete Forward':    { icon:'⭐', desc:'Scores, assists, holds up play, presses the backline, wins aerials. The total striker package. Think: Kane, Lewandowski.' },
+  'Poacher':             { icon:'🎯', desc:'Pure box instinct. Rarely contributes outside the penalty area but devastatingly clinical inside it. Right place, right time, every time.' },
+  'Target Striker':      { icon:'🗼', desc:'Holds up the ball, wins aerials, brings teammates into play. The focal point for long balls and set pieces. Bullies defenders.' },
+  'Gegenpresser':        { icon:'🔥', desc:'Manager style: relentless high pressing immediately after losing the ball. Transitions at full speed. High energy, high risk, high reward.' },
+  'Tiki-Taka':           { icon:'⚽', desc:'Manager style: short-pass combinations to maintain possession. Patient build-up, positional superiority, crowd defenders out of space.' },
+  'Pragmatist':          { icon:'🎭', desc:'Manager style: adapts to the opponent. No fixed identity — exploits weaknesses whatever form they take. Winning over ideology.' },
+  'Haramball':           { icon:'🔒', desc:'Manager/team style: park the bus, high fouls, physical, dark arts. Wins ugly. Makes games ugly. Tough to break down.' },
+  'Finnesser':           { icon:'🎩', desc:'Team style: wins games they "shouldn\'t". Outperforms xG, clinical despite limited possession. Makes chances count when others waste them.' },
+  'Bottler':             { icon:'🍾', desc:'Team tendency: historically gives away leads in high-pressure moments. Inconsistent closing ability. Danger when in front.' },
+}
 
+function openPlaystyleOverlay(name) {
+  var ps = PLAYSTYLE_DETAILS[name]
+  if (!ps) {
+    ps = { icon: '⚙️', desc: 'A recognised playing style or tactical identity within Slip IQ\'s adaptive prediction model. It influences xG weighting, press intensity, and matchup scoring.' }
+  }
+  var overlay = document.getElementById('psOverlay')
+  if (!overlay) {
+    overlay = document.createElement('div')
+    overlay.id = 'psOverlay'
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px'
+    overlay.onclick = function(e) { if(e.target===overlay) overlay.remove() }
+    document.body.appendChild(overlay)
+  }
+  overlay.innerHTML = `
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:28px;max-width:420px;width:100%;position:relative;box-shadow:0 0 40px rgba(0,200,248,.15)">
+      <div onclick="document.getElementById('psOverlay').remove()" style="position:absolute;top:14px;right:14px;color:var(--text3);cursor:pointer;font-size:16px;line-height:1">✕</div>
+      <div style="font-size:48px;text-align:center;margin-bottom:10px">${ps.icon}</div>
+      <div style="font-family:'Bebas Neue';font-size:22px;letter-spacing:2px;color:var(--text);text-align:center;margin-bottom:8px">${name}</div>
+      <div style="width:40px;height:2px;background:var(--grad);margin:0 auto 14px"></div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.75;text-align:center">${ps.desc}</div>
+      <div style="margin-top:16px;background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.15);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-family:'JetBrains Mono';font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:4px">PREDICTION IMPACT</div>
+        <div style="font-size:11px;color:var(--text2)">This style affects xG multipliers, press intensity weighting,<br>and matchup descriptor scoring in Slip IQ's model.</div>
+      </div>
+    </div>`
+}
+
+// ─── 2-SIDED BRACKET RENDERER ─────────────────────────────────────────────────
+function renderBracket(data) {
+  var ROUND_ORDER = ['Knockout Round Play-offs','Knockout Playoffs','Play-off Round','Round of 64','Round of 32','Round of 16','Last 16','R16','Quarter-Finals','Quarterfinals','Quarterfinal','Quarter Finals','QF','Semi-Finals','Semifinals','Semifinal','Semi Finals','SF','Final','Grand Final'];
+
+  var rounds = data.rounds || {};
+  var roundKeys = Object.keys(rounds);
+
+  if (!roundKeys.length) {
+    return renderGroupsOnly(data);
+  }
+
+  roundKeys.sort(function(a,b){
+    var ia = ROUND_ORDER.findIndex(function(r){ return a.toLowerCase().includes(r.toLowerCase()); });
+    var ib = ROUND_ORDER.findIndex(function(r){ return b.toLowerCase().includes(r.toLowerCase()); });
+    if (ia < 0) ia = 99; if (ib < 0) ib = 99;
+    return ia - ib;
+  });
+
+  var finalKey = roundKeys.find(function(k){
+  var lo = k.toLowerCase();
+  return lo === 'final' || lo === 'grand final' || (lo.includes('final') && !lo.includes('semi') && !lo.includes('quarter') && !lo.includes('round') && !lo.includes('play'));
+});
+var sfKey  = roundKeys.find(function(k){ var lo=k.toLowerCase(); return lo.includes('semi') || lo==='sf'; });
+var qfKey  = roundKeys.find(function(k){ var lo=k.toLowerCase(); return lo.includes('quarter') || lo==='qf'; });
+var r16Key = roundKeys.find(function(k){ var lo=k.toLowerCase(); return lo.includes('round of 16')||lo.includes('last 16')||lo==='r16'; });
+var r32Key = roundKeys.find(function(k){ var lo=k.toLowerCase(); return lo.includes('round of 32')||lo.includes('last 32'); });
+var r64Key = roundKeys.find(function(k){ var lo=k.toLowerCase(); return lo.includes('round of 64')||lo.includes('last 64'); });
+
+// Auto-detect from match counts if round names aren't standard
+if (!finalKey && !sfKey && !qfKey && roundKeys.length) {
+  roundKeys.forEach(function(k){
+    var c = (rounds[k]||[]).length;
+    if (c===1 && !finalKey) finalKey=k;
+    else if (c===2 && !sfKey) sfKey=k;
+    else if (c<=4 && !qfKey && k!==sfKey) qfKey=k;
+    else if (c<=8 && !r16Key && k!==qfKey && k!==sfKey) r16Key=k;
+  });
+}
+  var earlyKeys = roundKeys.filter(function(k){ return k !== finalKey && k !== sfKey && k !== qfKey && k !== r16Key && k !== r32Key && k !== r64Key; });
+
+  var hasBracket = finalKey && (sfKey || qfKey);
+
+  // If no proper bracket structure, fall back to column view
+  if (!hasBracket) {
+    return renderBracketColumns(data, roundKeys);
+  }
+
+  function splitMatches(key) {
+    if (!key || !rounds[key] || !rounds[key].length) return { left:[], right:[] };
+    var m = rounds[key];
+    var half = Math.ceil(m.length / 2);
+    return { left: m.slice(0, half), right: m.slice(half) };
+  }
+
+  var qf = qfKey  ? splitMatches(qfKey)  : null;
+  var sf = sfKey  ? splitMatches(sfKey)  : null;
+  var r16 = r16Key ? splitMatches(r16Key) : null;
+  var r32 = r32Key ? splitMatches(r32Key) : null;
+  var r64 = r64Key ? splitMatches(r64Key) : null;
+
+  var finalMatches = finalKey ? (rounds[finalKey] || []) : [];
+
+  // Build left and right column arrays (left reads outside→in, right reads in→outside)
+  var leftCols  = []; // [ {name, matches}, ... ] earliest → SF
+  var rightCols = []; // [ {name, matches}, ... ] SF → earliest (will be reversed in display)
+
+  // Early rounds (knockout playoff, etc.)
+  earlyKeys.forEach(function(k){
+    var s = splitMatches(k);
+    leftCols.push({ name:k, matches:s.left });
+    rightCols.push({ name:k, matches:s.right });
+  });
+  if (r64) { leftCols.push({ name:r64Key, matches:r64.left }); rightCols.push({ name:r64Key, matches:r64.right }); }
+  if (r32) { leftCols.push({ name:r32Key, matches:r32.left }); rightCols.push({ name:r32Key, matches:r32.right }); }
+  if (r16) { leftCols.push({ name:r16Key, matches:r16.left }); rightCols.push({ name:r16Key, matches:r16.right }); }
+  if (qf)  { leftCols.push({ name:qfKey, matches:qf.left });   rightCols.push({ name:qfKey, matches:qf.right }); }
+  if (sf)  { leftCols.push({ name:sfKey, matches:sf.left });   rightCols.push({ name:sfKey, matches:sf.right }); }
+
+  function matchCard(m, width) {
+    width = width || 165;
+    var hWin = m.isFinished && m.homeScore != null && m.awayScore != null && m.homeScore > m.awayScore;
+    var aWin = m.isFinished && m.homeScore != null && m.awayScore != null && m.awayScore > m.homeScore;
+    var ds = m.date ? new Date(m.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+    var borderCol = m.isLive ? 'var(--green)' : m.isFinished ? 'rgba(0,229,200,.35)' : 'var(--border2)';
+
+    function teamRow(name, score, win, lose, logo) {
+      return '<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid var(--border)">' +
+        (logo ? '<img src="'+logo+'" style="width:14px;height:14px;object-fit:contain;flex-shrink:0" onerror="this.style.display=\'none\'">' : '') +
+        '<span style="flex:1;font-size:10px;font-weight:'+(win?'700':'400')+';color:'+(win?'var(--green)':lose?'var(--text3)':'var(--text2)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(name||'TBD')+'</span>' +
+        (score != null ? '<span style="font-family:\'Bebas Neue\';font-size:14px;color:'+(win?'var(--green)':lose?'var(--text3)':'var(--text)')+'">'+score+'</span>' : '') +
+        '</div>';
+    }
+
+    return '<div onclick="bracketMatchAI(\''+esc(m.home||'')+'\',\''+esc(m.away||'')+'\',\''+esc(m.league||'')+'\')'+'" style="background:var(--panel);border:1px solid '+borderCol+';border-radius:7px;overflow:hidden;cursor:pointer;transition:border-color .15s;width:'+width+'px;flex-shrink:0" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\''+borderCol+'\'">' +
+      teamRow(m.home, m.homeScore, hWin, aWin, m.homeLogo) +
+      teamRow(m.away, m.awayScore, aWin, hWin, m.awayLogo) +
+      (m.agg ? '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);text-align:center;padding:2px 6px;background:rgba(0,0,0,.25)">'+m.agg+'</div>' : '') +
+      ((!m.isFinished && ds) ? '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);text-align:center;padding:2px 6px;background:rgba(0,0,0,.2)">'+ds+(m.isLive?' 🔴 LIVE':'')+'</div>' : '') +
+    '</div>';
+  }
+
+  function buildColumn(name, matches, isRight) {
+    var spacing = matches.length <= 1 ? 'justify-content:center' : 'justify-content:space-around';
+    return '<div style="display:flex;flex-direction:column;min-width:175px">' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);letter-spacing:1.5px;text-align:center;padding:7px 5px;background:var(--bg2);border-top:1px solid var(--border2);border-bottom:1px solid var(--border)">'+name.toUpperCase()+'</div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;'+spacing+';align-items:'+(isRight?'flex-start':'flex-end')+';padding:10px 8px;gap:10px;background:var(--bg)">' +
+        matches.map(function(m){ return matchCard(m, 160); }).join('') +
+      '</div>' +
+    '</div>';
+  }
+
+  function buildFinalColumn(matches) {
+    return '<div style="display:flex;flex-direction:column;min-width:210px;border-left:1px solid rgba(255,215,0,.2);border-right:1px solid rgba(255,215,0,.2)">' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--gold);letter-spacing:2px;text-align:center;padding:7px 5px;background:rgba(255,215,0,.05);border-top:1px solid rgba(255,215,0,.3);border-bottom:1px solid rgba(255,215,0,.2)">🏆 FINAL</div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px 10px;gap:12px;background:rgba(255,215,0,.02)">' +
+        (matches.length ? matches.map(function(m){ return matchCard(m, 195); }).join('') : '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);text-align:center">TBD</div>') +
+      '</div>' +
+    '</div>';
+  }
+
+  // Groups section (if any)
+  var groupsHtml = renderGroupsOnly(data, true); // true = groups only, no rounds
+
+  // Build full HTML
+  var html = '<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+    '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+(data.name||'')+'</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>' +
+    '<button onclick="predictTournamentWinner(\''+esc(data.name||'')+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
+  '</div>';
+  html += '<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
+
+  if (groupsHtml) {
+    html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin:0 0 8px">▸ GROUP / LEAGUE PHASE</div>';
+    html += groupsHtml;
+  }
+
+  if (leftCols.length || finalMatches.length) {
+    html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin:12px 0 8px">▸ KNOCKOUT BRACKET</div>';
+    html += '<div style="overflow-x:auto;padding-bottom:12px">';
+    html += '<div style="display:inline-flex;align-items:stretch;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden">';
+
+    // Left side (earliest → SF, reading left to right)
+    leftCols.forEach(function(col){ html += buildColumn(col.name, col.matches, false); });
+
+    // Center: Final
+    html += buildFinalColumn(finalMatches);
+
+    // Right side (SF → earliest, reversed so SF is closest to Final)
+    var rightReversed = rightCols.slice().reverse();
+    rightReversed.forEach(function(col){ html += buildColumn(col.name, col.matches, true); });
+
+    html += '</div></div>';
+  }
+
+  return html;
+}
+
+function renderGroupsOnly(data, groupsOnlyMode) {
+  var groups = data.groups || [];
+  if (!groups.length) return groupsOnlyMode ? '' : '<div style="text-align:center;padding:24px;color:var(--text3);font-family:\'JetBrains Mono\';font-size:10px">No fixtures available yet.</div>';
+
+  var html = '<div class="group-grid">';
+  groups.forEach(function(g){
+    html += '<div class="group-card"><div class="group-card-hdr">'+g.name+'</div>' +
+      '<table class="group-table"><thead><tr><th>TEAM</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>PTS</th></tr></thead><tbody>';
+    g.table.slice(0,8).forEach(function(t,i){
+      var gd = (t.gf||0)-(t.ga||0);
+      var cls = i < 2 ? 'cl-q' : '';
+      html += '<tr class="'+cls+'"><td>'+(i+1)+'. '+(t.name||'?')+'</td>'+
+        '<td>'+(t.p||0)+'</td><td style="color:var(--green)">'+(t.w||0)+'</td><td>'+(t.d||0)+'</td><td style="color:var(--red)">'+(t.l||0)+'</td>'+
+        '<td style="color:'+(gd>0?'var(--green)':gd<0?'var(--red)':'var(--text3)')+'">'+(gd>0?'+':'')+gd+'</td>'+
+        '<td class="pts-col">'+(t.pts||0)+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderBracketColumns(data, sortedKeys) {
+  // Fallback simple column view for competitions without a clear bracket
+  var html = '<div class="bracket-wrap"><div class="bracket-rounds">';
+  sortedKeys.forEach(function(rnd){
+    var matches = data.rounds[rnd] || [];
+    html += '<div class="bracket-round">'+
+      '<div class="bracket-round-hdr">'+rnd.toUpperCase()+'</div>'+
+      '<div class="bracket-matches">';
+    matches.forEach(function(m){
+      var hWin = m.isFinished && m.homeScore != null && m.awayScore != null && m.homeScore > m.awayScore;
+      var aWin = m.isFinished && m.homeScore != null && m.awayScore != null && m.awayScore > m.homeScore;
+      var ds = m.date ? new Date(m.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+      html += '<div class="bracket-match'+(m.isFinished?' finished':'')+(m.isLive?' live':'')+'" onclick="bracketMatchAI(\''+esc(m.home)+'\',\''+esc(m.away)+'\',\''+esc(rnd)+'\')">';
+      html += '<div class="bm-team">'+(m.homeLogo?'<img class="bm-logo" src="'+m.homeLogo+'" onerror="this.style.display=\'none\'">':'')+
+        '<span class="bm-name" style="font-weight:'+(hWin?'700':'400')+';color:'+(hWin?'var(--green)':aWin?'var(--text3)':'var(--text2)')+'">'+(m.home||'?')+'</span>'+
+        (m.homeScore != null?'<span class="bm-score'+(hWin?' winner':aWin?' loser':'')+'">'+m.homeScore+'</span>':'')+
+      '</div>';
+      html += '<div class="bm-team">'+(m.awayLogo?'<img class="bm-logo" src="'+m.awayLogo+'" onerror="this.style.display=\'none\'">':'')+
+        '<span class="bm-name" style="font-weight:'+(aWin?'700':'400')+';color:'+(aWin?'var(--green)':hWin?'var(--text3)':'var(--text2)')+'">'+(m.away||'?')+'</span>'+
+        (m.awayScore != null?'<span class="bm-score'+(aWin?' winner':hWin?' loser':'')+'">'+m.awayScore+'</span>':'')+
+      '</div>';
+      if (m.agg) html += '<div class="bm-meta">'+m.agg+'</div>';
+      if (!m.isFinished) html += '<div class="bm-meta">'+ds+(m.isLive?' 🔴 LIVE':'')+'</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
 // ─── INIT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',function(){
   updatePosFilter('football');
   loadStandings();
   loadCredits();
 });
+
 </script>
 </body>
 </html>

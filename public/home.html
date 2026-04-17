@@ -575,17 +575,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <label class="mkt-cb"><input type="checkbox" id="mkt-dc"> Double Chance</label>
           </div>
         </div>
-        <div class="cfg-row">
-          <div class="cfg-lbl">SPORTS IN PARLAY</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px">
-            <label class="mkt-cb"><input type="checkbox" id="ps-football" checked> ⚽ Football</label>
-            <label class="mkt-cb"><input type="checkbox" id="ps-basketball"> 🏀 NBA</label>
-            <label class="mkt-cb"><input type="checkbox" id="ps-tennis"> 🎾 Tennis</label>
-            <label class="mkt-cb"><input type="checkbox" id="ps-f1"> 🏎️ F1</label>
-            <label class="mkt-cb"><input type="checkbox" id="ps-boxing"> 🥊 Boxing</label>
-            <label class="mkt-cb"><input type="checkbox" id="ps-mma"> 🥋 MMA</label>
-          </div>
-        </div>
+        
         <div class="cfg-row">
           <div class="cfg-lbl">TIME FRAME</div>
           <select id="parlayTimeframe" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
@@ -1067,7 +1057,7 @@ function card(m, cfg) {
 
   html += '</div>';
 
-  if (m.hasRealOdds) html += '<div class="real-odds-tag">● REAL ODDS · ' + (m.bookmaker || 'Bookmaker') + '</div>';
+  if (m.hasRealOdds) html += '<div class="real-odds-tag">● REAL ODDS · ' + (m.bookmaker || 'Bookmaker') + (m.polymarket ? ' · 🔮 POLYMARKET' : '') + '</div>';
 
   var extras = [];
   if (m.koProb) extras.push('KO: ' + m.koProb + '%');
@@ -1842,13 +1832,7 @@ async function analyzeParlay() {
 }
 
 function getEnabledSports() {
-  var sports = [];
-  var ids = ['football','basketball','tennis','f1','boxing','mma'];
-  ids.forEach(function(s){
-    var el = document.getElementById('ps-' + s);
-    if (el && el.checked) sports.push(s);
-  });
-  return sports.length ? sports : ['football'];
+  return ['football','basketball','tennis','f1','boxing','mma'];
 }
 function updateRisk(v) {
   riskLevel = parseInt(v);
@@ -1899,7 +1883,6 @@ async function loadSavedParlays() {
       '</div>';
   }).join("");
 }
-
 async function openSavedParlay(idx) {
   var p = savedParlays[idx]; if (!p) return;
   document.querySelectorAll(".parlay-row").forEach(function(el,i){ el.classList.toggle("active", i===idx); });
@@ -1908,30 +1891,53 @@ async function openSavedParlay(idx) {
   var sc = p.confidence_score||0;
   var ip = (legs.reduce(function(x,l){ return x*((l.prob||50)/100); },1)*100).toFixed(1);
   var rl = riskLabel(legs.length, parseFloat(co));
+  var lr = p.leg_results;
+  if (typeof lr === 'string') { try { lr = JSON.parse(lr); } catch(e) { lr = null; } }
+  var isAutoResolved = p.auto_resolved;
+  var hitsCount = p.hits_count !== null && p.hits_count !== undefined ? p.hits_count
+    : (Array.isArray(lr) ? lr.filter(function(x){return x&&x.hit}).length : null);
+
+  var legHtml = legs.map(function(l,i){
+    var res = Array.isArray(lr) && lr[i] ? lr[i] : null;
+    var hit = res ? res.hit : null;
+    var score = res ? (res.homeScore+'-'+res.awayScore) : '';
+    var icon = hit === null ? '⏳' : hit ? '✅' : '❌';
+    var col = hit === null ? 'var(--text3)' : hit ? 'var(--green)' : 'var(--red)';
+    var autoTag = (res && res.resolvedAt) ? '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--purple);margin-left:4px">🤖 auto</span>' : '';
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid '+((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)")+'">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+      '<div style="flex:1"><div style="font-size:12px;font-weight:600">'+(i+1)+'. '+(l.matchName||"Match")+'</div>' +
+      '<div style="font-size:10px;color:var(--accent);font-family:\'JetBrains Mono\';margin-top:1px">⚡ '+(l.label||l.pick)+(l.hasRealOdds?" ●":"")+'</div></div>' +
+      '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">' +
+      '<div style="font-family:\'JetBrains Mono\';font-size:16px;color:var(--gold)">'+l.odds+'</div>' +
+      '<div style="font-size:10px;color:'+((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)")+'">'+(l.prob||50)+'%</div>' +
+      (score ? '<div style="font-family:\'Bebas Neue\';font-size:13px;color:'+col+'">'+icon+' '+score+'</div>' : '<div style="font-size:10px;color:var(--text3)">'+icon+' pending</div>') +
+      autoTag + '</div></div></div>';
+  }).join('');
+
+  var learnHtml = isAutoResolved ? '<div style="margin-top:12px;background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.25);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--text2);line-height:1.7">🤖 <strong style="color:var(--purple)">Slip IQ Dynamic Prediction Matrix</strong> — this parlay was auto-resolved by the prediction engine. Every match result feeds back into the AI\'s adaptive weighting system, making the next prediction smarter. Wrong calls reduce the weight of the factors that drove them; correct calls reinforce them.</div>' : '';
+
+  var statusBadge = p.status === 'won'
+    ? '<div style="background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:\'JetBrains Mono\';font-size:10px;padding:4px 12px;border-radius:5px">🎉 WON — ALL LEGS HIT</div>'
+    : p.status === 'lost'
+    ? '<div style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.25);color:var(--red);font-family:\'JetBrains Mono\';font-size:10px;padding:4px 12px;border-radius:5px">❌ LOST'+(hitsCount !== null ? ' — '+hitsCount+'/'+legs.length+' HIT' : '')+'</div>'
+    : '<div style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:10px;padding:4px 12px;border-radius:5px">⏳ PENDING — RESOLVES AUTOMATICALLY</div>';
+
   document.getElementById("parlayDetail").innerHTML =
     '<div style="max-width:680px"><div class="asection">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px">' +
-    '<div><div style="font-family:\'Bebas Neue\';font-size:19px;color:var(--text)">' + (p.name||legs.length+"-Leg Parlay") + '</div><div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);margin-top:1px">' + new Date(p.created_at).toLocaleString("en-GB") + '</div></div>' +
-    '<div class="status-badge status-' + (p.status||"pending") + '" style="position:static">' + (p.status||"PENDING").toUpperCase() + '</div></div>' +
+    '<div><div style="font-family:\'Bebas Neue\';font-size:19px;color:var(--text)">'+(p.name||legs.length+"-Leg Parlay")+'</div><div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);margin-top:1px">'+new Date(p.created_at).toLocaleString("en-GB")+(isAutoResolved?' · 🤖 Auto-resolved':'')+'</div></div>' +
+    statusBadge + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px">' +
     [{l:"Odds",v:parseFloat(co).toFixed(2)+"x",c:"var(--gold)"},{l:"Prob",v:ip+"%",c:"var(--accent)"},{l:"Score",v:sc+"/100",c:sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)"},{l:"Risk",v:rl.label,c:rl.color}].map(function(x){
-      return '<div class="factor-item" style="text-align:center"><div class="factor-name">' + x.l + '</div><div style="font-family:\'Bebas Neue\';font-size:17px;color:' + x.c + '">' + x.v + '</div></div>';
+      return '<div class="factor-item" style="text-align:center"><div class="factor-name">'+x.l+'</div><div style="font-family:\'Bebas Neue\';font-size:17px;color:'+x.c+'">'+x.v+'</div></div>';
     }).join("") + '</div></div>' +
-    '<div class="asection"><div class="asection-title">LEGS</div>' +
-    legs.map(function(l,i){
-      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid ' + ((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)") + '">' +
-        '<div style="display:flex;justify-content:space-between">' +
-        '<div><div style="font-size:12px;font-weight:600">' + (i+1) + '. ' + (l.matchName||"Match") + '</div>' +
-        '<div style="font-size:10px;color:var(--accent);font-family:\'JetBrains Mono\';margin-top:1px">⚡ ' + (l.label||l.pick) + (l.hasRealOdds?" ●":"") + '</div></div>' +
-        '<div style="text-align:right"><div style="font-family:\'JetBrains Mono\';font-size:16px;color:var(--gold)">' + l.odds + '</div><div style="font-size:10px;color:' + ((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)") + '">' + (l.prob||50) + '%</div></div></div></div>';
-    }).join("") + '</div>' +
+    '<div class="asection"><div class="asection-title">LEGS'+(hitsCount !== null ? ' — '+hitsCount+'/'+legs.length+' HIT':'')+'</div>' +
+    legHtml + learnHtml + '</div>' +
     '<div style="padding:7px 0;display:flex;gap:7px;justify-content:flex-end">' +
-  '<button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder(' + idx + ')">↺ REBUILD IN BUILDER</button>' +
-  '<button style="background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="openResultEntry(' + idx + ')">✅ ENTER RESULTS</button>' +
-'</div>' +
-    '</div>';
+    '<button style="background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:\'JetBrains Mono\';font-size:9px;padding:5px 11px;border-radius:5px;cursor:pointer" onclick="reAddToBuilder('+idx+')">↺ REBUILD IN BUILDER</button>' +
+    '</div></div>';
 }
-
 function reAddToBuilder(idx) {
   var p = savedParlays[idx]; if (!p) return;
   parlaySelections = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];

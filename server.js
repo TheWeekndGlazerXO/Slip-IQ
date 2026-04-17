@@ -56,6 +56,18 @@ const DEFAULT_TEAM_WEIGHTS = () => ({
   homeGoalsConcededAvg: 0.00,
   awayGoalsConcededAvg: 0.00,
   avgRating: 0.00,
+  // Real per-game averages (populated from Sportmonks results)
+  totalGoalsScored: 0,
+  totalGoalsConceded: 0,
+  totalXgFor: 0,
+  totalXgAgainst: 0,
+  totalPossession: 0,
+  gamesWithStats: 0,
+  avgGoalsScored: 0,      // real: total goals / games
+  avgGoalsConceded: 0,    // real: total conceded / games
+  avgXgFor: 0,            // real xG for per game
+  avgXgAgainst: 0,        // real xG against per game
+  avgPossessionReal: 0,   // real possession % per game
   // Descriptor matchups
   vsFinessers: 0.50, vsDirectPlay: 0.50, vsHighPress: 0.50, vsLowBlock: 0.50,
   matchCount: 0, lastUpdated: Date.now()
@@ -159,6 +171,23 @@ async function updateTeamWeights(homeTeam, awayTeam, homeScore, awayScore, wasHo
     if (ctx.setpieceGoals)     w.goalsFromSetPiece   = Math.min(1, ctx.setpieceGoals / 3)
     if (ctx.avgRating)         w.avgRating           = ctx.avgRating
 
+    // Real per-game average tracking
+    w.totalGoalsScored   = (w.totalGoalsScored   || 0) + scored
+    w.totalGoalsConceded = (w.totalGoalsConceded || 0) + conceded
+    w.gamesWithStats     = (w.gamesWithStats     || 0) + 1
+    if (w.gamesWithStats > 0) {
+      w.avgGoalsScored   = parseFloat((w.totalGoalsScored   / w.gamesWithStats).toFixed(2))
+      w.avgGoalsConceded = parseFloat((w.totalGoalsConceded / w.gamesWithStats).toFixed(2))
+    }
+    if (ctx.homeXg !== undefined) {
+      const xgFor = isHome ? (ctx.homeXg || 0) : (ctx.awayXg || 0)
+      w.totalXgFor  = (w.totalXgFor  || 0) + xgFor
+      w.avgXgFor    = parseFloat((w.totalXgFor / w.gamesWithStats).toFixed(2))
+    }
+    if (ctx.possession) {
+      w.totalPossession  = (w.totalPossession || 0) + ctx.possession
+      w.avgPossessionReal = parseFloat((w.totalPossession / w.gamesWithStats).toFixed(1))
+    }
     w.matchCount++
     w.lastUpdated = Date.now()
     teamWeights.set(teamName, w)
@@ -315,8 +344,27 @@ const STRIPE_SECRET_KEY     = process.env.STRIPE_SECRET_KEY
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
 const _raw     = process.env.MODEL_NAME || "openai/gpt-4o"
 const AI_MODEL = (_raw === "openai/gpt-5" || _raw === "gpt-5") ? "openai/gpt-4o" : _raw
-const SM_BASE  = "https://api.sportmonks.com/v3/football"
+const SM_BASE      = "https://api.sportmonks.com/v3/football"
+const SM_MOTO_BASE = "https://api.sportmonks.com/v3/motorsport"
 const OPEN_F1_BASE = "https://api.openf1.org/v1"
+const SQUAD_PRIORITY_LEAGUES = new Set([
+  2,   // Champions League
+  8,   // Premier League
+  564, // La Liga
+  384, // Serie A
+  82,  // Bundesliga
+  301, // Ligue 1
+  5,   // Europa League
+  9,   // Championship
+  72,  // Primeira Liga
+  1,   // Eredivisie
+  203, // Süper Lig
+  462, // Scottish Premiership
+  208, // Belgian Pro League
+  155, // MLS
+  24,  // Conference League
+])
+
 
 // ── PLAN DEFINITIONS ──────────────────────────────────────
 const PLAN_CREDITS = {
@@ -1685,31 +1733,68 @@ const F1_2025_CALENDAR = [
   { circuit_short_name:"Spa",country_name:"Belgium",date_start:"2026-07-27T13:00:00",session_key:"bel_2026" },
   { circuit_short_name:"Monza",country_name:"Italy",date_start:"2026-09-07T13:00:00",session_key:"ita_2026" },
 ]
-
 async function fetchF1NextRace() {
   return cached("f1_data", async () => {
     try {
-      const [sessionsR, driversR] = await Promise.all([
-        httpExt(`${OPEN_F1_BASE}/sessions?session_type=Race&year=2025`).catch(() => ({ data: [] })),
-        httpExt(`${OPEN_F1_BASE}/drivers?session_key=latest`).catch(() => ({ data: [] })),
+      const [fixturesR, driversR, standingsR] = await Promise.allSettled([
+        http(`${SM_MOTO_BASE}/fixtures/upcoming`, { api_token: SM_KEY, include: 'venue;season', per_page: 10 }),
+        http(`${SM_MOTO_BASE}/drivers`, { api_token: SM_KEY, include: 'team', per_page: 30 }),
+        http(`${SM_MOTO_BASE}/standings/seasons/current`, { api_token: SM_KEY, include: 'driver;team', per_page: 25 }),
       ])
-      const sessions = sessionsR.data || []
-      const now = Date.now()
-      const upcoming = sessions.filter(s => new Date(s.date_start).getTime() > now - 86400000)
-        .sort((a,b) => new Date(a.date_start) - new Date(b.date_start)).slice(0,5)
-      const predictions = buildF1Predictions(upcoming.length > 0 ? upcoming : F1_2025_CALENDAR)
-      return { predictions, standings: buildF1Standings() }
+
+      const smFixtures = fixturesR.status === 'fulfilled' ? (fixturesR.value.data?.data || []) : []
+      const smDrivers  = driversR.status  === 'fulfilled' ? (driversR.value.data?.data  || []) : []
+      const smStandings= standingsR.status=== 'fulfilled' ? (standingsR.value.data?.data|| []) : []
+
+      const races = smFixtures.length > 0 ? smFixtures.map(f => ({
+        circuit_short_name: f.venue?.name || f.name?.split(' ')[0] || 'Circuit',
+        country_name:       f.venue?.city || f.country?.name || 'Unknown',
+        date_start:         f.starting_at,
+        session_key:        `sm_${f.id}`,
+        sm_id:              f.id,
+        venue_id:           f.venue_id,
+      })) : F1_2025_CALENDAR
+
+      const driverMap = new Map()
+      for (const d of smDrivers) {
+        const name = d.name || d.display_name || d.common_name
+        if (name) {
+          const existing = F1_DRIVERS_2025.find(fd => _normAccents(fd.name) === _normAccents(name)) || {}
+          driverMap.set(name, {
+            ...existing, name, number: d.number || existing.number || 99,
+            team: d.team?.name || existing.team || 'Unknown',
+            country: d.nationality || existing.country || 'Unknown',
+            sm_id: d.id, image_path: d.image_path,
+            elo: existing.elo || 1800
+          })
+        }
+      }
+      const finalDrivers = driverMap.size > 5 ? Array.from(driverMap.values()) : F1_DRIVERS_2025
+
+      const standings = smStandings.length > 0
+        ? smStandings.map((s, i) => ({
+            pos: s.position || i + 1,
+            driver: s.driver?.name || s.participant?.name || `Driver ${i+1}`,
+            team: s.team?.name || s.participant?.team?.name || 'Unknown',
+            points: s.points || s.total || 0,
+            wins: s.won || 0,
+            elo: (F1_DRIVERS_2025.find(d => _normAccents(d.name) === _normAccents(s.driver?.name||'')) || {}).elo || 1800,
+          }))
+        : buildF1Standings()
+
+      const predictions = buildF1Predictions(races, finalDrivers)
+      return { predictions, standings, smDrivers: finalDrivers, source: 'sportmonks' }
     } catch(e) {
-      return { predictions: buildF1Predictions(F1_2025_CALENDAR), standings: buildF1Standings() }
+      console.log('⚠️ SM F1 API:', e.message?.slice(0,60), '— falling back to static data')
+      return { predictions: buildF1Predictions(F1_2025_CALENDAR, F1_DRIVERS_2025), standings: buildF1Standings(), source: 'static' }
     }
   }, TTL.L)
 }
-
-function buildF1Predictions(races) {
+function buildF1Predictions(races, driversOverride) {
   const now = Date.now()
   const upcoming = races.filter(r => new Date(r.date_start).getTime() > now - 7*86400000)
     .sort((a,b) => new Date(a.date_start) - new Date(b.date_start)).slice(0,5)
-  const driversWithStyle = F1_DRIVERS_2025.map(d => ({
+  const driversWithStyle = (driversOverride || F1_DRIVERS_2025).map(d => ({
     ...d, playstyle: getPlaystyleForSport('f1',null,d.name,d.elo),
     constructorElo: F1_CONSTRUCTOR_ELO[d.team] || 1800,
     combinedElo: Math.round(d.elo * 0.6 + (F1_CONSTRUCTOR_ELO[d.team] || 1800) * 0.4),
@@ -1959,7 +2044,10 @@ function buildMMAPrediction(event) {
 //  FOOTBALL — SPORTMONKS
 // ══════════════════════════════════════════════════════════
 const SM_INCLUDE_TIERS = [
-  "participants;league;league.country;scores;state;odds;predictions;statistics",
+  "participants;league;league.country;scores;state;premiumOdds;predictions;xGFixture;pressure;expectedLineups;formations",
+  "participants;league;league.country;scores;state;premiumOdds;predictions;xGFixture;pressure;formations",
+  "participants;league;league.country;scores;state;premiumOdds;predictions;xGFixture;formations",
+  "participants;league;league.country;scores;state;premiumOdds;predictions;formations",
   "participants;league;league.country;scores;state;odds;predictions",
   "participants;league;league.country;scores;state;odds",
   "participants;league;league.country;scores;state",
@@ -2086,12 +2174,124 @@ async function smPreMatchNews() {
   if (!SM_KEY) return []
   return cached("sm_news", async () => {
     try {
-      const r = await http(`${SM_BASE}/news/pre-match/upcoming`, { api_token: SM_KEY, include: "fixture;league", per_page: 30, order: "desc" })
-      return (r.data?.data || []).map(a => ({ title: a.title, body: a.body?.slice(0, 600) || "", fixtureId: a.fixture_id, leagueName: a.league?.name, publishedAt: a.created_at }))
+      const [preMatch, articles] = await Promise.allSettled([
+        // Pre-match news (your News add-on)
+        http(`${SM_BASE}/news/pre-match/upcoming`, {
+          api_token: SM_KEY, include: 'fixture;fixture.participants;league',
+          per_page: 50, order: 'desc'
+        }),
+        // Full news articles (your News add-on)
+        http(`${SM_BASE}/news/articles`, {
+          api_token: SM_KEY, include: 'league',
+          per_page: 30, order: 'desc'
+        })
+      ])
+      const preItems = preMatch.status === 'fulfilled'
+        ? (preMatch.value.data?.data || []).map(a => ({
+            title: a.title, body: a.body?.slice(0, 800) || '',
+            fixtureId: a.fixture_id, leagueName: a.league?.name,
+            publishedAt: a.created_at, type: 'pre-match',
+            homeTeam: a.fixture?.participants?.find(p => p.meta?.location === 'home')?.name,
+            awayTeam: a.fixture?.participants?.find(p => p.meta?.location === 'away')?.name,
+          }))
+        : []
+      const artItems = articles.status === 'fulfilled'
+        ? (articles.value.data?.data || []).map(a => ({
+            title: a.title, body: a.body?.slice(0, 800) || '',
+            leagueName: a.league?.name, publishedAt: a.created_at,
+            type: 'article', url: a.original_url || null,
+          }))
+        : []
+      return [...preItems, ...artItems]
+    } catch(e) { return [] }
+  }, TTL.M)
+}
+async function smTransferRumours() {
+  if (!SM_KEY) return []
+  return cached('sm_transfer_rumours', async () => {
+    try {
+      const r = await http(`${SM_BASE}/transfers/latest`, {
+        api_token: SM_KEY, include: 'player;fromTeam;toTeam;type', per_page: 30, order: 'desc'
+      })
+      return (r.data?.data || []).map(t => ({
+        player_name: t.player?.display_name || t.player?.common_name || t.player?.name,
+        from_team:   t.fromTeam?.name || t.from_team?.name,
+        to_team:     t.toTeam?.name   || t.to_team?.name,
+        type:        t.type?.name || 'Transfer',
+        date:        t.date || t.transfer_date,
+        fee:         t.amount || null,
+        is_rumour:   t.is_rumour || (t.type?.name === 'Rumour'),
+      })).filter(t => t.player_name)
     } catch(e) { return [] }
   }, TTL.M)
 }
 
+async function smExpectedTransfers() {
+  if (!SM_KEY) return []
+  return cached('sm_expected_transfers', async () => {
+    try {
+      const r = await http(`${SM_BASE}/transfers/rumors`, {
+        api_token: SM_KEY, include: 'player;fromTeam;toTeam', per_page: 30, order: 'desc'
+      })
+      return (r.data?.data || []).map(t => ({
+        player_name:   t.player?.display_name || t.player?.name,
+        from_team:     t.fromTeam?.name,
+        to_team:       t.toTeam?.name,
+        probability:   t.probability || null,
+        fee_estimate:  t.amount || null,
+        source:        t.source || null,
+        published_at:  t.created_at || null,
+      })).filter(t => t.player_name)
+    } catch(e) { return [] }
+  }, TTL.M)
+}
+// ── POLYMARKET SENTIMENT ──────────────────────────────────────────────────────
+async function fetchPolymarketSentiment(homeTeam, awayTeam) {
+  if (!homeTeam || !awayTeam) return null
+  const cacheKey = `poly_${homeTeam}_${awayTeam}`.replace(/\s/g,'_').toLowerCase()
+  return cached(cacheKey, async () => {
+    try {
+      const q = encodeURIComponent(`${homeTeam} ${awayTeam}`)
+      const r = await httpExt(`https://gamma-api.polymarket.com/markets?q=${q}&limit=5&active=true&closed=false`)
+      const markets = r.data || []
+      const homeWin = markets.find(m =>
+        m.question && (
+          m.question.toLowerCase().includes(homeTeam.toLowerCase().split(' ')[0]) ||
+          m.question.toLowerCase().includes(awayTeam.toLowerCase().split(' ')[0])
+        ) && m.question.toLowerCase().includes('win')
+      )
+      if (!homeWin || !homeWin.outcomePrices) return null
+      let prices
+      try { prices = JSON.parse(homeWin.outcomePrices) } catch(e) { return null }
+      if (!Array.isArray(prices) || prices.length < 2) return null
+      const p0 = parseFloat(prices[0]), p1 = parseFloat(prices[1])
+      if (isNaN(p0) || isNaN(p1)) return null
+      return { homeProb: Math.round(p0 * 100), awayProb: Math.round(p1 * 100), question: homeWin.question }
+    } catch(e) { return null }
+  }, TTL.S)
+}
+
+// ── SPORTMONKS TEAM SEARCH ────────────────────────────────────────────────────
+async function smSearchTeam(teamName) {
+  if (!SM_KEY || !teamName) return null
+  return cached('sm_search_' + teamName.toLowerCase().replace(/[^a-z0-9]/g,'_'), async () => {
+    try {
+      const r = await http(`${SM_BASE}/teams/search/${encodeURIComponent(teamName)}`, { api_token: SM_KEY, include: 'country' })
+      return r.data?.data?.[0] || null
+    } catch(e) { return null }
+  }, TTL.XL)
+}
+
+// ── SPORTMONKS MANAGER / COACH PICTURE ───────────────────────────────────────
+async function smFetchCoach(teamId) {
+  if (!SM_KEY || !teamId) return null
+  return cached('sm_coach_' + teamId, async () => {
+    try {
+      const r = await http(`${SM_BASE}/coaches/teams/${teamId}`, { api_token: SM_KEY })
+      return r.data?.data?.[0] || null
+    } catch(e) { return null }
+  }, TTL.XL)
+}
 async function smSquad(teamId, teamName, seasonId) {
   if (!SM_KEY || !teamId) return []
   const cacheKey = `sm_squad_${teamId}_${seasonId || "cur"}`
@@ -2185,15 +2385,24 @@ function calcXG(tElo, oElo, form, isHome, realXg, teamName) {
   const ed = (tElo - oElo) / 400
   const fb = (formScore(form) - 0.5) * 0.1
   const base = isHome ? 1.45 : 1.10
-  // Apply per-team learned adjustments
-  const homeAwayMult = isHome ? (w.homeGoalsScoredAvg > 0 ? Math.min(1.4, w.homeGoalsScoredAvg / 1.45) : 1.0)
-                               : (w.awayGoalsScoredAvg > 0 ? Math.min(1.3, w.awayGoalsScoredAvg / 1.10) : 1.0)
+  // Use real per-game avg goals if available, fall back to positional averages
+  const realAvgFor = w.avgGoalsScored > 0 ? w.avgGoalsScored
+    : isHome ? (w.homeGoalsScoredAvg || 0) : (w.awayGoalsScoredAvg || 0)
+  const realXgFor  = w.avgXgFor > 0 ? w.avgXgFor : 0
+  // Blend real data with base: more games = more weight on real avg
+  const dataWeight = Math.min(1, (w.gamesWithStats || 0) / 10) // full trust after 10 games
+  const blendedBase = dataWeight > 0
+    ? base * (1 - dataWeight) + (realAvgFor || realXgFor || base) * dataWeight
+    : base
+  const homeAwayMult = isHome
+    ? (w.homeGoalsScoredAvg > 0 ? Math.min(1.4, w.homeGoalsScoredAvg / 1.45) : 1.0)
+    : (w.awayGoalsScoredAvg > 0 ? Math.min(1.3, w.awayGoalsScoredAvg / 1.10) : 1.0)
   const xgFactor = w.xgFactor || 0.55
   const possessionBonus = w.avgPossession > 0 ? (w.avgPossession - 0.5) * 0.2 : 0
   const pressBonus = w.pressingIntensity > 0.5 ? (w.pressingIntensity - 0.5) * 0.1 : 0
   const setpieceBonus = w.goalsFromSetPiece > 0.2 ? (w.goalsFromSetPiece - 0.2) * 0.3 : 0
   const homeAdj = isHome ? 0.18 : -0.05
-  const xg = Math.max(0.3, (base + ed * 0.9 + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus) * homeAwayMult)
+  const xg = Math.max(0.3, (blendedBase + ed * 0.9 + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus) * homeAwayMult)
   return parseFloat(xg.toFixed(2))
 }
 
@@ -2376,33 +2585,45 @@ return { homeProb, drawProb, awayProb, ouProbs, ouOdds,
   dcOdds
 }
 }
-
-function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW) {
+function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW, extras) {
   const hfs = formScore(hForm) * 100, afs = formScore(aForm) * 100, ed = hElo - aElo
   const smH = smPred?.FULLTIME_RESULT_PROBABILITY?.home, smA = smPred?.FULLTIME_RESULT_PROBABILITY?.away
   const n   = v => Math.min(99, Math.max(1, Math.round(v)))
-  // Per-team deep factors from Sportmonks stats
   const hPoss = Math.round((hW?.avgPossession||0.5)*100), aPoss = Math.round((aW?.avgPossession||0.5)*100)
   const hCS   = Math.round((hW?.cleanSheetRate||0.3)*100), aCS = Math.round((aW?.cleanSheetRate||0.3)*100)
   const hSoT  = Math.round((hW?.shotsOnTargetRatio||0.5)*100), aSoT = Math.round((aW?.shotsOnTargetRatio||0.5)*100)
   const hSP   = Math.round((hW?.goalsFromSetPiece||0.3)*100), aSP = Math.round((aW?.goalsFromSetPiece||0.3)*100)
   const hYC   = Math.round((1-(hW?.yellowCardRisk||0.5))*100), aYC = Math.round((1-(aW?.yellowCardRisk||0.5))*100)
-  return [
-    { name:"ELO RATING",       homeScore:n(hElo/20),    awayScore:n(aElo/20),              color:"#00d4ff" },
-    { name:"RECENT FORM",      homeScore:n(hfs),        awayScore:n(afs),                  color:"#00ff88" },
-    { name:"xG ATTACK",        homeScore:n(hxg*35),     awayScore:n(axg*35),               color:"#ff3b5c" },
-    { name:"DEFENSIVE SHAPE",  homeScore:n(50+ed/40),   awayScore:n(50-ed/40),             color:"#ffd700" },
-    { name:"HOME ADVANTAGE",   homeScore:65,            awayScore:35,                       color:"#ff8c42" },
-    { name:"SM AI PREDICTION", homeScore:smH?n(parseFloat(smH)):n(50+ed/30), awayScore:smA?n(parseFloat(smA)):n(50-ed/30), color:"#cc88ff" },
-    { name:"POSSESSION",       homeScore:n(hPoss),      awayScore:n(aPoss),                color:"#44ddaa" },
-    { name:"SHOTS ON TARGET",  homeScore:n(hSoT),       awayScore:n(aSoT),                 color:"#ffaa44" },
-    { name:"CLEAN SHEET RATE", homeScore:n(hCS),        awayScore:n(aCS),                  color:"#4488ff" },
-    { name:"SET PIECES",       homeScore:n(hSP),        awayScore:n(aSP),                  color:"#ff6688" },
-    { name:"DISCIPLINE",       homeScore:n(hYC),        awayScore:n(aYC),                  color:"#88ff88" },
-    { name:"MOMENTUM",         homeScore:n(hfs*1.1),    awayScore:n(afs*1.1),              color:"#a855f7" },
+  const hMom  = formMomentum(hForm), aMom = formMomentum(aForm)
+  const hMomScore = n(50 + hMom * 100), aMomScore = n(50 + aMom * 100)
+  const hInjScore = n(100 - (extras?.homeInjuryImpact || 0) * 2)
+  const aInjScore = n(100 - (extras?.awayInjuryImpact || 0) * 2)
+  const hFatScore = n(100 - ((1 - (extras?.hFatigueF || 1.0)) * 200))
+  const aFatScore = n(100 - ((1 - (extras?.aFatigueF || 1.0)) * 200))
+  const hRank = extras?.homeRank, aRank = extras?.awayRank
+  const factors = [
+    { name:"ELO RATING",         homeScore:n(hElo/20),    awayScore:n(aElo/20),    color:"#00d4ff" },
+    { name:"RECENT FORM",        homeScore:n(hfs),        awayScore:n(afs),        color:"#00ff88" },
+    { name:"xG ATTACK",          homeScore:n(hxg*35),     awayScore:n(axg*35),     color:"#ff3b5c" },
+    { name:"DEFENSIVE SHAPE",    homeScore:n(50+ed/40),   awayScore:n(50-ed/40),   color:"#ffd700" },
+    { name:"HOME ADVANTAGE",     homeScore:65,            awayScore:35,            color:"#ff8c42" },
+    { name:"SM AI PREDICTION",   homeScore:smH?n(parseFloat(smH)):n(50+ed/30), awayScore:smA?n(parseFloat(smA)):n(50-ed/30), color:"#cc88ff" },
+    { name:"POSSESSION",         homeScore:n(hPoss),      awayScore:n(aPoss),      color:"#44ddaa" },
+    { name:"SHOTS ON TARGET",    homeScore:n(hSoT),       awayScore:n(aSoT),       color:"#ffaa44" },
+    { name:"CLEAN SHEET RATE",   homeScore:n(hCS),        awayScore:n(aCS),        color:"#4488ff" },
+    { name:"SET PIECES",         homeScore:n(hSP),        awayScore:n(aSP),        color:"#ff6688" },
+    { name:"DISCIPLINE",         homeScore:n(hYC),        awayScore:n(aYC),        color:"#88ff88" },
+    { name:"MOMENTUM",           homeScore:hMomScore,     awayScore:aMomScore,     color:"#a855f7" },
+    { name:"SQUAD FITNESS",      homeScore:hInjScore,     awayScore:aInjScore,     color:"#f59e0b" },
+    { name:"FATIGUE",            homeScore:hFatScore,     awayScore:aFatScore,     color:"#06b6d4" },
+    { name:"GOALS SCORED AVG",   homeScore:n((hW?.avgGoalsScored||1.3)*30), awayScore:n((aW?.avgGoalsScored||1.1)*30), color:"#ec4899" },
+    { name:"GOALS CONCEDED AVG", homeScore:n(99-(hW?.avgGoalsConceded||1.2)*30), awayScore:n(99-(aW?.avgGoalsConceded||1.2)*30), color:"#14b8a6" },
   ]
+  if (hRank && aRank) {
+    factors.push({ name:"TEAM RANKING", homeScore:n(100-hRank/5), awayScore:n(100-aRank/5), color:"#f97316" })
+  }
+  return factors
 }
-
 function detectMismatches(homeLineup, awayLineup, homeName, awayName) {
   const mismatches = []
   if (!homeLineup?.length || !awayLineup?.length) return mismatches
@@ -2483,18 +2704,162 @@ function inferTactics(elo, form) {
 }
 
 // ── THE ODDS API ──────────────────────────────────────────
-const ODDS_SPORTS = [
-  { key:"soccer_epl",name:"Premier League" },
-  { key:"soccer_spain_la_liga",name:"La Liga" },
-  { key:"soccer_italy_serie_a",name:"Serie A" },
-  { key:"soccer_germany_bundesliga",name:"Bundesliga" },
-  { key:"soccer_france_ligue_one",name:"Ligue 1" },
-  { key:"soccer_uefa_champs_league",name:"Champions League" },
-  { key:"soccer_uefa_europa_league",name:"Europa League" },
-  { key:"basketball_nba",name:"NBA" },
-  { key:"americanfootball_nfl",name:"NFL" },
+// ESPN football leagues — supplementary source for leagues not in SM plan
+const ESPN_FOOTBALL_LEAGUES = [
+  { slug: 'eng.1',            name: 'Premier League',        country: 'England' },
+  { slug: 'esp.1',            name: 'La Liga',               country: 'Spain' },
+  { slug: 'ger.1',            name: 'Bundesliga',            country: 'Germany' },
+  { slug: 'ita.1',            name: 'Serie A',               country: 'Italy' },
+  { slug: 'fra.1',            name: 'Ligue 1',               country: 'France' },
+  { slug: 'uefa.champions',   name: 'Champions League',      country: 'World' },
+  { slug: 'uefa.europa',      name: 'Europa League',         country: 'World' },
+  { slug: 'uefa.europa.conf', name: 'Conference League',     country: 'World' },
+  { slug: 'eng.fa',           name: 'FA Cup',                country: 'England' },
+  { slug: 'bra.1',            name: 'Brasileirão',           country: 'Brazil' },
+  { slug: 'ksa.1',            name: 'Saudi Pro League',      country: 'Saudi Arabia' },
+  { slug: 'usa.1',            name: 'MLS',                   country: 'USA' },
+  { slug: 'sco.1',            name: 'Scottish Premiership',  country: 'Scotland' },
+  { slug: 'por.1',            name: 'Primeira Liga',         country: 'Portugal' },
+  { slug: 'ned.1',            name: 'Eredivisie',            country: 'Netherlands' },
+  { slug: 'tur.1',            name: 'Süper Lig',             country: 'Turkey' },
 ]
 
+async function fetchESPNFootballGames() {
+  return cached('espn_football_all', async () => {
+    const all = []
+    for (const lg of ESPN_FOOTBALL_LEAGUES) {
+      try {
+        // Fetch scoreboard (current/live) AND upcoming schedule
+        const [sbR, scR] = await Promise.allSettled([
+          httpExt(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard`, { limit: 100 }),
+          httpExt(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/schedule`, { limit: 100 }),
+        ])
+        const sbEvents = sbR.status === 'fulfilled' ? (sbR.value.data?.events || []) : []
+        // ESPN schedule wraps events differently
+        const scRaw = scR.status === 'fulfilled' ? scR.value.data : {}
+        const scEvents = scRaw?.events || []
+
+        const seen = new Set()
+        const combined = []
+        for (const e of [...sbEvents, ...scEvents]) {
+          if (!seen.has(e.id)) { seen.add(e.id); combined.push(e) }
+        }
+        for (const e of combined) e._espnLeague = lg
+        all.push(...combined)
+        await sleep(120)
+      } catch(e) {
+        console.log(`  ⚠️  ESPN ${lg.name}: ${e.message?.slice(0, 40)}`)
+      }
+    }
+    console.log(`✅ ESPN football: ${all.length} events across ${ESPN_FOOTBALL_LEAGUES.length} leagues`)
+    return all
+  }, TTL.S)
+}
+
+function buildESPNFootballPrediction(event, oddsMap) {
+  if (!event) return null
+  try {
+    const comp  = event.competitions?.[0] || {}
+    const comps = comp.competitors || []
+    const homeC = comps.find(c => c.homeAway === 'home') || comps[0]
+    const awayC = comps.find(c => c.homeAway === 'away') || comps[1]
+    if (!homeC || !awayC) return null
+
+    const home = homeC.team?.displayName || homeC.team?.name || 'Home'
+    const away = awayC.team?.displayName || awayC.team?.name || 'Away'
+    const lg     = event._espnLeague || { name: 'Football', country: 'Unknown' }
+    const league = normLeague(lg.name) || lg.name
+    if (!league) return null
+
+    if (comp.status?.type?.completed) return null
+    const isLive = comp.status?.type?.name === 'STATUS_IN_PROGRESS'
+
+    const hElo = getElo(home, league, 0.4)
+    const aElo = getElo(away, league, 0.6)
+    const hW   = getTeamWeights(home)
+    const aW   = getTeamWeights(away)
+
+    const hxg = calcXG(hElo, aElo, [], true,  null, home)
+    const axg = calcXG(aElo, hElo, [], false, null, away)
+
+    const realOddsEntry = oddsMap ? findOdds(oddsMap, home, away) : null
+    const markets = buildAllMarkets(hxg, axg, {}, {}, realOddsEntry)
+    let { homeProb, drawProb, awayProb } = markets
+    const hasRealOdds = !!(realOddsEntry?.home && realOddsEntry?.draw && realOddsEntry?.away)
+
+    const homeOdds = realOddsEntry?.home || parseFloat((1/Math.max(0.01,homeProb/100)*1.06).toFixed(2))
+    const drawOdds = realOddsEntry?.draw || parseFloat((1/Math.max(0.01,drawProb/100)*1.06).toFixed(2))
+    const awayOdds = realOddsEntry?.away || parseFloat((1/Math.max(0.01,awayProb/100)*1.06).toFixed(2))
+    const confidence = Math.min(99, Math.max(homeProb, drawProb, awayProb))
+
+    const hVal = detectValue(homeProb, homeOdds)
+    const aVal = detectValue(awayProb, awayOdds)
+
+    const score = isLive ? `${homeC.score||0}-${awayC.score||0}` : null
+
+    const homeLineup = buildExpectedLineupFromSquad(home, hElo)
+    const awayLineup = buildExpectedLineupFromSquad(away, aElo)
+    const mismatches = detectMismatches(homeLineup, awayLineup, home, away)
+
+    return {
+      id:             `espn_${event.id}`,
+      smId:           null,
+      sport:          'football',
+      home, away, league, leagueName: league,
+      flag:           leagueFlag(lg.country),
+      country:        lg.country,
+      date:           comp.date || event.date,
+      isLive,
+      isFinished:     false,
+      score,
+      minute:         null,
+      homeProb, drawProb, awayProb,
+      homeOdds, drawOdds, awayOdds,
+      hasRealOdds,
+      confidence,
+      upsetProb:      Math.min(95, Math.round(awayProb * 0.8 + (homeOdds < 1.6 ? 15 : 5))),
+      isUpsetWatch:   awayProb > 28 && homeOdds > 1.5,
+      valueBet:       hVal.isValue || aVal.isValue,
+      homeValueEdge:  hVal.edge,
+      awayValueEdge:  aVal.edge,
+      homeElo: hElo, awayElo: aElo,
+      homeForm: [], awayForm: [],
+      homeXg:         parseFloat(hxg.toFixed(2)),
+      awayXg:         parseFloat(axg.toFixed(2)),
+      homeTactics:    inferTactics(hElo, []),
+      awayTactics:    inferTactics(aElo, []),
+      homeFormation:  '4-3-3',
+      awayFormation:  '4-3-3',
+      homeLineup, awayLineup, mismatches,
+      lineupsConfirmed: false,
+      h2h:            [],
+      factors:        buildFactors(hElo, aElo, [], [], hxg, axg, {}, hW, aW),
+      markets,
+      bttsProb:       markets.bttsYesPct,
+      over25Prob:     markets.over25Prob,
+      ouProbs:        markets.ouProbs,
+      ouOdds:         markets.ouOdds,
+      bttsOdds:       markets.bttsOdds,
+      correctScores:  markets.correctScores,
+      smPredictions:  {},
+      bookmaker:      hasRealOdds ? 'Real Odds' : 'Model',
+      dcOdds:         markets.dcOdds  || {},
+      dcProbs:        markets.dcProbs || {},
+      imageHome:      homeC.team?.logos?.[0]?.href,
+      imageAway:      awayC.team?.logos?.[0]?.href,
+      _source:        'espn',
+    }
+  } catch(e) { return null }
+}
+const ODDS_SPORTS = [
+  { key: 'soccer_epl',                name: 'Premier League' },
+  { key: 'soccer_spain_la_liga',      name: 'La Liga' },
+  { key: 'soccer_germany_bundesliga', name: 'Bundesliga' },
+  { key: 'soccer_italy_serie_a',      name: 'Serie A' },
+  { key: 'soccer_france_ligue_one',   name: 'Ligue 1' },
+  { key: 'soccer_uefa_champs_league', name: 'Champions League' },
+  { key: 'soccer_uefa_europa_league', name: 'Europa League' },
+]
 async function fetchOddsAPI() {
   if (!ODDS_KEY) return {}
   return cached("odds_api", async () => {
@@ -2555,6 +2920,25 @@ async function smTeamFatigue(teamId, matchDate) {
       const factor = recent >= 3 ? 0.94 : recent === 2 ? 0.97 : 1.0
       return { fatigueFactor: factor, recentGames: recent }
     } catch(e) { return { fatigueFactor: 1.0 } }
+  }, TTL.M)
+}
+async function smSidelined(teamId) {
+  if (!SM_KEY || !teamId) return []
+  return cached(`sm_sidelined_${teamId}`, async () => {
+    try {
+      const r = await http(`${SM_BASE}/sidelined/teams/${teamId}`, {
+        api_token: SM_KEY, include: 'player;type', per_page: 20
+      })
+      return (r.data?.data || []).map(s => ({
+        player_name: s.player?.display_name || s.player?.common_name || s.player?.name || 'Unknown',
+        player_id:   s.player_id,
+        type:        s.type?.name || 'Injury',
+        description: s.description || null,
+        started_at:  s.started_at || null,
+        ended_at:    s.ended_at || null,
+        is_active:   !s.ended_at
+      })).filter(s => s.is_active)
+    } catch(e) { return [] }
   }, TTL.M)
 }
 // ── CORE FOOTBALL PREDICTION BUILDER ─────────────────────
@@ -2671,7 +3055,8 @@ async function buildPrediction(smFix, oddsMap) {
     if (BAD_STATES.has(smFix.state_id) && !isLive) return null
     if (!isLive && kickMs < now - 3 * 3600000 && kickMs > 0) return null
 
-    const smOdds = extractSMOdds(smFix.odds || [])
+    // Extract premium odds (your paid add-on) — fallback to standard odds
+    const smOdds = extractSMOdds(smFix.premiumOdds || smFix.odds || [])
     const realOddsEntry = findOdds(oddsMap, home, away)
     if (realOddsEntry) {
       if (!smOdds.home) smOdds.home = realOddsEntry.home
@@ -2680,6 +3065,35 @@ async function buildPrediction(smFix, oddsMap) {
     }
     const hasRealOdds = !!(smOdds.home && smOdds.draw && smOdds.away)
     const smPred = smFix.predictions ? extractSMPreds(smFix.predictions) : {}
+
+    // Extract real xG from Sportmonks xGFixture include (your paid add-on)
+    let smHomeXg = null, smAwayXg = null
+    if (smFix.xGFixture && Array.isArray(smFix.xGFixture)) {
+      const hXg = smFix.xGFixture.find(x => x.participant_id === homeId)
+      const aXg = smFix.xGFixture.find(x => x.participant_id === awayId)
+      smHomeXg = hXg?.data?.xg || hXg?.xg || null
+      smAwayXg = aXg?.data?.xg || aXg?.xg || null
+    }
+
+    // Extract pressure index (your paid add-on)
+    let smHomePressure = null, smAwayPressure = null
+    if (smFix.pressure && Array.isArray(smFix.pressure)) {
+      const hP = smFix.pressure.find(p => p.participant_id === homeId)
+      const aP = smFix.pressure.find(p => p.participant_id === awayId)
+      smHomePressure = hP?.pressure_index || null
+      smAwayPressure = aP?.pressure_index || null
+    }
+
+    // Extract expected lineups (your paid add-on)
+    let expectedHomeLineup = [], expectedAwayLineup = []
+    if (smFix.expectedLineups && Array.isArray(smFix.expectedLineups)) {
+      expectedHomeLineup = smFix.expectedLineups.filter(l => l.team_id === homeId)
+      expectedAwayLineup = smFix.expectedLineups.filter(l => l.team_id === awayId)
+    }
+
+    // Extract formations from SM
+    const homeFormationSM = smFix.formations?.find(f => f.participant_id === homeId)?.formation || '4-3-3'
+    const awayFormationSM = smFix.formations?.find(f => f.participant_id === awayId)?.formation || '4-3-3'
 
     // Extract Sportmonks match statistics and apply to team weights
     if (smFix.statistics && Array.isArray(smFix.statistics)) {
@@ -2698,17 +3112,45 @@ async function buildPrediction(smFix, oddsMap) {
     const hW = getTeamWeights(home)
     const aW = getTeamWeights(away)
 
-    const [hFatigue, aFatigue] = await Promise.all([
+    const [hFatigue, aFatigue, hSidelined, aSidelined] = await Promise.all([
       smTeamFatigue(homeId, smFix.starting_at).catch(() => ({ fatigueFactor: 1.0 })),
       smTeamFatigue(awayId, smFix.starting_at).catch(() => ({ fatigueFactor: 1.0 })),
+      smSidelined(homeId).catch(() => []),
+      smSidelined(awayId).catch(() => []),
     ])
-    const hxg = parseFloat((calcXG(hElo, aElo, hForm, true,  null, home) * hFatigue.fatigueFactor).toFixed(2))
-    const axg = parseFloat((calcXG(aElo, hElo, aForm, false, null, away) * aFatigue.fatigueFactor).toFixed(2))
+
+    const keyPlayerOut = (sidelined, squad) => {
+      if (!sidelined?.length || !squad?.length) return 1.0
+      const keyPlayerNames = new Set(squad.filter(p => p.is_key || p.isKey).map(p => p.player_name?.toLowerCase()))
+      const injuredKeys = sidelined.filter(s => keyPlayerNames.has(s.player_name?.toLowerCase()))
+      return Math.max(0.85, 1.0 - injuredKeys.length * 0.05)
+    }
+    const hInjuryFactor = keyPlayerOut(hSidelined, squadDB.get(home) || [])
+    const aInjuryFactor = keyPlayerOut(aSidelined, squadDB.get(away) || [])
+    // Use real SM xG if available (your paid add-on), otherwise calculate
+    const hxg = parseFloat((
+      smHomeXg ? smHomeXg * hFatigue.fatigueFactor * hInjuryFactor
+      : calcXG(hElo, aElo, hForm, true, null, home) * hFatigue.fatigueFactor * hInjuryFactor
+    ).toFixed(2))
+    const axg = parseFloat((
+      smAwayXg ? smAwayXg * aFatigue.fatigueFactor * aInjuryFactor
+      : calcXG(aElo, hElo, aForm, false, null, away) * aFatigue.fatigueFactor * aInjuryFactor
+    ).toFixed(2))
 
     
 
     const markets = buildAllMarkets(hxg, axg, smOdds, smPred, realOddsEntry)
-    const { homeProb, drawProb, awayProb } = markets
+    let { homeProb, drawProb, awayProb } = markets
+    // Blend Polymarket sentiment (15% weight when available)
+    try {
+      const poly = await fetchPolymarketSentiment(home, away)
+      if (poly && poly.homeProb > 0) {
+        const pw = 0.15
+        homeProb = Math.round(homeProb * (1 - pw) + poly.homeProb * pw)
+        awayProb = Math.round(awayProb * (1 - pw) + poly.awayProb * pw)
+        if (drawProb) drawProb = Math.max(1, 100 - homeProb - awayProb)
+      }
+    } catch(e) {}
 
     const homeOdds = smOdds.home || parseFloat((1/Math.max(0.01, homeProb/100)*1.06).toFixed(2))
     const drawOdds = smOdds.draw || parseFloat((1/Math.max(0.01, drawProb/100)*1.06).toFixed(2))
@@ -2731,10 +3173,38 @@ async function buildPrediction(smFix, oddsMap) {
     let homeLineup = buildLu(homeId, home, hElo)
     let awayLineup = buildLu(awayId, away, aElo)
 
-
-// Fallback to squad data
-if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
-if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
+    // Use SM expected lineups (your paid add-on) if no confirmed lineup yet
+    if (!homeLineup.length && expectedHomeLineup.length) {
+      homeLineup = expectedHomeLineup.map((l, idx) => {
+        const pos   = mapPosId(l.position_id) || 'CM'
+        const pName = l.player_name || l.player?.display_name || l.player?.name || 'Unknown'
+        const db    = playerDB.get(`${pName}__${home}`)
+        const pElo  = (db && db.elo) || buildPlayerElo(pName, pos, hElo, null, 0, 0)
+        const attrs = db || buildPlayerAttrs(pName, pos, pElo, hElo, null)
+        return { number: l.jersey_number || idx + 1, name: pName, position: pos, elo: pElo,
+          isKey: attrs?.is_key || false, speed: attrs?.speed || 60, attack: attrs?.attack || 60,
+          defense: attrs?.defense || 60, bigMatch: attrs?.bigMatch || attrs?.big_match || 60,
+          playstyle: attrs?.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM,
+          _fromExpected: true }
+      })
+    }
+    if (!awayLineup.length && expectedAwayLineup.length) {
+      awayLineup = expectedAwayLineup.map((l, idx) => {
+        const pos   = mapPosId(l.position_id) || 'CM'
+        const pName = l.player_name || l.player?.display_name || l.player?.name || 'Unknown'
+        const db    = playerDB.get(`${pName}__${away}`)
+        const pElo  = (db && db.elo) || buildPlayerElo(pName, pos, aElo, null, 0, 0)
+        const attrs = db || buildPlayerAttrs(pName, pos, pElo, aElo, null)
+        return { number: l.jersey_number || idx + 1, name: pName, position: pos, elo: pElo,
+          isKey: attrs?.is_key || false, speed: attrs?.speed || 60, attack: attrs?.attack || 60,
+          defense: attrs?.defense || 60, bigMatch: attrs?.bigMatch || attrs?.big_match || 60,
+          playstyle: attrs?.playstyle || FOOTBALL_PLAYSTYLES[pos] || FOOTBALL_PLAYSTYLES.CM,
+          _fromExpected: true }
+      })
+    }
+    // Final fallback to squad data
+    if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
+    if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
 
 // If STILL empty, trigger background squad pull for these teams
 if (!homeLineup.length && homeId && SM_KEY) {
@@ -2760,10 +3230,10 @@ if (!awayLineup.length && awayId && SM_KEY) {
       if (cH || cA) score = `${cH?.score?.goals || 0}-${cA?.score?.goals || 0}`
     }
 
-    return {
+    const result = {
       id: smFix.id, smId: smFix.id, homeId, awayId,
       dcOdds: markets.dcOdds || {},
-dcProbs: markets.dcProbs || {},
+      dcProbs: markets.dcProbs || {},
       sport: 'football',
       leagueId: smFix.league_id, seasonId: smFix.season_id,
       home, away, league, leagueName: league, flag: leagueFlag(country), country,
@@ -2781,19 +3251,193 @@ dcProbs: markets.dcProbs || {},
       homeForm: hForm.slice(0, 5), awayForm: aForm.slice(0, 5),
       homeXg: parseFloat(hxg.toFixed(2)), awayXg: parseFloat(axg.toFixed(2)),
       homeTactics: inferTactics(hElo, hForm), awayTactics: inferTactics(aElo, aForm),
-      homeFormation: "4-3-3", awayFormation: "4-3-3",
+      homeFormation: homeFormationSM, awayFormation: awayFormationSM,
+      homePressureIndex: smHomePressure, awayPressureIndex: smAwayPressure,
+      homeXgReal: smHomeXg, awayXgReal: smAwayXg,
       homeLineup, awayLineup, mismatches, h2h,
       lineupsConfirmed: lus.length > 0,
-      factors: buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW),
+      factors: buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW, {
+        homeInjuryImpact: Math.round((1 - hInjuryFactor) * 100),
+        awayInjuryImpact: Math.round((1 - aInjuryFactor) * 100),
+        hFatigueF: hFatigue.fatigueFactor,
+        aFatigueF: aFatigue.fatigueFactor,
+      }),
       markets, bttsProb: markets.bttsYesPct, over25Prob: markets.over25Prob,
       ouProbs: markets.ouProbs, ouOdds: markets.ouOdds, bttsOdds: markets.bttsOdds, correctScores: markets.correctScores,
       smPredictions: smPred,
       bookmaker: hasRealOdds ? "Real Odds" : "Model",
       imageHome: homeP.image_path, imageAway: awayP.image_path,
+      homeSidelined: hSidelined,
+      awaySidelined: aSidelined,
+      homeInjuryImpact: Math.round((1 - hInjuryFactor) * 100),
+      awayInjuryImpact: Math.round((1 - aInjuryFactor) * 100),
     }
+    if (!result.isLive && !result.isFinished) savePredictionToDb(result).catch(() => {})
+    return result
   } catch(err) { console.log(`⚠️  buildPrediction err:`, err.message?.slice(0,60)); return null }
 }
+// ── PREDICTION AUTO-RESOLUTION ENGINE ────────────────────────────────────────
 
+async function savePredictionToDb(prediction) {
+  if (!sb || !prediction) return
+  try {
+    const maxP = Math.max(prediction.homeProb||0, prediction.drawProb||0, prediction.awayProb||0)
+    const predictedWinner = (prediction.homeProb||0) === maxP ? 'home'
+      : (prediction.drawProb||0) === maxP ? 'draw' : 'away'
+    await sb.from('prediction_outcomes').upsert({
+      fixture_id:       String(prediction.id || prediction.smId),
+      sport:            prediction.sport || 'football',
+      league:           prediction.league || null,
+      league_id:        prediction.leagueId || null,
+      home_team:        prediction.home,
+      away_team:        prediction.away,
+      predicted_winner: predictedWinner,
+      predicted_team:   predictedWinner === 'home' ? prediction.home
+                        : predictedWinner === 'away' ? prediction.away : 'Draw',
+      home_prob:        prediction.homeProb  || 0,
+      draw_prob:        prediction.drawProb  || 0,
+      away_prob:        prediction.awayProb  || 0,
+      home_odds:        prediction.homeOdds  || null,
+      draw_odds:        prediction.drawOdds  || null,
+      away_odds:        prediction.awayOdds  || null,
+      confidence:       prediction.confidence || 50,
+      is_upset_watch:   prediction.isUpsetWatch || false,
+      is_value_bet:     prediction.valueBet || false,
+      match_date:       prediction.date || null,
+    }, { onConflict: 'fixture_id,sport', ignoreDuplicates: true }).catch(() => {})
+  } catch(e) {}
+}
+
+async function resolveFinishedPredictions() {
+  if (!sb) return
+  try {
+    const cutoff = new Date(Date.now() - 2 * 3600000).toISOString()
+    const { data: unresolved } = await sb
+      .from('prediction_outcomes')
+      .select('id,fixture_id,sport,home_team,away_team,predicted_winner,predicted_team,is_upset_watch,match_date')
+      .is('resolved_at', null)
+      .lt('match_date', cutoff)
+      .limit(80)
+    if (!unresolved?.length) return
+    console.log(`🔄 Resolving ${unresolved.length} predictions...`)
+    const football = unresolved.filter(p => p.sport === 'football')
+    const basketball = unresolved.filter(p => p.sport === 'basketball')
+    const nfl = unresolved.filter(p => p.sport === 'american_football')
+    if (SM_KEY && football.length) await resolveFootballBatch(football)
+    if (basketball.length) await resolveESPNBatch(basketball, 'basketball/nba', 'basketball')
+    if (nfl.length)        await resolveESPNBatch(nfl, 'football/nfl', 'american_football')
+    console.log('✅ Resolution pass complete')
+  } catch(e) { console.log('⚠️ resolveFinishedPredictions:', e.message?.slice(0,60)) }
+}
+
+async function resolveFootballBatch(preds) {
+  try {
+    const yesterday = new Date(Date.now() - 2 * 86400000).toISOString().slice(0,10)
+    const today     = new Date().toISOString().slice(0,10)
+    const r = await http(`${SM_BASE}/fixtures/between/${yesterday}/${today}`, {
+      api_token: SM_KEY, include: 'participants;scores;state', per_page: 100
+    })
+    const fixtures = (r.data?.data || []).filter(f => f.state_id === 5)
+    for (const fix of fixtures) {
+      const pred = preds.find(p => String(p.fixture_id) === String(fix.id))
+      if (!pred) continue
+      const parts = fix.participants || []
+      const hP = parts.find(p => p.meta?.location === 'home')
+      const aP = parts.find(p => p.meta?.location === 'away')
+      const cH  = (fix.scores||[]).find(s => s.participant_id === hP?.id && s.description === 'CURRENT')
+      const cA  = (fix.scores||[]).find(s => s.participant_id === aP?.id && s.description === 'CURRENT')
+      const hs = cH?.score?.goals ?? null
+      const as_ = cA?.score?.goals ?? null
+      if (hs === null || as_ === null) continue
+      await applyResolution(pred, hs, as_)
+      await sleep(80)
+    }
+  } catch(e) { console.log('⚠️ resolveFootballBatch:', e.message?.slice(0,60)) }
+}
+
+async function resolveESPNBatch(preds, espnPath, sport) {
+  try {
+    const r = await httpExt(`https://site.api.espn.com/apis/site/v2/sports/${espnPath}/scoreboard`, { limit: 30 })
+    const events = r.data?.events || []
+    for (const pred of preds) {
+      const ev = events.find(e => {
+        const comps = e.competitions?.[0]?.competitors || []
+        return comps.some(c => {
+          const n = (c.team?.displayName||'').toLowerCase()
+          const t = pred.home_team.toLowerCase().split(' ').pop()
+          return n.includes(t) || t.includes(n.split(' ').pop())
+        })
+      })
+      if (!ev) continue
+      const comp = ev.competitions?.[0]
+      if (!comp?.status?.type?.completed) continue
+      const hC = comp.competitors?.find(c => c.homeAway === 'home')
+      const aC = comp.competitors?.find(c => c.homeAway === 'away')
+      const hs = parseInt(hC?.score||0)
+      const as_ = parseInt(aC?.score||0)
+      await applyResolution(pred, hs, as_)
+    }
+  } catch(e) { console.log(`⚠️ resolveESPN(${sport}):`, e.message?.slice(0,50)) }
+}
+
+async function applyResolution(pred, homeScore, awayScore) {
+  const actualWinner = homeScore > awayScore ? 'home' : homeScore < awayScore ? 'away' : 'draw'
+  const actualTeam   = actualWinner === 'home' ? pred.home_team
+    : actualWinner === 'away' ? pred.away_team : 'Draw'
+  const correct      = actualWinner === pred.predicted_winner
+  const upsetCorrect = pred.is_upset_watch ? (actualWinner === 'away') : null
+  await sb.from('prediction_outcomes').update({
+    actual_home_score: homeScore, actual_away_score: awayScore,
+    actual_winner: actualWinner, actual_team: actualTeam,
+    correct, upset_correct: upsetCorrect,
+    resolved_at: new Date().toISOString()
+  }).eq('id', pred.id)
+  recordOutcome(pred.fixture_id, actualTeam, homeScore, awayScore).catch(() => {})
+  updateTeamWeights(pred.home_team, pred.away_team, homeScore, awayScore, true, {}).catch(() => {})
+  await updateParlaysForFixture(pred.fixture_id, pred.sport, actualWinner, actualTeam, homeScore, awayScore)
+}
+
+async function updateParlaysForFixture(fixtureId, sport, actualWinner, actualTeam, homeScore, awayScore) {
+  if (!sb) return
+  try {
+    const { data: parlays } = await sb.from('saved_parlays')
+      .select('id,legs,leg_results,status').eq('status','pending').limit(500)
+    if (!parlays?.length) return
+    for (const parlay of parlays) {
+      let legs = parlay.legs
+      if (typeof legs === 'string') { try { legs = JSON.parse(legs) } catch(e) { continue } }
+      if (!legs?.length) continue
+      if (!legs.some(l => String(l.matchId) === String(fixtureId))) continue
+      let lr = parlay.leg_results
+      if (typeof lr === 'string') { try { lr = JSON.parse(lr) } catch(e) { lr = null } }
+      if (!Array.isArray(lr) || lr.length !== legs.length) lr = new Array(legs.length).fill(null)
+      legs.forEach((leg, i) => {
+        if (String(leg.matchId) !== String(fixtureId)) return
+        const pick = (leg.pick||'').toLowerCase()
+        let hit = false
+        if      (pick === 'home')                                       hit = actualWinner === 'home'
+        else if (pick === 'away')                                       hit = actualWinner === 'away'
+        else if (pick === 'draw')                                       hit = actualWinner === 'draw'
+        else if (pick.startsWith('over_'))  { const l = parseFloat(pick.replace('over_',''));  hit = (homeScore+awayScore) > l }
+        else if (pick.startsWith('under_')) { const l = parseFloat(pick.replace('under_','')); hit = (homeScore+awayScore) < l }
+        else if (pick === 'btts_yes')                                   hit = homeScore > 0 && awayScore > 0
+        else if (pick === 'btts_no')                                    hit = homeScore === 0 || awayScore === 0
+        else if (pick.includes('homedraw') || pick === 'dc_home')       hit = actualWinner === 'home' || actualWinner === 'draw'
+        else if (pick.includes('awaydraw') || pick === 'dc_away')       hit = actualWinner === 'away' || actualWinner === 'draw'
+        else if (pick === 'dc_either')                                  hit = actualWinner !== 'draw'
+        lr[i] = { matchId: leg.matchId, pick: leg.pick, label: leg.label, hit, homeScore, awayScore, actualWinner, actualTeam, sport, resolvedAt: new Date().toISOString() }
+      })
+      const hits      = lr.filter(x => x?.resolvedAt && x.hit).length
+      const resolved  = lr.filter(x => x?.resolvedAt).length
+      const anyMiss   = lr.some(x => x?.resolvedAt && !x.hit)
+      const allDone   = resolved === legs.length
+      const upd = { leg_results: JSON.stringify(lr), hits_count: hits, total_legs: legs.length, updated_at: new Date().toISOString() }
+      if (anyMiss)      { upd.status = 'lost'; upd.resolved_at = new Date().toISOString(); upd.auto_resolved = true }
+      else if (allDone) { upd.status = 'won';  upd.resolved_at = new Date().toISOString(); upd.auto_resolved = true }
+      await sb.from('saved_parlays').update(upd).eq('id', parlay.id).catch(() => {})
+    }
+  } catch(e) { console.log('⚠️ updateParlaysForFixture:', e.message?.slice(0,60)) }
+}
 // ── LEAGUE SORT ORDER ─────────────────────────────────────
 const LEAGUE_RANK = {
   "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
@@ -2826,20 +3470,24 @@ async function warmPredictionsCache() {
       fetchOddsAPI().catch(() => ({})),
       smLive().catch(() => []),
     ])
-    const all = new Map()
-    for (const f of [...smList, ...liveList]) all.set(f.id, f)
-    const fixtures = [...all.values()].filter(f => {
-      const leagueId = f.league_id || f.league?.id
-      return leagueId && ALLOWED_LEAGUE_IDS.has(leagueId)
-    }).slice(0, 300)
-    const results = []
-    for (let b = 0; b < fixtures.length; b += 15) {
-      const bRes = await Promise.all(fixtures.slice(b, b + 15).map(f => buildPrediction(f, oddsMap || {}).catch(() => null)))
-      results.push(...bRes.filter(Boolean))
+
+    const smAll = new Map()
+    for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
+    const smFixFiltered = [...smAll.values()].filter(f => {
+      return !!(f.league_id || f.league?.id) // if SM returned it, it's in your plan
+    }).slice(0, 500)
+
+    const smResults = []
+    for (let b = 0; b < smFixFiltered.length; b += 20) {
+      const bRes = await Promise.all(smFixFiltered.slice(b, b + 20).map(f => buildPrediction(f, oddsMap || {}).catch(() => null)))
+      smResults.push(...bRes.filter(Boolean))
       await sleep(80)
     }
+
+    const results = smResults
+
     cache.set('predictions_warm', { data: results, ts: Date.now() })
-    console.log(`✅ Cache warmed: ${results.length} predictions`)
+    console.log(`✅ Cache warmed: ${results.length} predictions (SM:${smResults.length})`)
     return results
   } catch(e) {
     console.log('⚠️  Cache warm failed:', e.message)
@@ -2853,47 +3501,91 @@ async function warmPredictionsCache() {
 // ══════════════════════════════════════════════════════════
 async function autoPopulateSquads() {
   if (!SM_KEY) return
-  console.log('🔄 Auto-populating real squad data from Sportmonks...')
+  console.log('🔄 Auto-populating squads (top 15 leagues)...')
   try {
-    const fixtures = cache.get('sm_fix_14')?.data || await smFixtures(14).catch(() => [])
     const teamMap = new Map()
+
+    const fixtures = cache.get('sm_fix_14')?.data || await smFixtures(14).catch(() => [])
     for (const f of fixtures) {
+      const leagueId = f.league_id || f.league?.id
+      if (!leagueId || !SQUAD_PRIORITY_LEAGUES.has(leagueId)) continue
       for (const p of (f.participants || [])) {
         if (p.id && p.name) teamMap.set(p.id, p.name)
       }
     }
-    console.log(`📋 ${teamMap.size} teams found — pulling squads...`)
-    let pulled = 0, teams = 0
+    console.log(`📋 ${teamMap.size} teams from priority fixtures`)
+
+    for (const leagueId of SQUAD_PRIORITY_LEAGUES) {
+      try {
+        const r = await http(`${SM_BASE}/leagues/${leagueId}`, {
+          api_token: SM_KEY, include: 'currentSeason'
+        })
+        const seasonId = r.data?.data?.currentSeason?.id
+        if (!seasonId) continue
+        const tr = await http(`${SM_BASE}/teams/seasons/${seasonId}`, {
+          api_token: SM_KEY, per_page: 50
+        })
+        for (const team of (tr.data?.data || [])) {
+          if (team.id && team.name) teamMap.set(team.id, team.name)
+        }
+        await sleep(300)
+      } catch(e) {}
+    }
+    console.log(`📋 ${teamMap.size} total teams for squad loading`)
+
+    const PLAYER_DB_CAP = 40000
+    let pulled = 0, teamsWithSquads = 0
+
     for (const [teamId, teamName] of teamMap) {
+      if (playerDB.size >= PLAYER_DB_CAP) {
+        console.log(`⚠️  playerDB cap (${PLAYER_DB_CAP}) reached — stopping squad load`)
+        break
+      }
       const cacheKey = `sm_squad_${teamId}_cur`
       const hit = cache.get(cacheKey)
       if (hit && Date.now() - hit.ts < TTL.XL) continue
+      if (squadDB.has(teamName) && (squadDB.get(teamName) || []).length > 5) continue
+
       try {
         let entries = []
-        for (const inc of ['player;player.position;player.statistics.data','player;player.position','player']) {
+        for (const inc of ['player;player.position;player.statistics','player;player.position','player']) {
           try {
-            const r = await http(`${SM_BASE}/squads/teams/${teamId}`, { api_token: SM_KEY, include: inc, per_page: 50 })
+            const r = await http(`${SM_BASE}/squads/teams/${teamId}`, {
+              api_token: SM_KEY, include: inc, per_page: 50
+            })
             entries = r.data?.data || []
             if (entries.length > 0) break
-          } catch(e2) { if ([403,401,422].includes(e2.response?.status)) break; await sleep(500) }
+          } catch(e2) {
+            if ([403, 401, 422].includes(e2.response?.status)) break
+            await sleep(400)
+          }
         }
-        if (!entries.length) continue
+        if (!entries.length) { cache.set(cacheKey, { data: [], ts: Date.now() }); continue }
+
         const tElo = getElo(teamName)
         let teamPulled = 0
-        for (const sq of entries) {
+        for (const sq of entries.slice(0, 30)) {
           const p = sq.player || (sq.id && sq.name ? sq : null)
           if (!p) continue
           const pName = p.display_name || p.common_name || p.name
           if (!pName || pName.length < 2) continue
-          const pos = mapPosId(p.position_id || sq.position_id) || 'CM'
-          const stats = p.statistics?.data?.[0] || p.statistics?.[0] || {}
+          const pos     = mapPosId(p.position_id || sq.position_id) || 'CM'
+          const stats   = p.statistics?.data?.[0] || p.statistics?.[0] || {}
           const goals   = parseInt(stats.goals?.scored   || stats.goals    || 0)
           const assists = parseInt(stats.goals?.assists  || stats.assists  || 0)
           const apps    = parseInt(stats.appearances?.total || stats.appearences?.total || 0)
           const rating  = parseFloat(stats.rating) || 0
-          const pElo  = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
-          const attrs = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
-          const row = { player_name:pName, team_name:teamName, sm_player_id:p.id, position:pos, elo:pElo, speed:attrs.speed, attack:attrs.attack, defense:attrs.defense, big_match:attrs.bigMatch, is_key:attrs.isKey, playstyle_name:attrs.playstyle.name, goals_this_season:goals, assists_this_season:assists, appearances:apps, real_rating:rating||null, updated_at:new Date().toISOString() }
+          const pElo    = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
+          const attrs   = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
+          const row = {
+            player_name: pName, team_name: teamName, sm_player_id: p.id,
+            position: pos, elo: pElo, speed: attrs.speed, attack: attrs.attack,
+            defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
+            playstyle_name: attrs.playstyle.name, playstyle_icon: attrs.playstyle.icon,
+            goals_this_season: goals, assists_this_season: assists,
+            appearances: apps, real_rating: rating || null,
+            updated_at: new Date().toISOString()
+          }
           playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle })
           if (!squadDB.has(teamName)) squadDB.set(teamName, [])
           const sq2 = squadDB.get(teamName)
@@ -2903,12 +3595,14 @@ async function autoPopulateSquads() {
           if (sb) sbSave('player_ratings', row, 'player_name,team_name')
           teamPulled++; pulled++
         }
-        if (teamPulled > 0) { console.log(`  ✅ ${teamName}: ${teamPulled} real players`); teams++ }
+        if (teamPulled > 0) { console.log(`  ✅ ${teamName}: ${teamPulled}`); teamsWithSquads++ }
         cache.set(cacheKey, { data: entries, ts: Date.now() })
-        await sleep(350)
-      } catch(e) { if (e.response?.status === 429) { await sleep(8000) } }
+        await sleep(250)
+      } catch(e) {
+        if (e.response?.status === 429) { console.log('⚠️  Rate limit — 10s sleep'); await sleep(10000) }
+      }
     }
-    console.log(`✅ Squads complete: ${teams} teams, ${pulled} real players`)
+    console.log(`✅ Squads done: ${teamsWithSquads} teams, ${pulled} players | playerDB: ${playerDB.size}`)
   } catch(e) { console.log('⚠️  autoPopulateSquads:', e.message) }
 }
 
@@ -2933,40 +3627,50 @@ const PRIORITY_LEAGUES = [
 ]
 
 const BRACKET_MAP = {
-  ucl:         { espn:'uefa.champions',   smId:2,   name:'UEFA Champions League', hasGroups:true  },
-  uel:         { espn:'uefa.europa',      smId:5,   name:'UEFA Europa League',    hasGroups:true  },
-  uecl:        { espn:'uefa.europa.conf', smId:24,  name:'Conference League',     hasGroups:true  },
-  fa_cup:      { espn:'eng.fa',           smId:7,   name:'FA Cup',                hasGroups:false },
-  carabao:     { espn:'eng.league_cup',   smId:9,   name:'Carabao Cup',           hasGroups:false },
-  dfb_pokal:   { espn:'ger.dfb_pokal',    smId:327, name:'DFB Pokal',             hasGroups:false },
-  copa_del_rey:{ espn:'esp.copa_del_rey', smId:507, name:'Copa del Rey',          hasGroups:false },
-  coppa_italia:{ espn:'ita.coppa_italia', smId:481, name:'Coppa Italia',          hasGroups:false },
-  world_cup:   { espn:'fifa.world',       smId:23,  name:'FIFA World Cup',        hasGroups:true  },
-  euros:       { espn:'uefa.euro',        smId:20,  name:'UEFA Euro',             hasGroups:true  },
+  ucl:           { espn:'uefa.champions',       smId:2,   name:'UEFA Champions League',    hasGroups:true  },
+  uel:           { espn:'uefa.europa',          smId:5,   name:'UEFA Europa League',        hasGroups:true  },
+  uecl:          { espn:'uefa.europa.conf',     smId:24,  name:'Conference League',         hasGroups:false },
+  fa_cup:        { espn:'eng.fa',               smId:7,   name:'FA Cup',                    hasGroups:false },
+  carabao:       { espn:'eng.league_cup',       smId:9,   name:'Carabao Cup',               hasGroups:false },
+  dfb_pokal:     { espn:'ger.dfb_pokal',        smId:327, name:'DFB Pokal',                 hasGroups:false },
+  copa_del_rey:  { espn:'esp.copa_del_rey',     smId:507, name:'Copa del Rey',              hasGroups:false },
+  coppa_italia:  { espn:'ita.coppa_italia',     smId:481, name:'Coppa Italia',              hasGroups:false },
+  world_cup:     { espn:'fifa.world',           smId:23,  name:'FIFA World Cup 2026',       hasGroups:true  },
+  euros:         { espn:'uefa.euro',            smId:20,  name:'UEFA Euro 2028',            hasGroups:true  },
+  copa_america:  { espn:'conmebol.america',     smId:155, name:'Copa America',              hasGroups:true  },
+  afcon:         { espn:'caf.nations',          smId:null,name:'Africa Cup of Nations',     hasGroups:true  },
 }
- 
-// Exact league ID whitelist — only these pass through
+// Dynamically populated from your SM subscription — all leagues you pay for
 const ALLOWED_LEAGUE_IDS = new Set([
-  2,   // UEFA Champions League
-  8,   // English Premier League  
-  564, // La Liga (Spain top flight)
-  384, // Serie A (Italy)
-  82,  // Bundesliga (Germany)
-  301, // Ligue 1 (France)
-  5,   // UEFA Europa League
-  9,   // EFL Championship
-  72,  // Primeira Liga
-  1,   // Eredivisie
-  203, // Süper Lig
-  208, // Belgian Pro League
-  462, // Scottish Premiership
-  271, // Danish Superliga
-  197, // Greek Super League
-  321, // Czech Liga
-  155, // MLS
-  7,   // FA Cup
-  24,  // Conference League
-])
+  2, 8, 564, 384, 82, 301, 5, 9, 72, 1, 203, 208, 462, 271, 197, 321, 155, 7, 24
+]) // seeds — expanded at startup via loadAllowedLeagueIds()
+
+async function loadAllowedLeagueIds() {
+  if (!SM_KEY) return
+  try {
+    const allLeagueIds = new Set()
+    let page = 1, hasMore = true
+    while (hasMore && page <= 10) {
+      const r = await http(`${SM_BASE}/leagues`, {
+        api_token: SM_KEY, per_page: 100, page,
+        include: 'country'
+      })
+      const leagues = r.data?.data || []
+      for (const lg of leagues) {
+        if (lg.id) {
+          allLeagueIds.add(lg.id)
+          ALLOWED_LEAGUE_IDS.add(lg.id)
+        }
+      }
+      hasMore = r.data?.pagination?.has_more === true && leagues.length === 100
+      page++
+      if (hasMore) await sleep(300)
+    }
+    console.log(`✅ SM Leagues loaded: ${allLeagueIds.size} leagues in your subscription`)
+  } catch(e) {
+    console.log('⚠️  loadAllowedLeagueIds:', e.message?.slice(0, 60))
+  }
+}
 
 app.get("/predictions", async (req, res) => {
   try {
@@ -2991,29 +3695,33 @@ app.get("/predictions", async (req, res) => {
       smLive().catch(() => []),
     ])
 
-    const all = new Map()
-    for (const f of [...smList, ...liveList]) all.set(f.id, f)
+    // Merge SM fixtures + live, dedupe by ID
+    const smAll = new Map()
+    for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
 
-    // STRICT league filtering — only exact top-flight leagues
-    const fixtures = [...all.values()].filter(f => {
+    // No league whitelist needed — ALLOWED_LEAGUE_IDS is now dynamically populated
+    // from your full SM subscription at startup
+    const fixtures = [...smAll.values()].filter(f => {
       const leagueId = f.league_id || f.league?.id
       if (!leagueId) return false
-      return ALLOWED_LEAGUE_IDS.has(leagueId)
-    }).slice(0, 300)
+      // Allow all SM leagues — if SM returned it, you have access to it
+      return true
+    }).slice(0, 500) // bump cap since you have 70+ leagues
 
-    console.log(`⚙️  Building ${fixtures.length} predictions...`)
+    console.log(`⚙️  Building ${fixtures.length} SM predictions...`)
 
-    const results = []
-    const BATCH = 15 // smaller batches = less timeout risk
+    const smResults = []
+    const BATCH = 20
     for (let b = 0; b < fixtures.length; b += BATCH) {
       const bRes = await Promise.all(
         fixtures.slice(b, b + BATCH).map(f => buildPrediction(f, oddsMap).catch(() => null))
       )
-      results.push(...bRes.filter(Boolean))
+      smResults.push(...bRes.filter(Boolean))
       if (b + BATCH < fixtures.length) await sleep(80)
     }
 
-    console.log(`✅ ${results.length} predictions ready`)
+    const results = smResults
+    console.log(`✅ ${results.length} SM predictions ready`)
     res.json(results.sort((a, b) => {
       const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
       return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
@@ -3259,6 +3967,7 @@ app.get('/team/profile/:teamName', async (req, res) => {
   let squad = squadDB.get(teamName) || []
 
   if (!squad.length && SM_KEY) {
+    // Try fixture cache first (teams in upcoming games)
     const fixtureCache = cache.get('sm_fix_14')?.data || []
     for (const f of fixtureCache) {
       const participant = (f.participants || []).find(p => p.name === teamName)
@@ -3266,6 +3975,22 @@ app.get('/team/profile/:teamName', async (req, res) => {
         try { squad = await smSquad(participant.id, teamName, f.season_id) } catch(e) {}
         break
       }
+    }
+    // If still empty, search Sportmonks by name (handles Arsenal, Real Madrid, etc.)
+    if (!squad.length) {
+      try {
+        const found = await smSearchTeam(teamName)
+        if (found?.id) {
+          console.log(`🔍 Sportmonks search found ${teamName}: ID ${found.id}`)
+          squad = await smSquad(found.id, teamName, null)
+          // Also try to get the manager/coach
+          const coach = await smFetchCoach(found.id)
+          if (coach && coach.name) {
+            const existing = managerEloMap.get(coach.name) || {}
+            managerEloMap.set(coach.name, { ...existing, name: coach.name, team: teamName, image_path: coach.image_path })
+          }
+        }
+      } catch(e) { console.log(`⚠️ smSearchTeam ${teamName}:`, e.message?.slice(0,50)) }
     }
   }
   const w = getTeamWeights(teamName)
@@ -3317,10 +4042,44 @@ app.get('/team/profile/:teamName', async (req, res) => {
     stats: {
       homeWin: Math.round((w.homeWin||0.62)*100), awayWin: Math.round((w.awayWin||0.38)*100),
       cleanSheetRate: Math.round((w.cleanSheetRate||0.3)*100),
-      avgPossession: Math.round((w.avgPossession||0.5)*100), matchCount: w.matchCount||0,
+      avgPossession: Math.round((w.avgPossessionReal > 0 ? w.avgPossessionReal/100 : w.avgPossession||0.5)*100),
+      matchCount: w.gamesWithStats || w.matchCount||0,
       goalsFromSetPiece: Math.round((w.goalsFromSetPiece||0.2)*100),
+      // Real per-game stats
+      avgGoalsScored: w.avgGoalsScored || null,
+      avgGoalsConceded: w.avgGoalsConceded || null,
+      avgXgFor: w.avgXgFor || null,
+      gamesTracked: w.gamesWithStats || 0,
     }
   })
+})
+app.get('/transfers/rumours', async (req, res) => {
+  try {
+    const [rumours, recent] = await Promise.all([
+      smExpectedTransfers().catch(() => []),
+      smTransferRumours().catch(() => []),
+    ])
+    const { team } = req.query
+    let combined = [...rumours, ...recent.filter(t => t.is_rumour)]
+    if (team) combined = combined.filter(t =>
+      (t.from_team||'').toLowerCase().includes(team.toLowerCase()) ||
+      (t.to_team||'').toLowerCase().includes(team.toLowerCase())
+    )
+    res.json(combined.slice(0, 50))
+  } catch(e) { res.json([]) }
+})
+
+app.get('/transfers/recent', async (req, res) => {
+  try {
+    const transfers = await smTransferRumours().catch(() => [])
+    const { team } = req.query
+    let results = transfers.filter(t => !t.is_rumour)
+    if (team) results = results.filter(t =>
+      (t.from_team||'').toLowerCase().includes(team.toLowerCase()) ||
+      (t.to_team||'').toLowerCase().includes(team.toLowerCase())
+    )
+    res.json(results.slice(0, 30))
+  } catch(e) { res.json([]) }
 })
 // ── PARLAY AUTO-BUILD ─────────────────────────────────────
 app.post("/parlay/auto", requireAccess('auto_parlay'), async (req, res) => {
@@ -4076,7 +4835,7 @@ app.get('/admin/stats', async (req, res) => {
     const { data: users, error } = await sb
       .from('users')
       .select('*')
-      .eq('regard', 'yes')
+      .or('regard.eq.yes,regard.is.null')
  
     if (error) return res.status(500).json({ error: error.message })
  
@@ -4225,8 +4984,8 @@ app.get('/admin/users', async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'No Supabase' })
   try {
     const { data, error } = await sb.from('users')
-      .select('id,email,full_name,plan,plan_status,credits_used,credits_total,monthly_credits,total_parlays,won_parlays,biggest_win_odds,streak_best,joined_at,last_seen_at,regard')
-      .eq('regard', 'yes')
+      .select('id,email,full_name,plan,plan_status,credits_used,credits_total,monthly_credits,total_parlays,won_parlays,biggest_win_odds,streak_best,joined_at,last_seen_at,regard,credits_bonus')
+      .or('regard.eq.yes,regard.is.null')
       .order('joined_at', { ascending: false })
       .limit(500)
     if (error) return res.status(500).json({ error: error.message })
@@ -4311,6 +5070,68 @@ app.get('/accuracy/stats', (req, res) => {
     lastUpdated: new Date().toISOString()
   })
 })
+app.get('/accuracy/full', async (req, res) => {
+  if (!sb) return res.json({ summary:{total:0,correct:0,accuracy:null}, byLeague:{}, bySport:{}, recent:[], parlays:[], confBuckets:{}, byMonth:{} })
+  const userId = req.query.userId || req.headers['x-user-id']
+  try {
+    const [outR, parlayR] = await Promise.all([
+      sb.from('prediction_outcomes').select('*').order('created_at',{ascending:false}).limit(2000),
+      userId ? sb.from('saved_parlays').select('*').eq('user_id',userId).order('created_at',{ascending:false}).limit(300) : Promise.resolve({data:[]})
+    ])
+    const all      = outR.data  || []
+    const resolved = all.filter(p => p.resolved_at)
+    const correct  = resolved.filter(p => p.correct)
+    const upsets   = resolved.filter(p => p.is_upset_watch)
+    const vals     = resolved.filter(p => p.is_value_bet)
+
+    const byLeague = {}, bySport = {}, byMonth = {}
+    const confBuckets = {'40-55':{c:0,t:0},'56-65':{c:0,t:0},'66-75':{c:0,t:0},'76-85':{c:0,t:0},'86+':{c:0,t:0}}
+
+    resolved.forEach(p => {
+      const lg = p.league||'Unknown'
+      if (!byLeague[lg]) byLeague[lg] = {correct:0,total:0}
+      byLeague[lg].total++; if (p.correct) byLeague[lg].correct++
+
+      const sp = p.sport||'football'
+      if (!bySport[sp]) bySport[sp] = {correct:0,total:0}
+      bySport[sp].total++; if (p.correct) bySport[sp].correct++
+
+      const d = new Date(p.created_at)
+      const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+      if (!byMonth[mk]) byMonth[mk] = {correct:0,total:0}
+      byMonth[mk].total++; if (p.correct) byMonth[mk].correct++
+
+      const c = p.confidence||50
+      const bk = c<=55?'40-55':c<=65?'56-65':c<=75?'66-75':c<=85?'76-85':'86+'
+      confBuckets[bk].t++; if (p.correct) confBuckets[bk].c++
+    })
+
+    const parlays = (parlayR.data||[]).map(p => {
+      let legs = p.legs; if (typeof legs==='string'){try{legs=JSON.parse(legs)}catch(e){legs=[]}}
+      let lr = p.leg_results; if (typeof lr==='string'){try{lr=JSON.parse(lr)}catch(e){lr=null}}
+      return {...p, legs:legs||[], leg_results:lr}
+    })
+
+    res.json({
+      summary:{
+        total:        resolved.length,
+        pending:      all.filter(p=>!p.resolved_at).length,
+        correct:      correct.length,
+        incorrect:    resolved.length - correct.length,
+        accuracy:     resolved.length > 0 ? parseFloat((correct.length/resolved.length*100).toFixed(1)) : null,
+        upsetTotal:   upsets.length,
+        upsetCorrect: upsets.filter(p=>p.upset_correct).length,
+        upsetAccuracy:upsets.length>0?parseFloat((upsets.filter(p=>p.upset_correct).length/upsets.length*100).toFixed(1)):null,
+        valueBetTotal:vals.length,
+        valueBetCorrect:vals.filter(p=>p.correct).length,
+        valueBetAccuracy:vals.length>0?parseFloat((vals.filter(p=>p.correct).length/vals.length*100).toFixed(1)):null,
+      },
+      byLeague, bySport, byMonth, confBuckets,
+      recent: resolved.slice(0,40),
+      parlays
+    })
+  } catch(e) { res.status(500).json({error:e.message}) }
+})
 // ── STARTUP ───────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`\n╔═══════════════════════════════════════════════╗`)
@@ -4325,18 +5146,24 @@ app.listen(PORT, async () => {
 
   await loadSupabase().catch(() => {})
   loadClubElo().catch(() => {})
+  await loadAllowedLeagueIds().catch(() => {}) // load all SM league IDs before anything else
 
   console.log("🔄 Pre-warming caches...")
   smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))
 // Pre-warm predictions cache so first user gets fast response
 setTimeout(() => warmPredictionsCache(), 5000)
 setInterval(() => warmPredictionsCache(), 3600000)
+// Auto-resolve finished predictions every 30 minutes
+setTimeout(() => resolveFinishedPredictions().catch(() => {}), 90000)
+setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
   setTimeout(() => fetchF1NextRace().catch(() => {}), 9000)
   setTimeout(() => { fetchOddsAPI().then(o => console.log(`✅ Odds API: ${Object.keys(o).length} matches`)).catch(() => {}) }, 11000)
   setTimeout(() => smPreMatchNews().catch(() => {}), 13000)
+  setTimeout(() => smTransferRumours().catch(() => {}), 15000)
+  setTimeout(() => smExpectedTransfers().catch(() => {}), 17000)
   setTimeout(() => autoPopulateSquads().catch(() => {}), 20000)
   setTimeout(() => syncNBAPlayerElos().catch(() => {}), 35000)
   setTimeout(async () => {
