@@ -348,21 +348,52 @@ const SM_BASE      = "https://api.sportmonks.com/v3/football"
 const SM_MOTO_BASE = "https://api.sportmonks.com/v3/motorsport"
 const OPEN_F1_BASE = "https://api.openf1.org/v1"
 const SQUAD_PRIORITY_LEAGUES = new Set([
-  2,   // Champions League
-  8,   // Premier League
-  564, // La Liga
-  384, // Serie A
-  82,  // Bundesliga
-  301, // Ligue 1
-  5,   // Europa League
-  9,   // Championship
-  72,  // Primeira Liga
-  1,   // Eredivisie
-  203, // Süper Lig
-  462, // Scottish Premiership
-  208, // Belgian Pro League
-  155, // MLS
-  24,  // Conference League
+  2,    // UEFA Champions League
+  5,    // UEFA Europa League
+  24,   // UEFA Conference League
+  8,    // Premier League
+  9,    // Championship (EFL)
+  7,    // FA Cup
+  564,  // La Liga
+  507,  // Copa del Rey
+  456,  // La Liga 2
+  384,  // Serie A
+  481,  // Coppa Italia
+  390,  // Serie B
+  82,   // Bundesliga
+  327,  // DFB Pokal
+  78,   // Bundesliga 2
+  301,  // Ligue 1
+  61,   // Ligue 2
+  182,  // Saudi Pro League
+  1,    // Eredivisie
+  155,  // MLS
+  375,  // Brasileirão Serie A
+])
+
+// Whitelist — ONLY these leagues will show on the matches page
+const ALLOWED_LEAGUE_IDS_WHITELIST = new Set([
+  2,    // UEFA Champions League
+  5,    // UEFA Europa League
+  24,   // UEFA Conference League
+  8,    // Premier League
+  9,    // Championship
+  7,    // FA Cup
+  564,  // La Liga
+  507,  // Copa del Rey
+  456,  // La Liga 2
+  384,  // Serie A
+  481,  // Coppa Italia
+  390,  // Serie B
+  82,   // Bundesliga
+  327,  // DFB Pokal
+  78,   // Bundesliga 2
+  301,  // Ligue 1
+  61,   // Ligue 2
+  182,  // Saudi Pro League
+  1,    // Eredivisie
+  155,  // MLS
+  375,  // Brasileirão Serie A
 ])
 
 
@@ -3206,16 +3237,20 @@ async function buildPrediction(smFix, oddsMap) {
     if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
     if (!awayLineup.length) awayLineup = buildExpectedLineupFromSquad(away, aElo)
 
-// If STILL empty, trigger background squad pull for these teams
-if (!homeLineup.length && homeId && SM_KEY) {
-  smSquad(homeId, home, smFix.season_id).then(sq => {
-    if (sq.length) console.log(`📥 Lazy-loaded squad: ${home} (${sq.length} players)`)
-  }).catch(()=>{})
-}
-if (!awayLineup.length && awayId && SM_KEY) {
-  smSquad(awayId, away, smFix.season_id).then(sq => {
-    if (sq.length) console.log(`📥 Lazy-loaded squad: ${away} (${sq.length} players)`)
-  }).catch(()=>{})
+// Only lazy-load squads for whitelisted priority leagues
+const leagueId = smFix.league_id || smFix.league?.id
+const isPriorityLeague = leagueId && SQUAD_PRIORITY_LEAGUES.has(leagueId)
+if (isPriorityLeague) {
+  if (!homeLineup.length && homeId && SM_KEY) {
+    smSquad(homeId, home, smFix.season_id).then(sq => {
+      if (sq.length) console.log(`📥 Squad loaded: ${home} (${sq.length} players)`)
+    }).catch(()=>{})
+  }
+  if (!awayLineup.length && awayId && SM_KEY) {
+    smSquad(awayId, away, smFix.season_id).then(sq => {
+      if (sq.length) console.log(`📥 Squad loaded: ${away} (${sq.length} players)`)
+    }).catch(()=>{})
+  }
 }
     // Fallback to squad data when no confirmed lineup
     if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
@@ -3474,7 +3509,8 @@ async function warmPredictionsCache() {
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
     const smFixFiltered = [...smAll.values()].filter(f => {
-      return !!(f.league_id || f.league?.id) // if SM returned it, it's in your plan
+      const leagueId = f.league_id || f.league?.id
+      return leagueId && ALLOWED_LEAGUE_IDS_WHITELIST.has(leagueId)
     }).slice(0, 500)
 
     const smResults = []
@@ -3640,36 +3676,12 @@ const BRACKET_MAP = {
   copa_america:  { espn:'conmebol.america',     smId:155, name:'Copa America',              hasGroups:true  },
   afcon:         { espn:'caf.nations',          smId:null,name:'Africa Cup of Nations',     hasGroups:true  },
 }
-// Dynamically populated from your SM subscription — all leagues you pay for
-const ALLOWED_LEAGUE_IDS = new Set([
-  2, 8, 564, 384, 82, 301, 5, 9, 72, 1, 203, 208, 462, 271, 197, 321, 155, 7, 24
-]) // seeds — expanded at startup via loadAllowedLeagueIds()
+// Dynamically populated — but filtered by whitelist
+const ALLOWED_LEAGUE_IDS = new Set([...ALLOWED_LEAGUE_IDS_WHITELIST])
 
 async function loadAllowedLeagueIds() {
-  if (!SM_KEY) return
-  try {
-    const allLeagueIds = new Set()
-    let page = 1, hasMore = true
-    while (hasMore && page <= 10) {
-      const r = await http(`${SM_BASE}/leagues`, {
-        api_token: SM_KEY, per_page: 100, page,
-        include: 'country'
-      })
-      const leagues = r.data?.data || []
-      for (const lg of leagues) {
-        if (lg.id) {
-          allLeagueIds.add(lg.id)
-          ALLOWED_LEAGUE_IDS.add(lg.id)
-        }
-      }
-      hasMore = r.data?.pagination?.has_more === true && leagues.length === 100
-      page++
-      if (hasMore) await sleep(300)
-    }
-    console.log(`✅ SM Leagues loaded: ${allLeagueIds.size} leagues in your subscription`)
-  } catch(e) {
-    console.log('⚠️  loadAllowedLeagueIds:', e.message?.slice(0, 60))
-  }
+  // We use a strict whitelist — no dynamic expansion
+  console.log(`✅ League whitelist active: ${ALLOWED_LEAGUE_IDS_WHITELIST.size} leagues`)
 }
 
 app.get("/predictions", async (req, res) => {
@@ -3699,14 +3711,11 @@ app.get("/predictions", async (req, res) => {
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
 
-    // No league whitelist needed — ALLOWED_LEAGUE_IDS is now dynamically populated
-    // from your full SM subscription at startup
     const fixtures = [...smAll.values()].filter(f => {
       const leagueId = f.league_id || f.league?.id
       if (!leagueId) return false
-      // Allow all SM leagues — if SM returned it, you have access to it
-      return true
-    }).slice(0, 500) // bump cap since you have 70+ leagues
+      return ALLOWED_LEAGUE_IDS_WHITELIST.has(leagueId)
+    }).slice(0, 500)
 
     console.log(`⚙️  Building ${fixtures.length} SM predictions...`)
 
