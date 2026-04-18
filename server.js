@@ -385,28 +385,15 @@ const ALLOWED_LEAGUE_IDS_WHITELIST = new Set([
   5,    // UEFA Europa League
   24,   // UEFA Conference League
   8,    // Premier League
-  9,    // EFL Championship
   7,    // FA Cup
   462,  // EFL Cup / Carabao Cup
   564,  // La Liga
-  507,  // Copa del Rey
-  456,  // La Liga 2
   384,  // Serie A
-  481,  // Coppa Italia
-  390,  // Serie B
   82,   // Bundesliga
-  327,  // DFB Pokal
-  78,   // 2. Bundesliga
   301,  // Ligue 1
-  61,   // Ligue 2
-  65,   // Coupe de France
-  182,  // Saudi Pro League
-  1,    // Eredivisie
-  155,  // MLS
   23,   // FIFA World Cup
   20,   // UEFA Euro
   1269, // Copa America
-  519,  // KNVB Beker (Dutch Cup)
 ])
 
 
@@ -442,9 +429,9 @@ async function cached(key, fn, ttl) {
   const hit = cache.get(key)
   if (hit && Date.now() - hit.ts < ttl) return hit.data
   // Evict oldest 100 entries when cache grows too large
-  if (cache.size > 500) {
+  if (cache.size > 120) {
     const sorted = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)
-    for (let i = 0; i < 100; i++) cache.delete(sorted[i][0])
+    for (let i = 0; i < 50; i++) cache.delete(sorted[i][0])
   }
   try {
     const data = await fn()
@@ -589,7 +576,12 @@ async function updateManagerElo(managerName, won, drew, lost, oppManagerElo, dom
 // ── PERSISTENT PLAYER ELO MAP ─────────────────────────────────────────────
 const playerEloMap = new Map() // key: `${name}__${sport}` → elo integer
 let playerEloLastSync = 0
-
+function prunePlayerDB(maxSize) {
+  if (playerDB.size <= maxSize) return
+  const sorted = [...playerDB.entries()].sort((a, b) => (a[1].elo || 0) - (b[1].elo || 0))
+  const toDelete = sorted.slice(0, playerDB.size - maxSize)
+  for (const [k] of toDelete) playerDB.delete(k)
+}
 async function loadPlayerElos() {
   if (!sb) return
   try {
@@ -2111,7 +2103,7 @@ async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
   for (let ti = 0; ti < SM_INCLUDE_TIERS.length; ti++) {
     try {
       const all = []; let page = 1, hasMore = true
-      while (hasMore && page <= 60 && all.length < 3000) {
+      while (hasMore && page <= 6 && all.length < 250) {
         const r = await http(url, { api_token: SM_KEY, include: SM_INCLUDE_TIERS[ti], order: "asc", per_page: 50, page, ...extraParams })
         const data = r.data?.data || []
         all.push(...data)
@@ -2132,7 +2124,7 @@ async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
 }
 
 async function smFixtures(days) {
-  days = Math.min(days || 14, 14)
+  days = Math.min(days || 7, 7)
   if (!SM_KEY) return []
   const start  = new Date().toISOString().slice(0, 10)
   const endStr = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
@@ -3557,14 +3549,16 @@ async function warmPredictionsCache() {
 
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
-    const smFixFiltered = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 500)
+    const smFixFiltered = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 120)
+    smAll.clear()
 
     const smResults = []
-    for (let b = 0; b < smFixFiltered.length; b += 20) {
-      const bRes = await Promise.all(smFixFiltered.slice(b, b + 20).map(f => buildPrediction(f, oddsMap || {}).catch(() => null)))
+    for (let b = 0; b < smFixFiltered.length; b += 10) {
+      const bRes = await Promise.all(smFixFiltered.slice(b, b + 10).map(f => buildPrediction(f, oddsMap || {}).catch(() => null)))
       smResults.push(...bRes.filter(Boolean))
-      await sleep(80)
+      await sleep(150)
     }
+    smFixFiltered.length = 0
 
     // ESPN supplement — fetch any games SM missed
     let espnSupp = []
@@ -3715,6 +3709,8 @@ async function loadSingleTeamSquad(teamId, teamName) {
 
   // Mark cache so we don't reload
   cache.set(cacheKey, { data: [], ts: Date.now() }) // data:[] = don't store in RAM
+  prunePlayerDB(1500)
+  console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key in RAM)`)
   console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key in RAM)`)
 }
 
@@ -3724,16 +3720,12 @@ async function autoPopulateSquads() {
   // Priority 1: Top clubs hardcoded (always loaded first)
   const TOP_CLUBS = [
     'Arsenal','Liverpool','Manchester City','Chelsea','Manchester United',
-    'Tottenham Hotspur','Newcastle United','Aston Villa','Brighton & Hove Albion',
-    'Real Madrid','Barcelona','Atletico Madrid','Athletic Club','Villarreal','Real Sociedad',
-    'Bayern Munich','Borussia Dortmund','RB Leipzig','Bayer 04 Leverkusen','VfB Stuttgart',
-    'Inter Milan','Juventus','AC Milan','Napoli','Roma','Lazio','Atalanta',
-    'Paris Saint-Germain','Monaco','Marseille','Lille','Nice',
-    'Benfica','Sporting CP','Porto',
-    'Ajax','PSV','Feyenoord',
-    'Celtic','Rangers',
-    'Nottingham Forest','Brentford','Fulham','Crystal Palace','Wolverhampton Wanderers',
-    'Everton','West Ham United','Bournemouth','Leicester City',
+    'Tottenham Hotspur','Newcastle United','Aston Villa',
+    'Real Madrid','Barcelona','Atletico Madrid',
+    'Bayern Munich','Borussia Dortmund','Bayer 04 Leverkusen',
+    'Inter Milan','Juventus','AC Milan','Napoli',
+    'Paris Saint-Germain','Benfica','Sporting CP',
+    'Ajax','PSV','Celtic',
   ]
 
   for (const teamName of TOP_CLUBS) {
@@ -3745,19 +3737,7 @@ async function autoPopulateSquads() {
     await sleep(150)
   }
 
-  // Priority 2: Any teams from cached fixtures
-  await sleep(2000)
-  try {
-    const fixtureCache = cache.get('sm_fix_14')?.data || []
-    const liveCache    = cache.get('sm_live')?.data    || []
-    for (const f of [...fixtureCache, ...liveCache]) {
-      for (const p of (f.participants || [])) {
-        if (p.id && p.name && !squadLoadedSet.has(p.name)) {
-          enqueueSquad(p.id, p.name)
-        }
-      }
-    }
-  } catch(e) {}
+  // Priority 2: disabled — loading from fixture cache causes OOM on constrained instances
 
   // Priority 3 removed — was loading 400+ team squads causing OOM on Render
   setTimeout(function() {
@@ -3803,14 +3783,12 @@ const ALLOWED_LEAGUE_IDS = new Set([...ALLOWED_LEAGUE_IDS_WHITELIST])
 
 // Name-based fallback — catches cases where SM league_id differs from our hardcoded IDs
 const WHITELISTED_LEAGUE_NAMES = new Set([
-  'Premier League','Championship','FA Cup','Carabao Cup','EFL Cup',
-  'La Liga','Copa del Rey','La Liga 2',
-  'Serie A','Coppa Italia','Serie B',
-  'Bundesliga','DFB Pokal','Bundesliga 2','2. Bundesliga',
-  'Ligue 1','Ligue 2','Coupe de France',
+  'Premier League','FA Cup','Carabao Cup','EFL Cup',
+  'La Liga',
+  'Serie A',
+  'Bundesliga',
+  'Ligue 1',
   'Champions League','Europa League','Conference League',
-  'Eredivisie','KNVB Beker',
-  'Saudi Pro League','MLS',
   'World Cup','UEFA Euro','Copa America',
 ])
 function isAllowedFixture(f) {
@@ -3860,7 +3838,7 @@ async function loadAllowedLeagueIds() {
 
 app.get("/predictions", async (req, res) => {
   try {
-    const days = Math.min(parseInt(req.query.days || "14"), 14)
+    const days = Math.min(parseInt(req.query.days || "7"), 7)
     const leagueTier = parseInt(req.query.tier || "0") // 0 = all, 1/2/3 = tiers
     // Serve instantly from warm cache
     const warm = cache.get('predictions_warm')
@@ -3885,19 +3863,21 @@ app.get("/predictions", async (req, res) => {
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
 
-    const fixtures = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 500)
+    const fixtures = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 120)
+    smAll.clear()
 
     console.log(`⚙️  Building ${fixtures.length} SM predictions...`)
 
     const smResults = []
-    const BATCH = 20
+    const BATCH = 10
     for (let b = 0; b < fixtures.length; b += BATCH) {
       const bRes = await Promise.all(
         fixtures.slice(b, b + BATCH).map(f => buildPrediction(f, oddsMap).catch(() => null))
       )
       smResults.push(...bRes.filter(Boolean))
-      if (b + BATCH < fixtures.length) await sleep(80)
+      if (b + BATCH < fixtures.length) await sleep(150)
     }
+    fixtures.length = 0
 
     const results = smResults
     console.log(`✅ ${results.length} SM predictions ready`)
@@ -5692,7 +5672,7 @@ setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
   setTimeout(() => smPreMatchNews().catch(() => {}), 13000)
   setTimeout(() => smTransferRumours().catch(() => {}), 15000)
   setTimeout(() => smExpectedTransfers().catch(() => {}), 17000)
-  setTimeout(() => autoPopulateSquads().catch(() => {}), 20000)
+  setTimeout(() => autoPopulateSquads().catch(() => {}), 90000)
   // Squad loader kicks off via autoPopulateSquads (called above)
   // No separate top-club fetch needed — autoPopulateSquads handles priority ordering
   setTimeout(() => syncNBAPlayerElos().catch(() => {}), 35000)
