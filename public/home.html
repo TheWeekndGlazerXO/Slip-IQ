@@ -1181,9 +1181,42 @@ function renderOverviewPane(m) {
       }).join("") + '</div></div>';
   }
 
+  var mismatchHtml = '';
+  if (m.mismatches && m.mismatches.length > 0) {
+    mismatchHtml = '<div class="asection"><div class="asection-title">⚡ TACTICAL MISMATCHES</div>' +
+      m.mismatches.slice(0, 5).map(function(mm) {
+        var isHome = mm.favor === m.home;
+        var favColor = isHome ? 'var(--accent)' : 'var(--orange)';
+        var atkAdv = mm.atkAdvantage || 0;
+        var spdAdv = mm.speedAdvantage || 0;
+        var barW = Math.min(100, Math.round(atkAdv * 2));
+        return '<div class="mismatch-row" style="cursor:default">' +
+          '<div style="font-size:18px;flex-shrink:0">' + (isHome ? '🔵' : '🔴') + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+              mm.attacker.name + ' <span style="color:var(--text3);font-size:9px;font-weight:400">vs</span> ' + mm.defender.name +
+            '</div>' +
+            '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:2px">' +
+              mm.attacker.pos + ' vs ' + mm.defender.pos +
+              ' · <span style="color:' + favColor + '">' + mm.favor + '</span>' +
+            '</div>' +
+            '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden">' +
+              '<div style="height:100%;width:' + barW + '%;background:' + favColor + ';border-radius:2px;transition:width .5s"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right;flex-shrink:0;padding-left:8px">' +
+            '<div style="font-family:\'Bebas Neue\';font-size:18px;color:var(--accent)">+' + atkAdv + '</div>' +
+            '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3)">ATK ADV</div>' +
+            (spdAdv > 0 ? '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--teal)">+' + spdAdv + ' SPD</div>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+  }
+
   document.getElementById("mp0").innerHTML =
     '<div class="asection"><div class="asection-title">OUTCOME PROBABILITIES</div>' +
     '<div class="prob-chart">' + probHtml + '</div>' + extraStats + '</div>' +
+    mismatchHtml +
     '<div class="asection"><div class="asection-title">GPT-4o AI ANALYSIS</div>' +
     '<div id="aiBlock"><div style="display:flex;align-items:center;gap:8px;color:var(--text3)"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-size:10px;font-family:\'JetBrains Mono\'">GPT-4o analyzing...</span></div></div></div>' +
     '<div class="asection"><div class="asection-title">KEY FACTORS FROM AI</div><div id="kfBlock"><div style="color:var(--text3);font-size:10px;font-family:\'JetBrains Mono\'">Loading...</div></div></div>' +
@@ -1192,6 +1225,21 @@ function renderOverviewPane(m) {
 
 function renderLineupsPane(m) {
   var home = m.homeLineup || [], away = m.awayLineup || [];
+
+  // Manager banner builder
+  function mgrBanner(mgr, teamName) {
+    if (!mgr) return '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);padding:5px 0">Manager: Unknown</div>'
+    return '<div style="display:flex;align-items:center;gap:8px;background:rgba(0,200,248,.05);border:1px solid rgba(0,200,248,.15);border-radius:6px;padding:6px 10px;margin-bottom:7px">' +
+      '<span style="font-size:16px">👔</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text)">' + (mgr.name||'?') + '</div>' +
+        '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);margin-top:1px">' +
+          (mgr.formation||'') + (mgr.style?' · '+mgr.style:'') + (mgr.nationality?' · '+mgr.nationality:'') +
+        '</div>' +
+      '</div>' +
+      '<div style="font-family:\'Bebas Neue\';font-size:16px;color:var(--accent)">' + (mgr.elo||'—') + '</div>' +
+    '</div>'
+  }
 
   if (currentSport === 'f1' && m.allDrivers) {
     var driverHtml = '<div class="asection"><div class="asection-title">2025 DRIVER GRID — ELO + PLAYSTYLE</div>';
@@ -1243,13 +1291,24 @@ function renderLineupsPane(m) {
       '</div>';
   };
 
+  var predictedNote = m.lineupsConfirmed
+    ? '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--green);padding:3px 8px;background:rgba(0,255,136,.07);border-radius:4px;margin-bottom:8px">✅ CONFIRMED LINEUPS — officially announced</div>'
+    : '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--orange);padding:3px 8px;background:rgba(255,140,66,.07);border-radius:4px;margin-bottom:8px">🔮 PREDICTED LINEUP — based on squad data. Updates automatically when official lineup is released.</div>'
+
   document.getElementById("mp1").innerHTML =
     '<div class="asection"><div class="asection-title">' + label + ' — CLICK FOR SCOUT REPORT</div>' +
+    predictedNote +
     '<div class="lineup-grid">' +
-    '<div><div class="lineup-team-hdr">' + (m.home||'Home') + ' <span class="formation-tag">' + (m.homeFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
-    home.map(function(p){ return pRow(p, m.home||'Home'); }).join("") + '</div>' +
-    '<div><div class="lineup-team-hdr">' + (m.away||'Away') + ' <span class="formation-tag">' + (m.awayFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
-    away.map(function(p){ return pRow(p, m.away||'Away'); }).join("") + '</div>' +
+    '<div>' +
+      mgrBanner(m.homeManager, m.home||'Home') +
+      '<div class="lineup-team-hdr">' + (m.home||'Home') + ' <span class="formation-tag">' + (m.homeFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
+      home.map(function(p){ return pRow(p, m.home||'Home'); }).join("") +
+    '</div>' +
+    '<div>' +
+      mgrBanner(m.awayManager, m.away||'Away') +
+      '<div class="lineup-team-hdr">' + (m.away||'Away') + ' <span class="formation-tag">' + (m.awayFormation||m.tour||currentSport.toUpperCase()) + '</span></div>' +
+      away.map(function(p){ return pRow(p, m.away||'Away'); }).join("") +
+    '</div>' +
     '</div></div>';
 }
 
@@ -1641,10 +1700,19 @@ function riskLabel(legs, odds) {
 
 // FIX: autoParlay — correct JSON.stringify body, no broken spread syntax
 async function autoParlay() {
+  // Clear previous selections before building a new one
+  parlaySelections = [];
+  renderParlay();
+
   var btn = document.getElementById("autoBtn");
   btn.textContent = "⏳ BUILDING OPTIMAL PARLAY...";
   btn.disabled = true;
   try {
+    // If matches haven't loaded yet, fetch them now
+    if (!allMatches.length) {
+      await loadCurrentSport();
+      await new Promise(r => setTimeout(r, 800));
+    }
     var enabledSports = getEnabledSports();
     var timeframe = parseInt((document.getElementById('parlayTimeframe') || {}).value || '7');
     var minLegs = parseInt(document.getElementById("legMin").value) || 2;
