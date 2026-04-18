@@ -910,8 +910,10 @@ async function predictTournamentWinner(name){
   var el=document.getElementById('tournamentAIOut'); if(!el) return;
   el.innerHTML='<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px;display:flex;align-items:center;gap:10px"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3)">GPT-4o predicting winner...</span></div>';
   try{
-    var r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':USER_ID},body:JSON.stringify({match:{home:name,away:'',league:name,homeProb:50,awayProb:50,drawProb:0,homeElo:1800,awayElo:1800,sport:'football'},type:'match'})});
-    var d=r.ok?await r.json():{};
+    var hdrs={'Content-Type':'application/json'};
+if(USER_ID&&USER_ID!=='guest') hdrs['x-user-id']=USER_ID;
+var r=await fetch('/analyze',{method:'POST',headers:hdrs,body:JSON.stringify({match:{home:name,away:'',league:name,homeProb:50,awayProb:50,drawProb:0,homeElo:1800,awayElo:1800,sport:'football'},type:'match'})});
+var d=r.ok?await r.json():{};
     el.innerHTML='<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px">'+
       '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent);letter-spacing:2px;margin-bottom:5px">GPT-4o TOURNAMENT PREDICTION</div>'+
       '<div style="font-size:12px;color:var(--text2);line-height:1.7">'+(d.mainAnalysis||d.oneLineSummary||'Prediction unavailable').replace(/\n/g,'<br>')+'</div>'+
@@ -935,7 +937,64 @@ async function openTeamModal(teamName,sport){
     document.getElementById('pmTeamBody').innerHTML='<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px">Could not load team data.</div>';
   }
 }
+// ── MISMATCH EXPLANATION MODAL ─────────────────────────────────────────────────
+function openMismatchModal(mm, homeName, awayName) {
+  var isHome = mm.favor === homeName;
+  var favColor = isHome ? 'var(--accent)' : 'var(--orange)';
+  var atkAdv = mm.atkAdvantage || 0;
+  var spdAdv = mm.speedAdvantage || 0;
 
+  var MISMATCH_EXPLAINER =
+    '<div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.25);border-radius:8px;padding:12px;margin-bottom:12px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--purple);letter-spacing:2px;margin-bottom:5px">WHAT IS A MISMATCH?</div>' +
+    '<div style="font-size:12px;color:var(--text2);line-height:1.7">A <strong style="color:var(--purple)">tactical mismatch</strong> occurs when one player\'s attacking attributes significantly outperform the opposing player\'s defensive attributes in a direct head-to-head positional battle. Slip IQ detects these by comparing ELO ratings, attack vs defence scores, and speed differentials between attackers and their likely markers.</div>' +
+    '</div>';
+
+  var WHY_MISMATCH =
+    '<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:8px;padding:12px;margin-bottom:12px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--accent);letter-spacing:2px;margin-bottom:5px">WHY THIS IS A MISMATCH</div>' +
+    '<div style="font-size:12px;color:var(--text2);line-height:1.7">' +
+    '<strong style="color:var(--accent)">' + (mm.attacker?.name || 'Attacker') + '</strong> (' + (mm.attacker?.pos || '') + ') ' +
+    'has an attack rating of <strong style="color:var(--green)">' + (mm.attacker?.attack || 0) + '</strong> ' +
+    'against <strong style="color:var(--orange)">' + (mm.defender?.name || 'Defender') + '</strong> (' + (mm.defender?.pos || '') + ') ' +
+    'who has a defence rating of <strong style="color:var(--red)">' + (mm.defender?.defense || 0) + '</strong>. ' +
+    'That\'s a <strong style="color:var(--gold)">+' + atkAdv + ' attack advantage</strong>' +
+    (spdAdv > 0 ? ' and a <strong style="color:var(--teal)">+' + spdAdv + ' speed edge</strong>' : '') +
+    ' — well above Slip IQ\'s mismatch threshold of +20.' +
+    '</div></div>';
+
+  var ODDS_IMPACT =
+    '<div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:12px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--green);letter-spacing:2px;margin-bottom:5px">HOW THIS AFFECTS ODDS</div>' +
+    '<div style="font-size:12px;color:var(--text2);line-height:1.7">' +
+    'Mismatches like this increase the attacking team\'s expected goals (xG) because their forward ' +
+    'is likely to get more space, more shots, and better angles. ' +
+    'For bettors, this can mean the <strong style="color:' + favColor + '">' + mm.favor + '</strong> ' +
+    'side has value in <strong>scorer markets</strong> (anytime scorer for ' + (mm.attacker?.name || 'this player') + '), ' +
+    '<strong>corners</strong> (they\'ll attack that flank more), and may even shift the ' +
+    '<strong>match result probability</strong> by 3-5% beyond what raw ELO suggests.' +
+    '</div></div>';
+
+  document.getElementById('pmContent').innerHTML =
+    '<div style="font-family:\'Bebas Neue\';font-size:20px;letter-spacing:2px;color:var(--text);margin-bottom:2px">⚡ TACTICAL MISMATCH</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);margin-bottom:14px">' +
+    (mm.attacker?.name || '') + ' vs ' + (mm.defender?.name || '') + ' · ' + mm.favor + ' FAVOURED' +
+    '</div>' +
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:12px">' +
+    '<div style="text-align:center;flex:1">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--green)">' + (mm.attacker?.name || '?') + '</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + (mm.attacker?.pos || '') + ' · ATK ' + (mm.attacker?.attack || 0) + ' · SPD ' + (mm.attacker?.speed || 0) + '</div>' +
+    '</div>' +
+    '<div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--purple)">VS</div>' +
+    '<div style="text-align:center;flex:1">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--red)">' + (mm.defender?.name || '?') + '</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + (mm.defender?.pos || '') + ' · DEF ' + (mm.defender?.defense || 0) + ' · SPD ' + (mm.defender?.speed || 0) + '</div>' +
+    '</div>' +
+    '</div>' +
+    MISMATCH_EXPLAINER + WHY_MISMATCH + ODDS_IMPACT;
+
+  document.getElementById('pmOverlay').classList.add('open');
+}
 function renderTeamBody(teamName,sport,d){
   var el=document.getElementById('pmTeamBody'); if(!el) return;
   var squad=d.squad||[],keyPlayers=d.keyPlayers||[],elo=d.elo||0,descriptors=d.descriptors||[],strengths=d.strengths||[],weaknesses=d.weaknesses||[],next5=d.next5||[],stats=d.stats||{},manager=d.manager||null;
@@ -1478,6 +1537,23 @@ var countByKey = {};
     '<button onclick="predictTournamentWinner(\''+esc(data.name||'')+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
   '</div>';
   html += '<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
+  // Win probability bar
+  if (data.winProbabilities && Object.keys(data.winProbabilities).length) {
+    var probs = data.winProbabilities;
+    var teams = Object.keys(probs).sort(function(a,b){ return probs[b]-probs[a]; });
+    html += '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:9px;padding:12px;margin-bottom:12px">';
+    html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:9px">🏆 WIN PROBABILITY — REMAINING TEAMS</div>';
+    teams.forEach(function(team) {
+      var pct = probs[team];
+      var col = pct >= 25 ? 'var(--green)' : pct >= 15 ? 'var(--accent)' : 'var(--text3)';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+      html += '<div style="font-size:11px;font-weight:600;color:var(--text);width:140px;flex-shrink:0">' + team + '</div>';
+      html += '<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:' + (pct * 2.5) + '%;height:100%;background:' + col + ';border-radius:3px;transition:width .5s"></div></div>';
+      html += '<div style="font-family:\'Bebas Neue\';font-size:16px;color:' + col + ';width:36px;text-align:right">' + pct + '%</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
 
   if (groupsHtml) {
     html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin:0 0 8px">▸ GROUP / LEAGUE PHASE</div>';

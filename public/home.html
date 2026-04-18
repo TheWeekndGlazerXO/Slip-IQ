@@ -1190,7 +1190,7 @@ function renderOverviewPane(m) {
         var atkAdv = mm.atkAdvantage || 0;
         var spdAdv = mm.speedAdvantage || 0;
         var barW = Math.min(100, Math.round(atkAdv * 2));
-        return '<div class="mismatch-row" style="cursor:default">' +
+        return '<div class="mismatch-row" style="cursor:pointer" onclick=\'openMismatchModal(' + JSON.stringify(JSON.stringify(mm)) + ',"' + esc(m.home||'') + '","' + esc(m.away||'') + '")\'>' +
           '<div style="font-size:18px;flex-shrink:0">' + (isHome ? '🔵' : '🔴') + '</div>' +
           '<div style="flex:1;min-width:0">' +
             '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
@@ -1483,7 +1483,39 @@ async function loadMatchAI(m) {
     if (el) el.innerHTML = '<div class="ai-text" style="color:var(--text3)">AI unavailable</div>';
   }
 }
+function openMismatchModal(mmjson, homeName, awayName) {
+  var mm; try { mm = JSON.parse(mmjson); } catch(e) { return; }
+  var isHome = mm.favor === homeName;
+  var favColor = isHome ? 'var(--accent)' : 'var(--orange)';
+  var atkAdv = mm.atkAdvantage || 0;
+  var spdAdv = mm.speedAdvantage || 0;
 
+  document.getElementById('pmName').textContent = '⚡ Tactical Mismatch';
+  document.getElementById('pmMeta').textContent = (mm.attacker?.name||'?') + ' vs ' + (mm.defender?.name||'?') + ' · ' + mm.favor + ' favoured';
+
+  document.getElementById('pmBody').innerHTML =
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px;margin-bottom:11px;display:flex;align-items:center;gap:10px">' +
+    '<div style="text-align:center;flex:1"><div style="font-size:12px;font-weight:700;color:var(--green)">' + (mm.attacker?.name||'?') + '</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + (mm.attacker?.pos||'') + ' · ATK ' + (mm.attacker?.attack||0) + ' · SPD ' + (mm.attacker?.speed||0) + '</div></div>' +
+    '<div style="font-family:\'Bebas Neue\';font-size:20px;color:var(--purple)">VS</div>' +
+    '<div style="text-align:center;flex:1"><div style="font-size:12px;font-weight:700;color:var(--red)">' + (mm.defender?.name||'?') + '</div>' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + (mm.defender?.pos||'') + ' · DEF ' + (mm.defender?.defense||0) + ' · SPD ' + (mm.defender?.speed||0) + '</div></div>' +
+    '</div>' +
+    '<div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.25);border-radius:7px;padding:10px;margin-bottom:9px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--purple);letter-spacing:1px;margin-bottom:4px">WHAT IS A MISMATCH?</div>' +
+    '<div style="font-size:11px;color:var(--text2);line-height:1.6">A tactical mismatch occurs when an attacker\'s stats significantly outperform the opposing defender\'s in a direct positional battle — Slip IQ detects these across Attack, Speed, and ELO differentials.</div>' +
+    '</div>' +
+    '<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px;margin-bottom:9px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent);letter-spacing:1px;margin-bottom:4px">WHY THIS ONE IS FLAGGED</div>' +
+    '<div style="font-size:11px;color:var(--text2);line-height:1.6"><strong style="color:var(--accent)">' + (mm.attacker?.name||'?') + '</strong> holds a <strong style="color:var(--gold)">+' + atkAdv + ' attack edge</strong>' + (spdAdv > 0 ? ' and +' + spdAdv + ' speed advantage' : '') + ' over <strong style="color:var(--orange)">' + (mm.defender?.name||'?') + '</strong> — above the +20 threshold that Slip IQ flags as significant.</div>' +
+    '</div>' +
+    '<div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px">' +
+    '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--green);letter-spacing:1px;margin-bottom:4px">ODDS IMPACT</div>' +
+    '<div style="font-size:11px;color:var(--text2);line-height:1.6">This boosts <strong style="color:' + favColor + '">' + mm.favor + '\'s</strong> xG by creating more shooting opportunities on that flank. Look for value in <strong>scorer markets</strong> for ' + (mm.attacker?.name||'this player') + ', <strong>corner counts</strong>, and potentially the match result odds if multiple mismatches stack.</div>' +
+    '</div>';
+
+  document.getElementById('pmOverlay').classList.add('open');
+}
 function closeModal() { document.getElementById("modal").classList.remove("open"); }
 
 function openPlayerModal(pjson, teamName) {

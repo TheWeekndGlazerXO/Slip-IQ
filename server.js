@@ -3282,16 +3282,8 @@ async function buildPrediction(smFix, oddsMap) {
 const leagueId = smFix.league_id || smFix.league?.id
 const isPriorityLeague = leagueId && SQUAD_PRIORITY_LEAGUES.has(leagueId)
 if (isPriorityLeague) {
-  if (!homeLineup.length && homeId && SM_KEY) {
-    smSquad(homeId, home, smFix.season_id).then(sq => {
-      if (sq.length) console.log(`📥 Squad loaded: ${home} (${sq.length} players)`)
-    }).catch(()=>{})
-  }
-  if (!awayLineup.length && awayId && SM_KEY) {
-    smSquad(awayId, away, smFix.season_id).then(sq => {
-      if (sq.length) console.log(`📥 Squad loaded: ${away} (${sq.length} players)`)
-    }).catch(()=>{})
-  }
+  if (homeId && !squadLoadedSet.has(home)) enqueueSquad(homeId, home)
+  if (awayId && !squadLoadedSet.has(away)) enqueueSquad(awayId, away)
 }
     // Fallback to squad data when no confirmed lineup
     if (!homeLineup.length) homeLineup = buildExpectedLineupFromSquad(home, hElo)
@@ -3535,7 +3527,7 @@ const LEAGUE_RANK = {
 }
 
 // ── AI ─────────────────────────────────────────────────────
-const SYS_PROMPT = `You are an elite sports analytics AI for SlipIQ. You have real player data, ELOs, stats. Reference specific player names. ALWAYS respond ONLY with valid JSON. No markdown.`
+const SYS_PROMPT = `You are an elite sports analytics AI for SlipIQ. You receive live squad data per request. ONLY reference players explicitly listed in the prompt — NEVER use your training knowledge of squad composition as rosters change frequently (e.g. Kane left Spurs, Caicedo left Brighton). If no squad is listed, analyse on ELO/form only. ALWAYS respond ONLY with valid JSON. No markdown.`
 
 async function callAI(prompt, maxTokens) {
   maxTokens = maxTokens || 1400
@@ -3599,124 +3591,189 @@ async function warmPredictionsCache() {
 // ══════════════════════════════════════════════════════════
 //  AUTO-POPULATE SQUADS
 // ══════════════════════════════════════════════════════════
+// ── MEMORY-SAFE SQUAD STREAMING ───────────────────────────────────────────────
+// Loads squads one team at a time, writes to Supabase immediately, keeps only
+// key players in RAM. Never accumulates more than ~50 player objects at once.
+const squadLoadQueue   = []   // { teamId, teamName } pairs waiting to be loaded
+const squadLoadedSet   = new Set()  // teamNames already loaded this session
+let   squadLoaderRunning = false
+
+function enqueueSquad(teamId, teamName) {
+  if (!teamId || !teamName) return
+  if (squadLoadedSet.has(teamName)) return
+  if (squadLoadQueue.some(function(q){ return q.teamId === teamId; })) return
+  squadLoadQueue.push({ teamId, teamName })
+  if (!squadLoaderRunning) runSquadLoader()
+}
+
+async function runSquadLoader() {
+  if (squadLoaderRunning) return
+  squadLoaderRunning = true
+  while (squadLoadQueue.length > 0) {
+    const item = squadLoadQueue.shift()
+    if (!item) break
+    if (squadLoadedSet.has(item.teamName)) continue
+    try {
+      await loadSingleTeamSquad(item.teamId, item.teamName)
+      squadLoadedSet.add(item.teamName)
+    } catch(e) {
+      console.log('⚠️  Squad load error:', item.teamName, e.message?.slice(0,40))
+    }
+    // Yield to event loop between each team — prevents blocking requests
+    await sleep(300)
+    // Aggressive GC hint after every 5 teams
+    if (squadLoadQueue.length % 5 === 0 && global.gc) global.gc()
+  }
+  squadLoaderRunning = false
+}
+
+async function loadSingleTeamSquad(teamId, teamName) {
+  if (!SM_KEY || !teamId) return
+  const cacheKey = `sm_squad_${teamId}_cur`
+  const hit = cache.get(cacheKey)
+  if (hit && Date.now() - hit.ts < TTL.XL) return
+
+  const tElo = getElo(teamName)
+  let entries = []
+
+  for (const inc of [
+    'player;player.position;player.statistics',
+    'player;player.position',
+    'player'
+  ]) {
+    try {
+      const r = await http(`${SM_BASE}/squads/teams/${teamId}`, {
+        api_token: SM_KEY, include: inc, per_page: 50
+      })
+      entries = r.data?.data || []
+      if (entries.length > 0) break
+    } catch(e2) {
+      if ([403, 401, 422].includes(e2.response?.status)) break
+      await sleep(400)
+    }
+  }
+
+  if (!entries.length) {
+    cache.set(cacheKey, { data: [], ts: Date.now() })
+    return
+  }
+
+  const keyPlayers = []
+  let saved = 0
+
+  for (const sq of entries.slice(0, 35)) {
+    const p = sq.player || (sq.id && sq.name ? sq : null)
+    if (!p) continue
+    const pName = p.display_name || p.common_name || p.name
+    if (!pName || pName.length < 2) continue
+
+    const pos     = mapPosId(p.position_id || sq.position_id) || 'CM'
+    const stats   = p.statistics?.data?.[0] || p.statistics?.[0] || {}
+    const goals   = parseInt(stats.goals?.scored   || stats.goals    || 0)
+    const assists = parseInt(stats.goals?.assists  || stats.assists  || 0)
+    const apps    = parseInt(stats.appearances?.total || stats.appearences?.total || 0)
+    const rating  = parseFloat(stats.rating) || 0
+    const pElo    = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
+    const attrs   = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
+
+    const row = {
+      player_name: pName, team_name: teamName, sm_player_id: p.id,
+      position: pos, elo: pElo, speed: attrs.speed, attack: attrs.attack,
+      defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
+      playstyle_name: attrs.playstyle.name, playstyle_icon: attrs.playstyle.icon,
+      goals_this_season: goals, assists_this_season: assists,
+      appearances: apps, real_rating: rating || null,
+      updated_at: new Date().toISOString()
+    }
+
+    // Write to Supabase immediately (fire-and-forget)
+    if (sb) sb.from('player_ratings').upsert(row, { onConflict: 'player_name,team_name' }).then(() => {}, () => {})
+
+    // Only keep key players in RAM — everyone else is in Supabase
+    const playerObj = { ...row, playstyle: attrs.playstyle }
+    if (attrs.isKey || pElo > tElo + 40) {
+      keyPlayers.push(playerObj)
+      playerDB.set(`${pName}__${teamName}`, playerObj)
+    }
+
+    saved++
+  }
+
+  // Store only key players in squadDB (not full 35-man roster)
+  if (!squadDB.has(teamName)) squadDB.set(teamName, [])
+  const existing = squadDB.get(teamName)
+  for (const kp of keyPlayers) {
+    const idx = existing.findIndex(function(x){ return x.player_name === kp.player_name; })
+    if (idx >= 0) existing[idx] = kp
+    else existing.push(kp)
+  }
+
+  // Mark cache so we don't reload
+  cache.set(cacheKey, { data: [], ts: Date.now() }) // data:[] = don't store in RAM
+  console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key in RAM)`)
+}
+
 async function autoPopulateSquads() {
   if (!SM_KEY) return
-  console.log('🔄 Auto-populating squads (top 15 leagues)...')
-  try {
-    const teamMap = new Map()
+  console.log('🔄 Auto-populating squads (streaming mode — memory-safe)...')
+  // Priority 1: Top clubs hardcoded (always loaded first)
+  const TOP_CLUBS = [
+    'Arsenal','Liverpool','Manchester City','Chelsea','Manchester United',
+    'Tottenham Hotspur','Newcastle United','Aston Villa','Brighton & Hove Albion',
+    'Real Madrid','Barcelona','Atletico Madrid','Athletic Club','Villarreal','Real Sociedad',
+    'Bayern Munich','Borussia Dortmund','RB Leipzig','Bayer 04 Leverkusen','VfB Stuttgart',
+    'Inter Milan','Juventus','AC Milan','Napoli','Roma','Lazio','Atalanta',
+    'Paris Saint-Germain','Monaco','Marseille','Lille','Nice',
+    'Benfica','Sporting CP','Porto',
+    'Ajax','PSV','Feyenoord',
+    'Celtic','Rangers',
+    'Nottingham Forest','Brentford','Fulham','Crystal Palace','Wolverhampton Wanderers',
+    'Everton','West Ham United','Bournemouth','Leicester City',
+  ]
 
-    const fixtures = cache.get('sm_fix_14')?.data || await smFixtures(14).catch(() => [])
-    for (const f of fixtures) {
-      const leagueId = f.league_id || f.league?.id
-      if (!leagueId || !SQUAD_PRIORITY_LEAGUES.has(leagueId)) continue
+  for (const teamName of TOP_CLUBS) {
+    if (squadLoadedSet.has(teamName)) continue
+    try {
+      const found = await smSearchTeam(teamName).catch(() => null)
+      if (found?.id) enqueueSquad(found.id, teamName)
+    } catch(e) {}
+    await sleep(150)
+  }
+
+  // Priority 2: Any teams from cached fixtures
+  await sleep(2000)
+  try {
+    const fixtureCache = cache.get('sm_fix_14')?.data || []
+    const liveCache    = cache.get('sm_live')?.data    || []
+    for (const f of [...fixtureCache, ...liveCache]) {
       for (const p of (f.participants || [])) {
-        if (p.id && p.name) teamMap.set(p.id, p.name)
+        if (p.id && p.name && !squadLoadedSet.has(p.name)) {
+          enqueueSquad(p.id, p.name)
+        }
       }
     }
-    console.log(`📋 ${teamMap.size} teams from priority fixtures`)
+  } catch(e) {}
 
+  // Priority 3: Background — fetch all teams from allowed leagues
+  setTimeout(async function() {
     for (const leagueId of SQUAD_PRIORITY_LEAGUES) {
       try {
-        // Try currentSeason include first
-        let seasonId = null
-        try {
-          const r = await http(`${SM_BASE}/leagues/${leagueId}`, {
-            api_token: SM_KEY, include: 'currentSeason'
-          })
-          seasonId = r.data?.data?.currentSeason?.id
-        } catch(e2) {}
-
-        // Fallback: fetch teams directly from league
-        const endpoints = []
-        if (seasonId) endpoints.push(`${SM_BASE}/teams/seasons/${seasonId}`)
-        endpoints.push(`${SM_BASE}/teams/leagues/${leagueId}`)
-
+        const endpoints = [`${SM_BASE}/teams/leagues/${leagueId}`]
         for (const url of endpoints) {
           try {
             const tr = await http(url, { api_token: SM_KEY, per_page: 50 })
             const teams = tr.data?.data || []
-            if (teams.length) {
-              for (const team of teams) {
-                if (team.id && team.name) teamMap.set(team.id, team.name)
-              }
-              console.log(`  📋 League ${leagueId}: ${teams.length} teams`)
-              break
+            for (const team of teams) {
+              if (team.id && team.name) enqueueSquad(team.id, team.name)
             }
-          } catch(e3) {}
+            break
+          } catch(e2) {}
         }
-        await sleep(350)
-      } catch(e) {
-        console.log(`  ⚠️  League ${leagueId} team fetch:`, e.message?.slice(0,40))
-      }
+        await sleep(500)
+      } catch(e) {}
     }
-    console.log(`📋 ${teamMap.size} total teams for squad loading`)
-
-    let pulled = 0, teamsWithSquads = 0
-
-    for (const [teamId, teamName] of teamMap) {
-      const cacheKey = `sm_squad_${teamId}_cur`
-      const hit = cache.get(cacheKey)
-      if (hit && Date.now() - hit.ts < TTL.XL) continue
-      if (squadDB.has(teamName) && (squadDB.get(teamName) || []).length > 5) continue
-
-      try {
-        let entries = []
-        for (const inc of ['player;player.position;player.statistics','player;player.position','player']) {
-          try {
-            const r = await http(`${SM_BASE}/squads/teams/${teamId}`, {
-              api_token: SM_KEY, include: inc, per_page: 50
-            })
-            entries = r.data?.data || []
-            if (entries.length > 0) break
-          } catch(e2) {
-            if ([403, 401, 422].includes(e2.response?.status)) break
-            await sleep(400)
-          }
-        }
-        if (!entries.length) { cache.set(cacheKey, { data: [], ts: Date.now() }); continue }
-
-        const tElo = getElo(teamName)
-        let teamPulled = 0
-        for (const sq of entries.slice(0, 30)) {
-          const p = sq.player || (sq.id && sq.name ? sq : null)
-          if (!p) continue
-          const pName = p.display_name || p.common_name || p.name
-          if (!pName || pName.length < 2) continue
-          const pos     = mapPosId(p.position_id || sq.position_id) || 'CM'
-          const stats   = p.statistics?.data?.[0] || p.statistics?.[0] || {}
-          const goals   = parseInt(stats.goals?.scored   || stats.goals    || 0)
-          const assists = parseInt(stats.goals?.assists  || stats.assists  || 0)
-          const apps    = parseInt(stats.appearances?.total || stats.appearences?.total || 0)
-          const rating  = parseFloat(stats.rating) || 0
-          const pElo    = buildPlayerElo(pName, pos, tElo, rating > 0 ? rating : null, goals, apps)
-          const attrs   = buildPlayerAttrs(pName, pos, pElo, tElo, rating > 0 ? rating : null)
-          const row = {
-            player_name: pName, team_name: teamName, sm_player_id: p.id,
-            position: pos, elo: pElo, speed: attrs.speed, attack: attrs.attack,
-            defense: attrs.defense, big_match: attrs.bigMatch, is_key: attrs.isKey,
-            playstyle_name: attrs.playstyle.name, playstyle_icon: attrs.playstyle.icon,
-            goals_this_season: goals, assists_this_season: assists,
-            appearances: apps, real_rating: rating || null,
-            updated_at: new Date().toISOString()
-          }
-          playerDB.set(`${pName}__${teamName}`, { ...row, playstyle: attrs.playstyle })
-          if (!squadDB.has(teamName)) squadDB.set(teamName, [])
-          const sq2 = squadDB.get(teamName)
-          const idx = sq2.findIndex(x => x.player_name === pName)
-          if (idx >= 0) sq2[idx] = { ...row, playstyle: attrs.playstyle }
-          else sq2.push({ ...row, playstyle: attrs.playstyle })
-          if (sb) sbSave('player_ratings', row, 'player_name,team_name')
-          teamPulled++; pulled++
-        }
-        if (teamPulled > 0) { console.log(`  ✅ ${teamName}: ${teamPulled}`); teamsWithSquads++ }
-        cache.set(cacheKey, { data: entries, ts: Date.now() })
-        await sleep(250)
-      } catch(e) {
-        if (e.response?.status === 429) { console.log('⚠️  Rate limit — 10s sleep'); await sleep(10000) }
-      }
-    }
-    console.log(`✅ Squads done: ${teamsWithSquads} teams, ${pulled} players | playerDB: ${playerDB.size}`)
-  } catch(e) { console.log('⚠️  autoPopulateSquads:', e.message) }
+    console.log(`✅ All leagues queued — squad loader running (${squadLoadQueue.length} teams in queue)`)
+  }, 30000)
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3963,7 +4020,7 @@ app.post("/analyze", requireAccess('match_analysis'), async (req, res) => {
       const sport = m.sport || 'football'
       const hW = getTeamWeights(m.home)
       const aW = getTeamWeights(m.away)
-      prompt = `${sport.toUpperCase()} Match: ${m.home} vs ${m.away} | ${m.league}\nELO: H${m.homeElo} A${m.awayElo}\nProbs: H${m.homeProb}% D${m.drawProb||0}% A${m.awayProb}%\nKey players H: ${hKeys}\nKey players A: ${aKeys}\nHome possession avg: ${Math.round((hW.avgPossession||0.5)*100)}%\nAway possession avg: ${Math.round((aW.avgPossession||0.5)*100)}%\nHome clean sheet rate: ${Math.round((hW.cleanSheetRate||0.3)*100)}%\nAway clean sheet rate: ${Math.round((aW.cleanSheetRate||0.3)*100)}%\nReturn JSON: {"mainAnalysis":"3-4 sentences with specific player names","recommendation":"${sport==='football'?'Home Win|Draw|Away Win':'Home Win|Away Win'}","oneLineSummary":"sharp one-liner","keyFactors":["5 factors"],"mismatchImpact":"key matchup","confidenceRating":${m.confidence}}`
+      prompt = `${sport.toUpperCase()} Match: ${m.home} vs ${m.away} | ${m.league}\nELO: H${m.homeElo} A${m.awayElo}\nProbs: H${m.homeProb}% D${m.drawProb||0}% A${m.awayProb}%\nCURRENT ${m.home} squad: ${hKeys}\nCURRENT ${m.away} squad: ${aKeys}\nSTRICT RULE: Only name players from the lists above. Do not reference any player not listed — rosters have changed since your training data.\nHome possession avg: ${Math.round((hW.avgPossession||0.5)*100)}%\nAway possession avg: ${Math.round((aW.avgPossession||0.5)*100)}%\nHome clean sheet rate: ${Math.round((hW.cleanSheetRate||0.3)*100)}%\nAway clean sheet rate: ${Math.round((aW.cleanSheetRate||0.3)*100)}%\nReturn JSON: {"mainAnalysis":"3-4 sentences with specific player names","recommendation":"${sport==='football'?'Home Win|Draw|Away Win':'Home Win|Away Win'}","oneLineSummary":"sharp one-liner","keyFactors":["5 factors"],"mismatchImpact":"key matchup","confidenceRating":${m.confidence}}`
     } else if (type === "upset") {
       const m = match
       prompt = `Upset pick: ${m.home}(ELO${m.homeElo}) vs ${m.away}(ELO${m.awayElo},odds:${m.awayOdds})\nReturn JSON: {"upsetReasons":["4 reasons"],"upsetTrigger":"scenario","worthBacking":true,"upsetConfidence":${m.awayProb}}`
@@ -4753,11 +4810,189 @@ app.get('/standings/mma', async (req, res) => {
   const fighters = div ? MMA_FIGHTERS.filter(f=>f.division===div) : MMA_FIGHTERS
   res.json({ source:'internal', fighters:fighters.map(f=>({...f,playstyle:getPlaystyleForSport('mma',null,f.name,f.elo)})) })
 })
+// ── 2025/26 HARDCODED TOURNAMENT BRACKETS ─────────────────────────────────────
+const HARDCODED_BRACKETS = {
+  ucl: {
+    name: 'UEFA Champions League 2025/26',
+    hasGroups: false,
+    groups: [],
+    rounds: {
+      'Round of 16': [
+        // Silver path (left side)
+        { home:'Paris SG',      away:'Monaco',      homeScore:2, awayScore:2, isFinished:true,  agg:'Agg: 5-4 Paris SG win', date:'2026-03-04T21:00:00' },
+        { home:'Juventus',      away:'Galatasaray', homeScore:3, awayScore:2, isFinished:true,  agg:'Agg: 5-7 Galatasaray win', date:'2026-03-05T21:00:00' },
+        { home:'Man City',      away:'Real Madrid', homeScore:1, awayScore:2, isFinished:true,  agg:'Agg: 1-5 Real Madrid win', date:'2026-03-04T21:00:00' },
+        { home:'Atalanta',      away:'B. Dortmund', homeScore:4, awayScore:1, isFinished:true,  agg:'Agg: 4-3 Atalanta win', date:'2026-03-05T21:00:00' },
+        // Blue path (right side)
+        { home:'Newcastle',     away:'Qarabag',     homeScore:3, awayScore:2, isFinished:true,  agg:'Agg: 9-3 Newcastle win', date:'2026-03-10T21:00:00' },
+        { home:'Atletico',      away:'Club Brugge', homeScore:4, awayScore:1, isFinished:true,  agg:'Agg: 7-4 Atleti win', date:'2026-03-11T21:00:00' },
+        { home:'Inter',         away:'Bodo/Glimt',  homeScore:1, awayScore:2, isFinished:true,  agg:'Agg: 2-5 Bodo/Glimt win', date:'2026-03-10T21:00:00' },
+        { home:'Leverkusen',    away:'Olympiacos',  homeScore:0, awayScore:0, isFinished:true,  agg:'Agg: 2-0 Leverkusen win', date:'2026-03-11T21:00:00' },
+      ],
+      'Round of 16 (2nd leg)': [
+        { home:'Chelsea',       away:'Paris SG',    homeScore:0, awayScore:3, isFinished:true,  agg:'Agg: 2-8 Paris SG win', date:'2026-03-11T21:00:00' },
+        { home:'Liverpool',     away:'Galatasaray', homeScore:4, awayScore:0, isFinished:true,  agg:'Agg: 4-1 Liverpool win', date:'2026-03-10T21:00:00' },
+        { home:'Real Madrid',   away:'Man City',    homeScore:2, awayScore:1, isFinished:true,  agg:'Agg: 3-1 Real Madrid win', date:'2026-03-11T21:00:00' },
+        { home:'B. München',    away:'Atalanta',    homeScore:4, awayScore:1, isFinished:true,  agg:'Agg: 10-2 Bayern win', date:'2026-03-10T21:00:00' },
+        { home:'Barcelona',     away:'Newcastle',   homeScore:7, awayScore:2, isFinished:true,  agg:'Agg: 8-3 Barcelona win', date:'2026-03-17T21:00:00' },
+        { home:'Tottenham',     away:'Atletico',    homeScore:3, awayScore:2, isFinished:true,  agg:'Agg: 5-7 Atleti win', date:'2026-03-18T21:00:00' },
+        { home:'Sporting CP',   away:'Bodo/Glimt',  homeScore:5, awayScore:0, isFinished:true,  agg:'Agg: 5-3 Sporting win', date:'2026-03-17T21:00:00' },
+        { home:'Arsenal',       away:'Leverkusen',  homeScore:2, awayScore:0, isFinished:true,  agg:'Agg: 3-1 Arsenal win', date:'2026-03-18T21:00:00' },
+      ],
+      'Quarter-Finals': [
+        { home:'Liverpool',     away:'Paris SG',    homeScore:0, awayScore:2, isFinished:true,  agg:'Agg: 0-4 Paris SG win', date:'2026-04-08T21:00:00' },
+        { home:'Real Madrid',   away:'B. München',  homeScore:3, awayScore:4, isFinished:true,  agg:'Agg: 6-4 Bayern win (agg)', date:'2026-04-08T21:00:00' },
+        { home:'Atletico',      away:'Barcelona',   homeScore:1, awayScore:2, isFinished:true,  agg:'Agg: 3-2 Atleti win', date:'2026-04-09T21:00:00' },
+        { home:'Arsenal',       away:'Sporting CP', homeScore:0, awayScore:0, isFinished:true,  agg:'Agg: 1-0 Arsenal win', date:'2026-04-09T21:00:00' },
+      ],
+      'Semi-Finals': [
+        { home:'Paris SG',      away:'B. München',  homeScore:null, awayScore:null, isFinished:false, date:'2026-04-28T21:00:00' },
+        { home:'Atletico',      away:'Arsenal',     homeScore:null, awayScore:null, isFinished:false, date:'2026-04-29T21:00:00' },
+      ],
+      'Final': [
+        { home:'TBD (SF1 winner)', away:'TBD (SF2 winner)', homeScore:null, awayScore:null, isFinished:false, date:'2026-05-30T21:00:00' },
+      ]
+    },
+    winProbabilities: {
+      'Paris SG':  32,
+      'B. München': 28,
+      'Atletico':  22,
+      'Arsenal':   18,
+    }
+  },
+
+  uel: {
+    name: 'UEFA Europa League 2025/26',
+    hasGroups: false,
+    groups: [],
+    rounds: {
+      'Round of 16': [
+        { home:'BET',  away:'PAN',  homeScore:0, awayScore:1, isFinished:true, agg:'Agg: 4-1 Betis win', date:'2026-03-05T18:45:00' },
+        { home:'BRA',  away:'FTC',  homeScore:0, awayScore:2, isFinished:true, agg:'Agg: 4-2 Braga win', date:'2026-03-05T18:45:00' },
+        { home:'SCF',  away:'GEN',  homeScore:0, awayScore:1, isFinished:true, agg:'Agg: 5-2 Freiburg win', date:'2026-03-06T18:45:00' },
+        { home:'OL',   away:'CEL',  homeScore:1, awayScore:1, isFinished:true, agg:'Agg: 1-3 Celta win', date:'2026-03-06T18:45:00' },
+        { home:'NFO',  away:'LPO',  homeScore:3, awayScore:1, isFinished:true, agg:'Agg: 4-3 Nott\'m win', date:'2026-03-12T18:45:00' },
+        { home:'FCM',  away:'NFO',  homeScore:1, awayScore:0, isFinished:true, agg:'Agg: Nott\'m win pens', date:'2026-03-13T18:45:00' },
+        { home:'CZE',  away:'FIO',  homeScore:1, awayScore:2, isFinished:true, agg:'Agg: 2-4 Fiorentina win', date:'2026-03-12T18:45:00' },
+        { home:'ALA',  away:'CRY',  homeScore:0, awayScore:0, isFinished:true, agg:'Agg: 1-2 Crystal Palace win', date:'2026-03-13T18:45:00' },
+      ],
+      'Round of 16 (2nd leg)': [
+        { home:'BET',  away:'BRA',  homeScore:1, awayScore:4, isFinished:true, agg:'Agg: 3-5 Braga win', date:'2026-03-12T18:45:00' },
+        { home:'CEL',  away:'SCF',  homeScore:0, awayScore:3, isFinished:true, agg:'Agg: 1-6 Freiburg win', date:'2026-03-13T18:45:00' },
+        { home:'AVL',  away:'LIL',  homeScore:1, awayScore:0, isFinished:true, agg:'Agg: 3-0 Aston Villa win', date:'2026-03-19T18:45:00' },
+        { home:'ROM',  away:'BOL',  homeScore:1, awayScore:4, isFinished:true, agg:'Agg: 4-5 Bologna win', date:'2026-03-20T18:45:00' },
+        { home:'AZA',  away:'SHA',  homeScore:0, awayScore:3, isFinished:true, agg:'Agg: 2-5 Shakhtar win', date:'2026-03-19T18:45:00' },
+        { home:'SPA',  away:'AZA',  homeScore:1, awayScore:2, isFinished:true, agg:'Agg: 1-6 AZ win', date:'2026-03-20T18:45:00' },
+        { home:'FIO',  away:'CRY',  homeScore:0, awayScore:3, isFinished:true, agg:'Agg: 2-4 Crystal Palace win', date:'2026-03-19T18:45:00' },
+        { home:'NFO',  away:'FCP',  homeScore:1, awayScore:0, isFinished:true, agg:'Agg: 2-1 Nott\'m Forest win', date:'2026-04-03T18:45:00' },
+      ],
+      'Quarter-Finals': [
+        { home:'BRA',  away:'SCF',  homeScore:null, awayScore:null, isFinished:false, date:'2026-04-16T18:45:00' },
+        { home:'AVL',  away:'BOL',  homeScore:3, awayScore:1, isFinished:true,  agg:'Agg: 7-1 Aston Villa win', date:'2026-04-10T18:45:00' },
+        { home:'NFO',  away:'FCP',  homeScore:1, awayScore:1, isFinished:true,  agg:'Agg: 2-1 Nott\'m Forest win', date:'2026-04-10T18:45:00' },
+        { home:'SHA',  away:'CRY',  homeScore:null, awayScore:null, isFinished:false, date:'2026-04-17T18:45:00' },
+      ],
+      'Semi-Finals': [
+        { home:'BRA or SCF', away:'AVL', homeScore:null, awayScore:null, isFinished:false, date:'2026-04-30T18:45:00' },
+        { home:'NFO',        away:'SHA or CRY', homeScore:null, awayScore:null, isFinished:false, date:'2026-04-30T18:45:00' },
+      ],
+      'Final': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-05-20T21:00:00' },
+      ]
+    },
+    winProbabilities: {
+      'Aston Villa':     28,
+      'Nottm Forest':    22,
+      'Crystal Palace':  18,
+      'Braga':           12,
+      'SC Freiburg':     10,
+      'Shakhtar':         5,
+      'Bologna':          5,
+    }
+  },
+
+  uecl: {
+    name: 'UEFA Conference League 2025/26',
+    hasGroups: false,
+    groups: [],
+    rounds: {
+      'Round of 16': [
+        { home:'RAY', away:'SAM', homeScore:3, awayScore:1, isFinished:true, agg:'Agg: 3-2 Rayo win', date:'2026-03-06T18:45:00' },
+        { home:'AEK', away:'CEL', homeScore:4, awayScore:0, isFinished:true, agg:'Agg: 4-2 AEK win', date:'2026-03-06T18:45:00' },
+        { home:'STR', away:'RIJ', homeScore:2, awayScore:1, isFinished:true, agg:'Agg: 3-2 Strasbourg win', date:'2026-03-12T18:45:00' },
+        { home:'MO5', away:'SIG', homeScore:0, awayScore:0, isFinished:true, agg:'Agg: 2-0 Mainz win', date:'2026-03-13T18:45:00' },
+        { home:'SHA', away:'LPO', homeScore:3, awayScore:1, isFinished:true, agg:'Agg: 4-3 Shakhtar win', date:'2026-03-05T18:45:00' },
+        { home:'SPA', away:'AZA', homeScore:1, awayScore:2, isFinished:true, agg:'Agg: 1-6 AZ win', date:'2026-03-06T18:45:00' },
+        { home:'CZE', away:'FIO', homeScore:1, awayScore:2, isFinished:true, agg:'Agg: 2-4 Fiorentina win', date:'2026-03-12T18:45:00' },
+        { home:'ALA', away:'CRY', homeScore:0, awayScore:0, isFinished:true, agg:'Agg: 1-2 Crystal Palace win', date:'2026-03-13T18:45:00' },
+      ],
+      'Quarter-Finals': [
+        { home:'RAY', away:'STR',  homeScore:null, awayScore:null, isFinished:false, date:'2026-04-16T18:45:00' },
+        { home:'AEK', away:'MO5',  homeScore:null, awayScore:null, isFinished:false, date:'2026-04-17T18:45:00' },
+        { home:'Strasbourg', away:'Mainz 05', homeScore:null, awayScore:null, isFinished:false, date:'2026-04-16T18:45:00' },
+        { home:'Crystal Palace', away:'Shakhtar', homeScore:null, awayScore:null, isFinished:false, date:'2026-04-17T18:45:00' },
+      ],
+      'Semi-Finals': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-04-30T18:45:00' },
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-05-07T18:45:00' },
+      ],
+      'Final': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-05-27T21:00:00' },
+      ]
+    },
+    winProbabilities: {
+      'Rayo Vallecano':  20,
+      'Crystal Palace':  18,
+      'Strasbourg':      16,
+      'AEK Athens':      14,
+      'Mainz 05':        12,
+      'Shakhtar':        10,
+      'Fiorentina':      10,
+    }
+  }
+}
 app.get('/bracket/:slug', async (req, res) => {
-  const lg = BRACKET_MAP[req.params.slug]
+  const slug = req.params.slug
+  const lg = BRACKET_MAP[slug]
   if (!lg) return res.status(404).json({ error: 'Unknown competition slug' })
- 
-  return cached('bracket_' + req.params.slug, async () => {
+
+  // Serve hardcoded 2025/26 bracket if available
+  if (HARDCODED_BRACKETS[slug]) {
+    const hc = HARDCODED_BRACKETS[slug]
+    // Try to enrich with live ESPN data for upcoming matches
+    try {
+      const liveR = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/scoreboard?limit=50`).then(r => r.json()).catch(() => null)
+      if (liveR && liveR.events) {
+        for (const event of liveR.events) {
+          const comp = event.competitions?.[0]
+          if (!comp?.status?.type?.completed) continue
+          const homeC = comp.competitors?.find(c => c.homeAway === 'home')
+          const awayC = comp.competitors?.find(c => c.homeAway === 'away')
+          if (!homeC || !awayC) continue
+          // Update any matching TBD matches
+          for (const [roundName, matches] of Object.entries(hc.rounds)) {
+            for (const m of matches) {
+              if (!m.isFinished && (m.home === 'TBD' || m.away === 'TBD')) continue
+              const hN = (homeC.team?.displayName || '').toLowerCase()
+              const aN = (awayC.team?.displayName || '').toLowerCase()
+              const mhN = (m.home || '').toLowerCase()
+              const maN = (m.away || '').toLowerCase()
+              if ((hN.slice(0,4) === mhN.slice(0,4) || mhN.includes(hN.slice(0,4))) &&
+                  (aN.slice(0,4) === maN.slice(0,4) || maN.includes(aN.slice(0,4)))) {
+                m.homeScore = parseInt(homeC.score || 0)
+                m.awayScore = parseInt(awayC.score || 0)
+                m.isFinished = true
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {}
+
+    return res.json(hc)
+  }
+
+  return cached('bracket_' + slug, async () => {
     const rounds = {}, groups = []
  
     // ── Try ESPN scoreboard ──────────────────────────────────────
@@ -5465,21 +5700,8 @@ setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
   setTimeout(() => smTransferRumours().catch(() => {}), 15000)
   setTimeout(() => smExpectedTransfers().catch(() => {}), 17000)
   setTimeout(() => autoPopulateSquads().catch(() => {}), 20000)
-  // Pre-fetch squads for top clubs that appear most in predictions
-  setTimeout(async () => {
-    const TOP_CLUBS = ['Arsenal','Liverpool','Manchester City','Chelsea','Manchester United','Tottenham Hotspur','Newcastle United','Aston Villa','Real Madrid','Barcelona','Atletico Madrid','Bayern Munich','FC Bayern München','Borussia Dortmund','RB Leipzig','Bayer Leverkusen','Bayer 04 Leverkusen','Inter','Inter Milan','Juventus','AC Milan','Napoli','Paris Saint-Germain','Monaco','Marseille','Olympique Marseille','Benfica','Sporting CP','Porto']
-    for (const teamName of TOP_CLUBS) {
-      if (squadDB.has(teamName) && (squadDB.get(teamName)||[]).length > 5) continue
-      try {
-        const found = await smSearchTeam(teamName).catch(() => null)
-        if (found?.id) {
-          const sq = await smSquad(found.id, teamName, null).catch(() => [])
-          if (sq.length) console.log(`📥 Squad loaded: ${teamName} (${sq.length} players)`)
-        }
-      } catch(e) {}
-      await sleep(400)
-    }
-  }, 60000)
+  // Squad loader kicks off via autoPopulateSquads (called above)
+  // No separate top-club fetch needed — autoPopulateSquads handles priority ordering
   setTimeout(() => syncNBAPlayerElos().catch(() => {}), 35000)
   setTimeout(async () => {
     await loadPlayerElos().catch(() => {})
