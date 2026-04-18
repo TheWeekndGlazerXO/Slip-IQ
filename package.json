@@ -4,7 +4,7 @@
   "description": "Slip IQ betting intelligence platform",
   "main": "server.js",
   "scripts": {
-    "start": "node --max-old-space-size=1500 server.js",
+    "start": "node --max-old-space-size=1200 server.js",
     "dev": "node --max-old-space-size=1500 server.js"
   },
   "engines": {

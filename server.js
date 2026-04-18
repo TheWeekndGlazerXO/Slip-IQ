@@ -441,6 +441,11 @@ async function cached(key, fn, ttl) {
   ttl = ttl || TTL.M
   const hit = cache.get(key)
   if (hit && Date.now() - hit.ts < ttl) return hit.data
+  // Evict oldest 100 entries when cache grows too large
+  if (cache.size > 500) {
+    const sorted = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)
+    for (let i = 0; i < 100; i++) cache.delete(sorted[i][0])
+  }
   try {
     const data = await fn()
     cache.set(key, { data, ts: Date.now() })
@@ -3754,25 +3759,9 @@ async function autoPopulateSquads() {
     }
   } catch(e) {}
 
-  // Priority 3: Background — fetch all teams from allowed leagues
-  setTimeout(async function() {
-    for (const leagueId of SQUAD_PRIORITY_LEAGUES) {
-      try {
-        const endpoints = [`${SM_BASE}/teams/leagues/${leagueId}`]
-        for (const url of endpoints) {
-          try {
-            const tr = await http(url, { api_token: SM_KEY, per_page: 50 })
-            const teams = tr.data?.data || []
-            for (const team of teams) {
-              if (team.id && team.name) enqueueSquad(team.id, team.name)
-            }
-            break
-          } catch(e2) {}
-        }
-        await sleep(500)
-      } catch(e) {}
-    }
-    console.log(`✅ All leagues queued — squad loader running (${squadLoadQueue.length} teams in queue)`)
+  // Priority 3 removed — was loading 400+ team squads causing OOM on Render
+  setTimeout(function() {
+    console.log(`✅ Squad loader ready — ${squadLoadQueue.length} teams queued`)
   }, 30000)
 }
 
@@ -3840,7 +3829,11 @@ function isAllowedFixture(f) {
       if (!isUEFA) return false
     }
     // English Premier League ID=8: block Nigerian PL, Indian PL, etc.
-    if (leagueId === 8 && countryName && countryName !== 'England' && countryName !== 'United Kingdom') return false
+    if (leagueId === 8   && countryName && countryName !== 'England' && countryName !== 'United Kingdom') return false
+    if (leagueId === 564 && countryName && countryName !== 'Spain')   return false
+    if (leagueId === 384 && countryName && countryName !== 'Italy')   return false
+    if (leagueId === 82  && countryName && countryName !== 'Germany') return false
+    if (leagueId === 301 && countryName && countryName !== 'France')  return false
     return true
   }
 
