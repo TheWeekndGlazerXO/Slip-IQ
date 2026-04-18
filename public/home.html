@@ -486,8 +486,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <select id="timeFilter" onchange="loadMatches()">
               <option value="1">Today</option>
               <option value="3">3 Days</option>
-              <option value="7">7 Days</option>
-              <option value="14" selected>14 Days</option>
+              <option value="7"selected>7 Days</option>
             </select>
           </div>
           <div class="fl-row">
@@ -582,7 +581,6 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
             <option value="1">Today only</option>
             <option value="3">Next 3 days</option>
             <option value="7" selected>Next 7 days</option>
-            <option value="14">Next 14 days</option>
           </select>
         </div>
       </div>
@@ -798,7 +796,7 @@ async function loadCurrentSport() {
   try {
     var url = API + cfg.endpoint;
     if (currentSport === 'football') {
-      var days = parseInt(document.getElementById('timeFilter').value) || 14;
+      var days = parseInt(document.getElementById('timeFilter').value) || 7;
       url += '?days=' + days;
     }
     // FIX: pass userId as query param, correctly appending to existing query string
@@ -915,7 +913,7 @@ function selectTopLeagues() {
 // ─── FILTERS + RENDER ────────────────────────────────────────────────────────
 function getFiltered() {
   var confMin = parseInt(document.getElementById("confFilter").value) || 0;
-  var maxDays = parseInt(document.getElementById("timeFilter").value) || 14;
+  var maxDays = parseInt(document.getElementById("timeFilter").value) || 7;
   var search = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   var now = new Date(), maxDate = new Date(now.getTime() + maxDays * 86400000);
   return allMatches.filter(function(m) {
