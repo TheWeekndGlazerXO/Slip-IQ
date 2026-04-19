@@ -3102,7 +3102,7 @@ function buildESPNFootballPrediction(event, oddsMap) {
     const awayLineup = buildExpectedLineupFromSquad(away, aElo)
     const mismatches = detectMismatches(homeLineup, awayLineup, home, away)
 
-    return {
+    const result = {
       id:             `espn_${event.id}`,
       smId:           null,
       sport:          'football',
@@ -6137,7 +6137,7 @@ app.listen(PORT, async () => {
 setTimeout(() => warmPredictionsCache(), 5000)
 setInterval(() => warmPredictionsCache(), 3600000)
 // Auto-resolve finished predictions every 30 minutes
-setTimeout(() => resolveFinishedPredictions().catch(() => {}), 90000)
+setTimeout(() => resolveFinishedPredictions().catch(() => {}), 30000)
 setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
