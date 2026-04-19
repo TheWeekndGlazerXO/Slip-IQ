@@ -659,8 +659,10 @@ async function syncFootballPlayerElos() {
     console.log(`✅ Player ELO sync done: ${synced} updated`)
   } catch(e) { console.log('⚠️  syncFootballPlayerElos:', e.message) }
 }
+let _recalibrateRunning = false
 async function recalibrateElosFromSupabase() {
-  if (!sb) return
+  if (!sb || _recalibrateRunning) return
+  _recalibrateRunning = true
   console.log('🔄 Monthly ELO recalibration from Supabase...')
   try {
     const { data: outcomes } = await sb
@@ -682,6 +684,7 @@ async function recalibrateElosFromSupabase() {
     }
     console.log(`✅ ELO recalibration: ${updated} matches processed`)
   } catch(e) { console.log('⚠️  recalibrateElosFromSupabase:', e.message?.slice(0,60)) }
+  finally { _recalibrateRunning = false }
 }
 // Background job: sync NBA player ELOs from BallDontLie
 async function syncNBAPlayerElos() {
@@ -2646,7 +2649,6 @@ async function smSquad(teamId, teamName, seasonId) {
       const idx = sq2.findIndex(x => x.player_name === pName)
       if (idx >= 0) sq2[idx] = { ...row, playstyle: attrs.playstyle }
       else sq2.push({ ...row, playstyle: attrs.playstyle })
-      if (sb) sbSave('player_ratings', row, 'player_name,team_name')
       return { ...row, playstyle: attrs.playstyle, strengths: attrs.strengths, weaknesses: attrs.weaknesses }
     })
     cache.set(cacheKey, { data: built, ts: Date.now() })
@@ -3991,8 +3993,7 @@ async function loadSingleTeamSquad(teamId, teamName) {
       updated_at: new Date().toISOString()
     }
 
-    // Write to Supabase immediately (fire-and-forget)
-    if (sb) sb.from('player_ratings').upsert(row, { onConflict: 'player_name,team_name' }).then(() => {}, () => {})
+    // RAM only — no Supabase write during squad loading
 
     // Only keep key players in RAM — everyone else is in Supabase
 // Keep ALL players in RAM (full squad needed for lineups)
@@ -4017,13 +4018,7 @@ if (idx >= 0) existing[idx] = pObj
 else existing.push(pObj)
 }
 
-// Log sync time to squad_sync_log
-if (sb) {
-sb.from('squad_sync_log').upsert({
-  team_name: teamName, last_synced: new Date().toISOString(),
-  player_count: saved, season: '2025-26'
-}, { onConflict: 'team_name' }).then(()=>{}).catch(()=>{})
-}
+// squad_sync_log write removed — RAM-only mode
 
 cache.set(cacheKey, { data: existing, ts: Date.now() })
 prunePlayerDB(8000) // higher cap since we keep full squads
@@ -4036,42 +4031,17 @@ async function autoPopulateSquads() {
   console.log('🔄 Auto-populating squads (streaming mode — memory-safe)...')
   // Priority 1: Top clubs hardcoded (always loaded first)
   const TOP_CLUBS = [
-    // Premier League
     'Arsenal','Liverpool','Manchester City','Chelsea','Manchester United',
-    'Tottenham Hotspur','Newcastle United','Aston Villa','Brentford',
-    'AFC Bournemouth','Brighton & Hove Albion','Everton','Sunderland',
-    'Fulham','Crystal Palace','Nottingham Forest','West Ham United',
-    'Burnley','Wolverhampton Wanderers','Leeds United',
-    // Bundesliga
-    'Bayern Munich','Borussia Dortmund','RB Leipzig','VfB Stuttgart',
-    'Hoffenheim','Bayer 04 Leverkusen','Eintracht Frankfurt','SC Freiburg',
-    'FC Augsburg','Mainz 05','Union Berlin','FC Köln','Hamburger SV',
-    'Werder Bremen','Borussia Mönchengladbach','FC St. Pauli',
-    'VfL Wolfsburg','Heidenheim',
-    // Serie A
-    'Inter Milan','Napoli','AC Milan','Juventus','Como','AS Roma',
-    'Atalanta','Bologna','Lazio','Sassuolo','Udinese','Torino',
-    'Parma','Genoa','Fiorentina','Cagliari','Cremonese','Lecce',
-    'Hellas Verona','Pisa',
-    // La Liga
-    'Barcelona','Real Madrid','Villarreal','Atletico Madrid','Real Betis',
-    'Celta de Vigo','Real Sociedad','Getafe','Osasuna','Espanyol',
-    'Girona','Athletic Club','Rayo Vallecano','Valencia','Mallorca',
-    'Sevilla','Deportivo Alavés','Elche','Levante','Real Oviedo',
-    // Ligue 1
-    'Paris Saint-Germain','RC Lens','LOSC Lille','Olympique Marseille',
-    'Lyon','Rennes','Monaco','Strasbourg','Lorient','Toulouse',
-    'Brest','Paris FC','Angers','Le Havre','OGC Nice','Auxerre',
-    'Nantes','FC Metz',
-    // UCL/UEL/UECL regulars
-    'Benfica','Porto','Sporting CP','Ajax','PSV','Feyenoord',
-    'Celtic','Rangers','Galatasaray','Fenerbahce','Besiktas',
-    'Club Brugge','Anderlecht','Shakhtar Donetsk','Dynamo Kyiv',
-    'Olympiacos','PAOK','Bodo/Glimt','Molde','Red Star Belgrade',
-    'Dinamo Zagreb','Slavia Prague','Sparta Prague','Viktoria Plzen',
-    'Qarabag','AZ Alkmaar','Twente','Benfica','Braga',
+    'Tottenham Hotspur','Newcastle United','Aston Villa','Brentford','Fulham',
+    'Nottingham Forest','Crystal Palace','Bournemouth','West Ham United',
+    'Real Madrid','Barcelona','Atletico Madrid','Athletic Club','Real Sociedad',
+    'Bayern Munich','Borussia Dortmund','RB Leipzig','Bayer 04 Leverkusen','VfB Stuttgart',
+    'Inter Milan','Napoli','AC Milan','Juventus','Atalanta','AS Roma',
+    'Paris Saint-Germain','Monaco','Olympique Marseille','Lille','Nice',
+    'Benfica','Porto','Sporting CP',
+    'PSV','Ajax','Feyenoord',
+    'Celtic','Rangers','Galatasaray','Fenerbahce',
   ]
-
   for (const teamName of TOP_CLUBS) {
     if (squadLoadedSet.has(teamName)) continue
     try {
@@ -6194,8 +6164,8 @@ setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
   // Monthly ELO recalibration (every 30 days)
   const THIRTY_DAYS = 30 * 24 * 3600000
   setInterval(() => recalibrateElosFromSupabase().catch(() => {}), THIRTY_DAYS)
-  // Also run once on startup after 2 minutes
-  setTimeout(() => recalibrateElosFromSupabase().catch(() => {}), 120000)
+  // Run once on startup after 10 minutes (avoid boot congestion)
+  setTimeout(() => recalibrateElosFromSupabase().catch(() => {}), 600000)
 
   await loadSportWeights().catch(() => {})
   await loadTeamWeights().catch(() => {})
