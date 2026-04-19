@@ -821,7 +821,7 @@ function renderBracket(data){
   var html='<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'+
     '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+data.name+'</div>'+
     '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>'+
-    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>'+
+    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>'+
   '</div>';
   html+='<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
 
@@ -906,20 +906,46 @@ async function bracketMatchAI(home,away,round){
   }catch(e){document.getElementById('pmTeamBody').innerHTML='<div style="color:var(--text3);font-size:10px">AI unavailable</div>';}
 }
 
-async function predictTournamentWinner(name){
+async function predictTournamentWinner(name, slug){
   var el=document.getElementById('tournamentAIOut'); if(!el) return;
-  el.innerHTML='<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px;display:flex;align-items:center;gap:10px"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3)">GPT-4o predicting winner...</span></div>';
-  try{
-    var hdrs={'Content-Type':'application/json'};
-if(USER_ID&&USER_ID!=='guest') hdrs['x-user-id']=USER_ID;
-var r=await fetch('/analyze',{method:'POST',headers:hdrs,body:JSON.stringify({match:{home:name,away:'',league:name,homeProb:50,awayProb:50,drawProb:0,homeElo:1800,awayElo:1800,sport:'football'},type:'match'})});
-var d=r.ok?await r.json():{};
-    el.innerHTML='<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px">'+
-      '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent);letter-spacing:2px;margin-bottom:5px">GPT-4o TOURNAMENT PREDICTION</div>'+
-      '<div style="font-size:12px;color:var(--text2);line-height:1.7">'+(d.mainAnalysis||d.oneLineSummary||'Prediction unavailable').replace(/\n/g,'<br>')+'</div>'+
-      (d.recommendation?'<div style="margin-top:6px;font-family:\'JetBrains Mono\';font-size:10px;color:var(--gold)">🏆 '+d.recommendation+'</div>':'')+
-    '</div>';
-  }catch(e){el.innerHTML='';}
+  el.innerHTML='<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:10px;display:flex;align-items:center;gap:10px"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div><span style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3)">⚡ AI analyzing tournament...</span></div>';
+  try {
+    // Build remaining teams list from win probability data currently rendered
+    var probBars = document.querySelectorAll('#tournamentAIOut ~ * [style*="WIN PROBABILITY"]');
+    var remainingTeams = [];
+    // Try to pull from hardcoded bracket win probs via the slug
+    var KNOWN_PROBS = {
+      ucl: [{name:'Paris SG',prob:32},{name:'Bayern München',prob:28},{name:'Atletico Madrid',prob:22},{name:'Arsenal',prob:18}],
+      uel: [{name:'Aston Villa',prob:28},{name:'Nottingham Forest',prob:22},{name:'Crystal Palace',prob:18},{name:'Braga',prob:12},{name:'SC Freiburg',prob:10}],
+      uecl:[{name:'Rayo Vallecano',prob:20},{name:'Crystal Palace',prob:18},{name:'Strasbourg',prob:16},{name:'AEK Athens',prob:14},{name:'Mainz 05',prob:12}],
+      world_cup:[{name:'France',prob:16},{name:'Brazil',prob:14},{name:'Argentina',prob:13},{name:'England',prob:11},{name:'Germany',prob:10},{name:'Spain',prob:9},{name:'Portugal',prob:7},{name:'Netherlands',prob:6},{name:'Belgium',prob:5}],
+    };
+    remainingTeams = (KNOWN_PROBS[slug||currentBracketSlug] || []);
+    var hdrs = {'Content-Type':'application/json'};
+    if (USER_ID && USER_ID !== 'guest') hdrs['x-user-id'] = USER_ID;
+    var r = await fetch('/analyze', {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({
+        match: { name: name, slug: slug||currentBracketSlug, remainingTeams: remainingTeams },
+        type: 'tournament'
+      })
+    });
+    var d = r.ok ? await r.json() : {};
+    if (!d || d.error || (!d.recommendation && !d.mainAnalysis)) {
+      throw new Error(d.error || 'No prediction returned');
+    }
+    el.innerHTML =
+      '<div style="background:rgba(0,200,248,.06);border:1px solid rgba(0,200,248,.2);border-radius:7px;padding:12px">' +
+        '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent);letter-spacing:2px;margin-bottom:7px">⚡ AI TOURNAMENT PREDICTION</div>' +
+        (d.recommendation ? '<div style="font-family:\'Bebas Neue\';font-size:20px;color:var(--gold);margin-bottom:6px">🏆 ' + d.recommendation + '</div>' : '') +
+        '<div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:8px">' + (d.mainAnalysis||d.oneLineSummary||'').replace(/\n/g,'<br>') + '</div>' +
+        (d.keyFactors&&d.keyFactors.length ? '<div style="margin-bottom:8px">' + d.keyFactors.map(function(f){ return '<div style="font-size:10px;color:var(--text2);margin-bottom:2px">• ' + f + '</div>'; }).join('') + '</div>' : '') +
+        (d.darkHorse ? '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--purple)">🌙 DARK HORSE: ' + d.darkHorse + '</div>' : '') +
+      '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="background:rgba(255,59,92,.06);border:1px solid rgba(255,59,92,.2);border-radius:7px;padding:10px;font-family:\'JetBrains Mono\';font-size:9px;color:var(--red)">AI unavailable — add GITHUB_TOKEN to your .env file</div>';
+  }
 }
 
 // ─── TEAM MODAL ───────────────────────────────────────────────────────────────
@@ -1534,7 +1560,7 @@ var countByKey = {};
   var html = '<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
     '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+(data.name||'')+'</div>' +
     '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>' +
-    '<button onclick="predictTournamentWinner(\''+esc(data.name||'')+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
+    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
   '</div>';
   html += '<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
   // Win probability bar

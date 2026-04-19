@@ -2890,6 +2890,10 @@ function buildESPNFootballPrediction(event, oddsMap) {
       imageAway:      awayC.team?.logos?.[0]?.href,
       _source:        'espn',
     }
+    if (!result.isLive && !result.isFinished) {
+      savePredictionToDb(result).catch(() => {})
+    }
+    return result
   } catch(e) { return null }
 }
 const ODDS_SPORTS = [
@@ -3180,6 +3184,18 @@ async function buildPrediction(smFix, oddsMap) {
     const aElo = getElo(away, league, 0.5)
     const hW = getTeamWeights(home)
     const aW = getTeamWeights(away)
+
+    // Pull real Sportmonks season stats and apply to team weights
+    if (homeId && smFix.season_id) {
+      smTeamStatistics(homeId, smFix.season_id).then(stats => {
+        if (stats) applyStatsToTeamWeights(home, extractSMStats(Array.isArray(stats) ? stats : []))
+      }).catch(() => {})
+    }
+    if (awayId && smFix.season_id) {
+      smTeamStatistics(awayId, smFix.season_id).then(stats => {
+        if (stats) applyStatsToTeamWeights(away, extractSMStats(Array.isArray(stats) ? stats : []))
+      }).catch(() => {})
+    }
 
     const [hFatigue, aFatigue, hSidelined, aSidelined] = await Promise.all([
       smTeamFatigue(homeId, smFix.starting_at).catch(() => ({ fatigueFactor: 1.0 })),
@@ -3719,13 +3735,40 @@ async function autoPopulateSquads() {
   console.log('🔄 Auto-populating squads (streaming mode — memory-safe)...')
   // Priority 1: Top clubs hardcoded (always loaded first)
   const TOP_CLUBS = [
+    // Premier League
     'Arsenal','Liverpool','Manchester City','Chelsea','Manchester United',
-    'Tottenham Hotspur','Newcastle United','Aston Villa',
-    'Real Madrid','Barcelona','Atletico Madrid',
-    'Bayern Munich','Borussia Dortmund','Bayer 04 Leverkusen',
-    'Inter Milan','Juventus','AC Milan','Napoli',
-    'Paris Saint-Germain','Benfica','Sporting CP',
-    'Ajax','PSV','Celtic',
+    'Tottenham Hotspur','Newcastle United','Aston Villa','Brentford',
+    'AFC Bournemouth','Brighton & Hove Albion','Everton','Sunderland',
+    'Fulham','Crystal Palace','Nottingham Forest','West Ham United',
+    'Burnley','Wolverhampton Wanderers','Leeds United',
+    // Bundesliga
+    'Bayern Munich','Borussia Dortmund','RB Leipzig','VfB Stuttgart',
+    'Hoffenheim','Bayer 04 Leverkusen','Eintracht Frankfurt','SC Freiburg',
+    'FC Augsburg','Mainz 05','Union Berlin','FC Köln','Hamburger SV',
+    'Werder Bremen','Borussia Mönchengladbach','FC St. Pauli',
+    'VfL Wolfsburg','Heidenheim',
+    // Serie A
+    'Inter Milan','Napoli','AC Milan','Juventus','Como','AS Roma',
+    'Atalanta','Bologna','Lazio','Sassuolo','Udinese','Torino',
+    'Parma','Genoa','Fiorentina','Cagliari','Cremonese','Lecce',
+    'Hellas Verona','Pisa',
+    // La Liga
+    'Barcelona','Real Madrid','Villarreal','Atletico Madrid','Real Betis',
+    'Celta de Vigo','Real Sociedad','Getafe','Osasuna','Espanyol',
+    'Girona','Athletic Club','Rayo Vallecano','Valencia','Mallorca',
+    'Sevilla','Deportivo Alavés','Elche','Levante','Real Oviedo',
+    // Ligue 1
+    'Paris Saint-Germain','RC Lens','LOSC Lille','Olympique Marseille',
+    'Lyon','Rennes','Monaco','Strasbourg','Lorient','Toulouse',
+    'Brest','Paris FC','Angers','Le Havre','OGC Nice','Auxerre',
+    'Nantes','FC Metz',
+    // UCL/UEL/UECL regulars
+    'Benfica','Porto','Sporting CP','Ajax','PSV','Feyenoord',
+    'Celtic','Rangers','Galatasaray','Fenerbahce','Besiktas',
+    'Club Brugge','Anderlecht','Shakhtar Donetsk','Dynamo Kyiv',
+    'Olympiacos','PAOK','Bodo/Glimt','Molde','Red Star Belgrade',
+    'Dinamo Zagreb','Slavia Prague','Sparta Prague','Viktoria Plzen',
+    'Qarabag','AZ Alkmaar','Twente','Benfica','Braga',
   ]
 
   for (const teamName of TOP_CLUBS) {
@@ -4008,8 +4051,15 @@ app.post("/analyze", requireAccess('match_analysis'), async (req, res) => {
       const { team: tn, sport: sp } = match
       const w = getTeamWeights(tn)
       prompt = `Scout report for ${tn} (${sp||'football'}). Match count: ${w.matchCount}. Home win rate: ${Math.round(w.homeWin*100)}%. Away win rate: ${Math.round(w.awayWin*100)}%. Possession: ${Math.round((w.avgPossession||0.5)*100)}%. Clean sheet rate: ${Math.round((w.cleanSheetRate||0.3)*100)}%.\nReturn JSON: {"profile":"2-3 sentences","strengths":["3 tactical strengths"],"weaknesses":["2 weaknesses"]}`
+    } else if (type === "tournament") {
+      const { name: tName, slug: tSlug, remainingTeams } = match
+      const teamsList = (remainingTeams || []).map((t,i) => `${i+1}. ${t.name} (${t.prob}% chance)`).join(', ')
+      prompt = `You are an elite football analyst. Predict the winner of the ${tName}.
+${teamsList ? 'Remaining teams and their win probabilities: ' + teamsList : ''}
+Consider: current squad quality, recent form, manager tactical approach, tournament experience, injury concerns, and historical performance in knockout football.
+Return ONLY valid JSON: {"recommendation":"TEAM NAME to win","mainAnalysis":"3-4 sentence analysis explaining why this team will win, mentioning key players and tactical advantages","keyFactors":["factor 1","factor 2","factor 3"],"darkHorse":"team most likely to cause an upset","oneLineSummary":"sharp punchy one-liner prediction"}`
     }
-    res.json(await callAI(prompt))
+    res.json(await callAI(prompt, 600))
   } catch(e) { res.json({ error: "Analysis failed" }) }
 })
 
@@ -4396,16 +4446,19 @@ if (combinedOdds < minTarget && selected.length < maxLegs) {
     marketCounts[marketOf(c.pick)] = (marketCounts[marketOf(c.pick)] || 0) + 1
     combinedOdds = projected
   }
-} {
-      const byOddsAsc = [...selected].sort((a, b) => a.odds - b.odds)
-      for (const leg of byOddsAsc) {
-        const trimmed = combinedOdds / leg.odds
-        if (trimmed >= minTarget && trimmed <= maxTarget * 1.1) {
-          const idx = selected.findIndex(s => s.matchId === leg.matchId && s.pick === leg.pick)
-          if (idx > -1) { selected.splice(idx, 1); combinedOdds = trimmed; break }
-        }
-      }
+} // ← closes PASS 3
+
+// PASS 4: safety trim — if still over hardCap, drop lowest-value leg
+if (combinedOdds > hardCap && selected.length > minLegs) {
+  const byOddsAsc = [...selected].sort((a, b) => a.odds - b.odds)
+  for (const leg of byOddsAsc) {
+    const trimmed = combinedOdds / leg.odds
+    if (trimmed >= minTarget && trimmed <= hardCap) {
+      const idx = selected.findIndex(s => s.matchId === leg.matchId && s.pick === leg.pick)
+      if (idx > -1) { selected.splice(idx, 1); combinedOdds = trimmed; break }
     }
+  }
+}
   
     if (!selected.length || selected.length < minLegs) {
       return res.json({ parlay: [], notEnoughMatches: "Could not build parlay — try lower min legs or add more sports/markets" })
@@ -4427,6 +4480,7 @@ if (combinedOdds < minTarget && selected.length < maxLegs) {
     avgConfidence: Math.round(avgConf)
   })
 })
+
 // ── PARLAYS ───────────────────────────────────────────────
 app.post("/parlays/save", async (req, res) => {
   if (!sb) return res.status(503).json({ error: "Supabase not configured" })
@@ -4785,6 +4839,131 @@ app.get('/standings/mma', async (req, res) => {
 })
 // ── 2025/26 HARDCODED TOURNAMENT BRACKETS ─────────────────────────────────────
 const HARDCODED_BRACKETS = {
+  world_cup: {
+    name: 'FIFA World Cup 2026',
+    hasGroups: true,
+    groups: [
+      { name: 'Group A', table: [
+        {name:'Mexico',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'South Africa',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'South Korea',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Czechia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group B', table: [
+        {name:'Canada',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Bosnia and Herzegovina',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Qatar',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Switzerland',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group C', table: [
+        {name:'Brazil',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Morocco',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Haiti',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Scotland',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group D', table: [
+        {name:'USA',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Paraguay',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Australia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Türkiye',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group E', table: [
+        {name:'Germany',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Curaçao',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Ivory Coast',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Ecuador',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group F', table: [
+        {name:'Netherlands',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Japan',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Sweden',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Tunisia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group G', table: [
+        {name:'Belgium',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Egypt',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Iran',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'New Zealand',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group H', table: [
+        {name:'Spain',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Cape Verde',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Saudi Arabia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Uruguay',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group I', table: [
+        {name:'France',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Senegal',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Iraq',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Norway',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group J', table: [
+        {name:'Argentina',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Algeria',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Austria',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Jordan',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group K', table: [
+        {name:'Portugal',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'DR Congo',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Uzbekistan',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Colombia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+      { name: 'Group L', table: [
+        {name:'England',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Croatia',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Ghana',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+        {name:'Panama',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+      ]},
+    ],
+    rounds: {
+      'Round of 32': [
+        { home:'TBD (A1)', away:'TBD (B2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-28T20:00:00' },
+        { home:'TBD (C1)', away:'TBD (D2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-28T23:00:00' },
+        { home:'TBD (B1)', away:'TBD (A2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-29T20:00:00' },
+        { home:'TBD (D1)', away:'TBD (C2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-29T23:00:00' },
+        { home:'TBD (E1)', away:'TBD (F2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-30T20:00:00' },
+        { home:'TBD (G1)', away:'TBD (H2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-06-30T23:00:00' },
+        { home:'TBD (F1)', away:'TBD (E2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-01T20:00:00' },
+        { home:'TBD (H1)', away:'TBD (G2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-01T23:00:00' },
+        { home:'TBD (I1)', away:'TBD (J2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-02T20:00:00' },
+        { home:'TBD (K1)', away:'TBD (L2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-02T23:00:00' },
+        { home:'TBD (J1)', away:'TBD (I2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-03T20:00:00' },
+        { home:'TBD (L1)', away:'TBD (K2)', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-03T23:00:00' },
+        { home:'TBD (3rd Best)',away:'TBD (3rd Best)',homeScore:null,awayScore:null,isFinished:false,date:'2026-07-04T20:00:00'},
+        { home:'TBD (3rd Best)',away:'TBD (3rd Best)',homeScore:null,awayScore:null,isFinished:false,date:'2026-07-04T23:00:00'},
+        { home:'TBD (3rd Best)',away:'TBD (3rd Best)',homeScore:null,awayScore:null,isFinished:false,date:'2026-07-05T20:00:00'},
+        { home:'TBD (3rd Best)',away:'TBD (3rd Best)',homeScore:null,awayScore:null,isFinished:false,date:'2026-07-05T23:00:00'},
+      ],
+      'Quarter-Finals': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-09T20:00:00' },
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-09T23:00:00' },
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-10T20:00:00' },
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-10T23:00:00' },
+      ],
+      'Semi-Finals': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-14T20:00:00' },
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-15T20:00:00' },
+      ],
+      'Final': [
+        { home:'TBD', away:'TBD', homeScore:null, awayScore:null, isFinished:false, date:'2026-07-19T20:00:00' },
+      ],
+    },
+    winProbabilities: {
+      'France':      16,
+      'Brazil':      14,
+      'Argentina':   13,
+      'England':     11,
+      'Germany':     10,
+      'Spain':        9,
+      'Portugal':     7,
+      'Netherlands':  6,
+      'Belgium':      5,
+      'USA':          3,
+      'Colombia':     2,
+      'Others':       4,
+    }
+  },
   ucl: {
     name: 'UEFA Champions League 2025/26',
     hasGroups: false,
