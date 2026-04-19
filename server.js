@@ -626,6 +626,7 @@ function updatePlayerEloFromPerformance(currentElo, rating, goals, apps, positio
 
 // Background job: sync football player ELOs from Sportmonks stats
 async function syncFootballPlayerElos() {
+  
   if (!SM_KEY || !sb) return
   console.log('🔄 Syncing football player ELOs from Sportmonks...')
   let synced = 0
@@ -658,7 +659,30 @@ async function syncFootballPlayerElos() {
     console.log(`✅ Player ELO sync done: ${synced} updated`)
   } catch(e) { console.log('⚠️  syncFootballPlayerElos:', e.message) }
 }
-
+async function recalibrateElosFromSupabase() {
+  if (!sb) return
+  console.log('🔄 Monthly ELO recalibration from Supabase...')
+  try {
+    const { data: outcomes } = await sb
+      .from('prediction_outcomes')
+      .select('home_team,away_team,actual_home_score,actual_away_score,resolved_at')
+      .not('resolved_at', 'is', null)
+      .gte('resolved_at', new Date(Date.now() - 30*86400000).toISOString())
+      .limit(500)
+    if (!outcomes || !outcomes.length) return
+    let updated = 0
+    for (const o of outcomes) {
+      if (o.actual_home_score === null) continue
+      await updateTeamWeights(
+        o.home_team, o.away_team,
+        o.actual_home_score, o.actual_away_score,
+        true, {}
+      ).catch(() => {})
+      updated++
+    }
+    console.log(`✅ ELO recalibration: ${updated} matches processed`)
+  } catch(e) { console.log('⚠️  recalibrateElosFromSupabase:', e.message?.slice(0,60)) }
+}
 // Background job: sync NBA player ELOs from BallDontLie
 async function syncNBAPlayerElos() {
   if (!sb) return
@@ -788,24 +812,37 @@ function sbSave(table, row, conflict) {
 async function loadSupabase() {
   if (!sb) { console.log("ℹ️  No Supabase — live API only"); return }
   try {
-    const [tr, pr, mr] = await Promise.all([
+    const [tr, mr] = await Promise.all([
       sb.from("team_ratings").select("*"),
-      sb.from("player_ratings").select("*").limit(200000),
       sb.from("manager_ratings").select("*").then(r => r).catch(() => ({ data: [] }))
     ])
     if (tr.data) for (const t of tr.data) teamDB.set(t.team_name, t)
-    if (pr.data) {
-      for (const p of pr.data) {
-        // Only load players with a real Sportmonks ID — skip old generated rows
-        if (!p.sm_player_id) continue
-        playerDB.set(`${p.player_name}__${p.team_name}`, p)
+    if (mr.data) for (const m of mr.data) managerDB.set(m.manager_name, m)
+
+    // Load players in batches to avoid 200k row limit issues
+    let page = 0, loaded = 0
+    const BATCH = 5000
+    while (true) {
+      const { data, error } = await sb.from("player_ratings")
+        .select("*")
+        .not('sm_player_id', 'is', null)
+        .order('elo', { ascending: false })
+        .range(page * BATCH, (page + 1) * BATCH - 1)
+      if (error || !data || !data.length) break
+      for (const p of data) {
+        const key = `${p.player_name}__${p.team_name}`
+        const pObj = { ...p, playstyle: FOOTBALL_PLAYSTYLES[p.position || 'CM'] || FOOTBALL_PLAYSTYLES.CM }
+        playerDB.set(key, pObj)
         if (!squadDB.has(p.team_name)) squadDB.set(p.team_name, [])
         const sq = squadDB.get(p.team_name)
-        if (!sq.find(x => x.player_name === p.player_name)) sq.push(p)
+        if (!sq.find(x => x.player_name === p.player_name)) sq.push(pObj)
       }
+      loaded += data.length
+      if (data.length < BATCH) break
+      page++
+      await sleep(100)
     }
-    if (mr.data) for (const m of mr.data) managerDB.set(m.manager_name, m)
-    console.log(`✅ Supabase: ${teamDB.size} teams, ${playerDB.size} players, ${managerDB.size} managers`)
+    console.log(`✅ Supabase: ${teamDB.size} teams, ${loaded} players loaded into ${squadDB.size} squads, ${managerDB.size} managers`)
   } catch(e) { console.log("⚠️  Supabase:", e.message) }
 }
 
@@ -898,6 +935,7 @@ const ELO_BASE = {
 // ── PLAYER ELO STARTING VALUES (adaptive system adjusts from here) ─────────
 // Order = descending ability. Non-listed players cap at 1989 so these always lead.
 const PLAYER_ELO_OVERRIDE = {
+  
   "Harry Kane":2090, "Michael Olise":2082, "Lamine Yamal":2074,
   "Kylian Mbappe":2068, "Kylian Mbappé":2068,
   "Vitinha":2062, "Pedri":2056,
@@ -935,7 +973,227 @@ const PLAYER_ELO_OVERRIDE = {
   "Marcus Thuram":1812, "Nicolo Barella":1808,
   "Hakan Calhanoglu":1804, "Alessandro Bastoni":1800,
 }
+// ── NATIONAL TEAM ELOs (World Cup 2026) ──────────────────────────────────────
+// Separate from club ELO — reflects international form and importance to national team
+const NATIONAL_TEAM_ELO = {
+  // CONCACAF
+  "USA": 1780, "Mexico": 1790, "Canada": 1760, "Panama": 1640,
+  "Haiti": 1590, "Curacao": 1560,
+  // UEFA
+  "France": 1960, "England": 1920, "Germany": 1910, "Spain": 1940,
+  "Portugal": 1900, "Netherlands": 1870, "Belgium": 1850, "Italy": 1830,
+  "Croatia": 1810, "Austria": 1760, "Switzerland": 1790, "Turkey": 1750,
+  "Scotland": 1700, "Sweden": 1720, "Norway": 1740, "Czech Republic": 1730,
+  "Bosnia and Herzegovina": 1680,
+  // CONMEBOL
+  "Argentina": 1980, "Brazil": 1950, "Uruguay": 1800, "Colombia": 1810,
+  "Ecuador": 1730, "Paraguay": 1680,
+  // CAF
+  "Morocco": 1810, "Senegal": 1770, "Egypt": 1730, "Ghana": 1700,
+  "Ivory Coast": 1750, "Algeria": 1720, "South Africa": 1640,
+  "Tunisia": 1660, "DR Congo": 1630, "Cape Verde": 1590,
+  // AFC
+  "Japan": 1800, "South Korea": 1770, "Australia": 1720, "Iran": 1710,
+  "Saudi Arabia": 1680, "Iraq": 1620, "Jordan": 1600,
+  "Qatar": 1580, "Uzbekistan": 1640,
+  // OFC
+  "New Zealand": 1560,
+}
 
+// World Cup 2026 squad data (hardcoded, April 2026 call-ups)
+const WC2026_SQUADS = {
+  "Argentina": {
+    coach: "Lionel Scaloni",
+    players: [
+      {name:"Emiliano Martínez",pos:"GK",club:"Aston Villa",elo:1880},
+      {name:"Cristian Romero",pos:"CB",club:"Tottenham Hotspur",elo:1850},
+      {name:"Nicolás Otamendi",pos:"CB",club:"Benfica",elo:1790},
+      {name:"Nahuel Molina",pos:"RB",club:"Atletico Madrid",elo:1790},
+      {name:"Nicolás Tagliafico",pos:"LB",club:"Lyon",elo:1770},
+      {name:"Alexis Mac Allister",pos:"CM",club:"Liverpool",elo:1870},
+      {name:"Rodrigo De Paul",pos:"CM",club:"Inter Miami",elo:1820},
+      {name:"Enzo Fernández",pos:"CM",club:"Chelsea",elo:1820},
+      {name:"Lionel Messi",pos:"RW",club:"Inter Miami",elo:2050},
+      {name:"Julián Álvarez",pos:"ST",club:"Atletico Madrid",elo:1900},
+      {name:"Lautaro Martínez",pos:"ST",club:"Inter Milan",elo:1880},
+    ]
+  },
+  "France": {
+    coach: "Didier Deschamps",
+    players: [
+      {name:"Mike Maignan",pos:"GK",club:"AC Milan",elo:1870},
+      {name:"William Saliba",pos:"CB",club:"Arsenal",elo:1890},
+      {name:"Dayot Upamecano",pos:"CB",club:"Bayern Munich",elo:1830},
+      {name:"Theo Hernandez",pos:"LB",club:"Al-Hilal",elo:1820},
+      {name:"Jules Koundé",pos:"RB",club:"Barcelona",elo:1830},
+      {name:"Aurélien Tchouaméni",pos:"CDM",club:"Real Madrid",elo:1840},
+      {name:"Eduardo Camavinga",pos:"CM",club:"Real Madrid",elo:1840},
+      {name:"Warren Zaïre-Emery",pos:"CM",club:"PSG",elo:1820},
+      {name:"Kylian Mbappé",pos:"LW",club:"Real Madrid",elo:2068},
+      {name:"Ousmane Dembélé",pos:"RW",club:"PSG",elo:1870},
+      {name:"Marcus Thuram",pos:"ST",club:"Inter Milan",elo:1850},
+    ]
+  },
+  "England": {
+    coach: "Thomas Tuchel",
+    players: [
+      {name:"Jordan Pickford",pos:"GK",club:"Everton",elo:1820},
+      {name:"John Stones",pos:"CB",club:"Manchester City",elo:1830},
+      {name:"Marc Guehi",pos:"CB",club:"Crystal Palace",elo:1800},
+      {name:"Reece James",pos:"RB",club:"Chelsea",elo:1840},
+      {name:"Trent Alexander-Arnold",pos:"RB",club:"Real Madrid",elo:1870},
+      {name:"Declan Rice",pos:"CDM",club:"Arsenal",elo:1900},
+      {name:"Jude Bellingham",pos:"CAM",club:"Real Madrid",elo:1950},
+      {name:"Phil Foden",pos:"LW",club:"Manchester City",elo:1900},
+      {name:"Bukayo Saka",pos:"RW",club:"Arsenal",elo:1920},
+      {name:"Cole Palmer",pos:"CAM",club:"Chelsea",elo:1880},
+      {name:"Harry Kane",pos:"ST",club:"Bayern Munich",elo:1960},
+    ]
+  },
+  "Brazil": {
+    coach: "Carlo Ancelotti",
+    players: [
+      {name:"Alisson",pos:"GK",club:"Liverpool",elo:1900},
+      {name:"Marquinhos",pos:"CB",club:"PSG",elo:1860},
+      {name:"Gabriel Magalhães",pos:"CB",club:"Arsenal",elo:1870},
+      {name:"Danilo",pos:"RB",club:"Flamengo",elo:1800},
+      {name:"Alex Sandro",pos:"LB",club:"Flamengo",elo:1760},
+      {name:"Casemiro",pos:"CDM",club:"Manchester United",elo:1820},
+      {name:"Andrey Santos",pos:"CM",club:"Chelsea",elo:1800},
+      {name:"Raphinha",pos:"RW",club:"Barcelona",elo:1890},
+      {name:"Vinícius Jr.",pos:"LW",club:"Real Madrid",elo:1970},
+      {name:"Endrick",pos:"ST",club:"Lyon",elo:1800},
+      {name:"Gabriel Martinelli",pos:"LW",club:"Arsenal",elo:1850},
+    ]
+  },
+  "Spain": {
+    coach: "Luis de la Fuente",
+    players: [
+      {name:"Unai Simón",pos:"GK",club:"Athletic Club",elo:1840},
+      {name:"Pau Cubarsí",pos:"CB",club:"Barcelona",elo:1830},
+      {name:"Dean Huijsen",pos:"CB",club:"Real Madrid",elo:1800},
+      {name:"Pedro Porro",pos:"RB",club:"Tottenham Hotspur",elo:1810},
+      {name:"Marc Cucurella",pos:"LB",club:"Chelsea",elo:1800},
+      {name:"Rodri",pos:"CDM",club:"Manchester City",elo:1930},
+      {name:"Pedri",pos:"CM",club:"Barcelona",elo:1900},
+      {name:"Dani Olmo",pos:"CAM",club:"Barcelona",elo:1870},
+      {name:"Lamine Yamal",pos:"RW",club:"Barcelona",elo:1980},
+      {name:"Nico Williams",pos:"LW",club:"Athletic Club",elo:1870},
+      {name:"Mikel Oyarzabal",pos:"ST",club:"Real Sociedad",elo:1840},
+    ]
+  },
+  "Germany": {
+    coach: "Julian Nagelsmann",
+    players: [
+      {name:"Alexander Nübel",pos:"GK",club:"VfB Stuttgart",elo:1800},
+      {name:"Antonio Rüdiger",pos:"CB",club:"Real Madrid",elo:1860},
+      {name:"Jonathan Tah",pos:"CB",club:"Bayer Leverkusen",elo:1820},
+      {name:"Joshua Kimmich",pos:"RB",club:"Bayern Munich",elo:1890},
+      {name:"David Raum",pos:"LB",club:"RB Leipzig",elo:1800},
+      {name:"Leon Goretzka",pos:"CM",club:"Bayern Munich",elo:1840},
+      {name:"Florian Wirtz",pos:"CAM",club:"Bayer Leverkusen",elo:1940},
+      {name:"Kai Havertz",pos:"CAM",club:"Arsenal",elo:1870},
+      {name:"Leroy Sané",pos:"RW",club:"Galatasaray",elo:1850},
+      {name:"Serge Gnabry",pos:"RW",club:"Bayern Munich",elo:1820},
+      {name:"Harry Kane",pos:"ST",club:"Bayern Munich",elo:1960},
+    ]
+  },
+  "Portugal": {
+    coach: "Roberto Martínez",
+    players: [
+      {name:"Diogo Costa",pos:"GK",club:"Porto",elo:1850},
+      {name:"Rúben Dias",pos:"CB",club:"Manchester City",elo:1880},
+      {name:"António Silva",pos:"CB",club:"Benfica",elo:1820},
+      {name:"João Cancelo",pos:"RB",club:"Barcelona",elo:1840},
+      {name:"Nuno Mendes",pos:"LB",club:"PSG",elo:1860},
+      {name:"Bruno Fernandes",pos:"CAM",club:"Manchester United",elo:1900},
+      {name:"Vitinha",pos:"CM",club:"PSG",elo:1860},
+      {name:"João Neves",pos:"CDM",club:"PSG",elo:1870},
+      {name:"Cristiano Ronaldo",pos:"ST",club:"Al-Nassr",elo:1950},
+      {name:"Rafael Leão",pos:"LW",club:"AC Milan",elo:1880},
+      {name:"Pedro Neto",pos:"RW",club:"Chelsea",elo:1850},
+    ]
+  },
+  "Netherlands": {
+    coach: "Ronald Koeman",
+    players: [
+      {name:"Bart Verbruggen",pos:"GK",club:"Brighton",elo:1800},
+      {name:"Virgil van Dijk",pos:"CB",club:"Liverpool",elo:1900},
+      {name:"Nathan Aké",pos:"CB",club:"Manchester City",elo:1840},
+      {name:"Denzel Dumfries",pos:"RB",club:"Inter Milan",elo:1810},
+      {name:"Micky van de Ven",pos:"CB",club:"Tottenham Hotspur",elo:1830},
+      {name:"Ryan Gravenberch",pos:"CM",club:"Liverpool",elo:1860},
+      {name:"Tijjani Reijnders",pos:"CM",club:"Manchester City",elo:1850},
+      {name:"Teun Koopmeiners",pos:"CM",club:"Juventus",elo:1840},
+      {name:"Cody Gakpo",pos:"LW",club:"Liverpool",elo:1870},
+      {name:"Xavi Simons",pos:"CAM",club:"Tottenham Hotspur",elo:1860},
+      {name:"Memphis Depay",pos:"ST",club:"Corinthians",elo:1790},
+    ]
+  },
+  "Morocco": {
+    coach: "Walid Regragui",
+    players: [
+      {name:"Yassine Bounou",pos:"GK",club:"Al-Hilal",elo:1850},
+      {name:"Achraf Hakimi",pos:"RB",club:"PSG",elo:1890},
+      {name:"Noussair Mazraoui",pos:"RB",club:"Manchester United",elo:1810},
+      {name:"Jawad El Yamiq",pos:"CB",club:"Real Valladolid",elo:1760},
+      {name:"Romain Saïss",pos:"CB",club:"Besiktas",elo:1780},
+      {name:"Sofyan Amrabat",pos:"CDM",club:"Manchester United",elo:1810},
+      {name:"Azzedine Ounahi",pos:"CM",club:"Marseille",elo:1800},
+      {name:"Bilal El Khannouss",pos:"CM",club:"VfB Stuttgart",elo:1800},
+      {name:"Hakim Ziyech",pos:"RW",club:"Galatasaray",elo:1840},
+      {name:"Brahim Díaz",pos:"CAM",club:"AC Milan",elo:1820},
+      {name:"Youssef En-Nesyri",pos:"ST",club:"Fenerbahçe",elo:1820},
+    ]
+  },
+  "USA": {
+    coach: "Mauricio Pochettino",
+    players: [
+      {name:"Matt Turner",pos:"GK",club:"New England Revolution",elo:1750},
+      {name:"Chris Richards",pos:"CB",club:"Crystal Palace",elo:1790},
+      {name:"Miles Robinson",pos:"CB",club:"FC Cincinnati",elo:1770},
+      {name:"Antonee Robinson",pos:"LB",club:"Fulham",elo:1820},
+      {name:"Joe Scally",pos:"RB",club:"Borussia Mönchengladbach",elo:1780},
+      {name:"Weston McKennie",pos:"CM",club:"Juventus",elo:1820},
+      {name:"Tyler Adams",pos:"CDM",club:"Bournemouth",elo:1830},
+      {name:"Gio Reyna",pos:"CAM",club:"Borussia Mönchengladbach",elo:1800},
+      {name:"Christian Pulisic",pos:"RW",club:"AC Milan",elo:1860},
+      {name:"Timothy Weah",pos:"RW",club:"Juventus",elo:1790},
+      {name:"Folarin Balogun",pos:"ST",club:"Monaco",elo:1800},
+    ]
+  },
+  "Japan": {
+    coach: "Hajime Moriyasu",
+    players: [
+      {name:"Zion Suzuki",pos:"GK",club:"Parma",elo:1800},
+      {name:"Hiroki Ito",pos:"CB",club:"Bayern Munich",elo:1840},
+      {name:"Ko Itakura",pos:"CB",club:"Ajax",elo:1810},
+      {name:"Yukinari Sugawara",pos:"RB",club:"Werder Bremen",elo:1800},
+      {name:"Wataru Endo",pos:"CDM",club:"Liverpool",elo:1850},
+      {name:"Takefusa Kubo",pos:"RW",club:"Real Sociedad",elo:1850},
+      {name:"Daichi Kamada",pos:"CM",club:"Crystal Palace",elo:1820},
+      {name:"Ao Tanaka",pos:"CM",club:"Borussia Dortmund",elo:1810},
+      {name:"Kaoru Mitoma",pos:"LW",club:"Brighton",elo:1860},
+      {name:"Ritsu Doan",pos:"RW",club:"Eintracht Frankfurt",elo:1820},
+      {name:"Ayase Ueda",pos:"ST",club:"Feyenoord",elo:1800},
+    ]
+  },
+}
+
+// Helper: get national team ELO for a player
+function getNationalElo(playerName, nationalTeam) {
+  const teamBase = NATIONAL_TEAM_ELO[nationalTeam] || 1600
+  // Check if player has a specific WC squad entry
+  const squad = WC2026_SQUADS[nationalTeam]
+  if (squad) {
+    const p = squad.players.find(x => 
+      _normAccents(x.name) === _normAccents(playerName) ||
+      x.name.split(' ').pop() === playerName.split(' ').pop()
+    )
+    if (p) return p.elo
+  }
+  return teamBase + Math.floor(Math.random() * 80) - 40
+}
 // Normalise accents for fuzzy matching
 function _normAccents(s) {
   return (s||'').toLowerCase()
@@ -2988,8 +3246,40 @@ async function smSidelined(teamId) {
 }
 // ── CORE FOOTBALL PREDICTION BUILDER ─────────────────────
 // ── EXPECTED LINEUP FROM SQUAD DATA ──────────────────────────────────────────
+// Async version — call with await where possible; sync fallback used in non-async contexts
+const _sbSquadFetchInProgress = new Set()
+
+async function fetchSquadFromSupabase(teamName) {
+  if (!sb || _sbSquadFetchInProgress.has(teamName)) return
+  _sbSquadFetchInProgress.add(teamName)
+  try {
+    const { data } = await sb.from('player_ratings')
+      .select('*')
+      .eq('team_name', teamName)
+      .not('sm_player_id', 'is', null)
+      .order('elo', { ascending: false })
+      .limit(35)
+    if (data && data.length) {
+      const players = data.map(p => ({
+        ...p,
+        playstyle: FOOTBALL_PLAYSTYLES[p.position || 'CM'] || FOOTBALL_PLAYSTYLES.CM
+      }))
+      squadDB.set(teamName, players)
+      players.forEach(p => playerDB.set(`${p.player_name}__${p.team_name}`, p))
+      console.log(`  📥 ${teamName}: ${players.length} players loaded from Supabase cache`)
+    }
+  } catch(e) {}
+  _sbSquadFetchInProgress.delete(teamName)
+}
+
 function buildExpectedLineupFromSquad(teamName, teamElo) {
-  const squad = squadDB.get(teamName) || []
+  let squad = squadDB.get(teamName) || []
+
+  // If we have fewer than 11 players in RAM, trigger a background Supabase fetch
+  // The next request will benefit from it
+  if (squad.length < 11 && sb && !_sbSquadFetchInProgress.has(teamName)) {
+    fetchSquadFromSupabase(teamName).catch(() => {})
+  }
 
   // 4-3-3: GK, RB, CB×2, LB, CDM, CM×2, RW, ST, LW = 11
   const FORMATION = [
@@ -3705,29 +3995,40 @@ async function loadSingleTeamSquad(teamId, teamName) {
     if (sb) sb.from('player_ratings').upsert(row, { onConflict: 'player_name,team_name' }).then(() => {}, () => {})
 
     // Only keep key players in RAM — everyone else is in Supabase
-    const playerObj = { ...row, playstyle: attrs.playstyle }
-    if (attrs.isKey || pElo > tElo + 40) {
-      keyPlayers.push(playerObj)
-      playerDB.set(`${pName}__${teamName}`, playerObj)
-    }
+// Keep ALL players in RAM (full squad needed for lineups)
+const playerObj = { ...row, playstyle: attrs.playstyle }
+if (attrs.isKey || pElo > tElo + 40) keyPlayers.push(playerObj)
+playerDB.set(`${pName}__${teamName}`, playerObj)
+saved++
+}
 
-    saved++
-  }
+// Store FULL squad in squadDB
+if (!squadDB.has(teamName)) squadDB.set(teamName, [])
+const existing = squadDB.get(teamName)
+for (const entry of entries.slice(0, 35)) {
+const p = entry.player || (entry.id && entry.name ? entry : null)
+if (!p) continue
+const pName = p.display_name || p.common_name || p.name
+if (!pName) continue
+const pObj = playerDB.get(`${pName}__${teamName}`)
+if (!pObj) continue
+const idx = existing.findIndex(x => x.player_name === pName)
+if (idx >= 0) existing[idx] = pObj
+else existing.push(pObj)
+}
 
-  // Store only key players in squadDB (not full 35-man roster)
-  if (!squadDB.has(teamName)) squadDB.set(teamName, [])
-  const existing = squadDB.get(teamName)
-  for (const kp of keyPlayers) {
-    const idx = existing.findIndex(function(x){ return x.player_name === kp.player_name; })
-    if (idx >= 0) existing[idx] = kp
-    else existing.push(kp)
-  }
+// Log sync time to squad_sync_log
+if (sb) {
+sb.from('squad_sync_log').upsert({
+  team_name: teamName, last_synced: new Date().toISOString(),
+  player_count: saved, season: '2025-26'
+}, { onConflict: 'team_name' }).then(()=>{}).catch(()=>{})
+}
 
-  // Mark cache so we don't reload
-  cache.set(cacheKey, { data: [], ts: Date.now() }) // data:[] = don't store in RAM
-  prunePlayerDB(1500)
-  console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key in RAM)`)
-  console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key in RAM)`)
+cache.set(cacheKey, { data: existing, ts: Date.now() })
+prunePlayerDB(8000) // higher cap since we keep full squads
+console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key, ${existing.length} total in RAM)`)
+console.log(`  ✅ ${teamName}: ${saved} players saved → Supabase (${keyPlayers.length} key, ${existing.length} total in RAM)`)
 }
 
 async function autoPopulateSquads() {
@@ -3783,8 +4084,20 @@ async function autoPopulateSquads() {
   // Priority 2: disabled — loading from fixture cache causes OOM on constrained instances
 
   // Priority 3 removed — was loading 400+ team squads causing OOM on Render
-  setTimeout(function() {
+  // After squads finish loading, reload from Supabase to ensure squadDB is fully populated
+  setTimeout(async function() {
     console.log(`✅ Squad loader ready — ${squadLoadQueue.length} teams queued`)
+    // Wait for queue to drain then reload from Supabase
+    const waitForDrain = async () => {
+      if (squadLoaderRunning || squadLoadQueue.length > 0) {
+        await sleep(5000)
+        return waitForDrain()
+      }
+    }
+    await waitForDrain()
+    console.log('🔄 Reloading full squads from Supabase into memory...')
+    await loadSupabase().catch(() => {})
+    console.log(`✅ Squad reload complete — ${squadDB.size} teams in RAM`)
   }, 30000)
 }
 
@@ -4189,6 +4502,19 @@ app.get('/team/profile/:teamName', async (req, res) => {
   const teamName = decodeURIComponent(req.params.teamName)
   const tElo = getElo(teamName)
   let squad = squadDB.get(teamName) || []
+
+  // Check WC2026 hardcoded squads first (for national teams)
+  const wcSquad = WC2026_SQUADS[teamName]
+  if (wcSquad && !squad.length) {
+    const tEloNat = NATIONAL_TEAM_ELO[teamName] || 1700
+    squad = wcSquad.players.map((p, i) => ({
+      player_name: p.name, team_name: teamName, position: p.position,
+      elo: p.elo || tEloNat + Math.floor(Math.random()*100)-50,
+      is_key: p.elo >= tEloNat, club_name: p.club || '',
+      playstyle: FOOTBALL_PLAYSTYLES[p.position] || FOOTBALL_PLAYSTYLES.CM,
+      speed: 60, attack: 60, defense: 60, big_match: 70
+    }))
+  }
 
   if (!squad.length && SM_KEY) {
     // Try fixture cache first (teams in upcoming games)
@@ -5864,6 +6190,12 @@ setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
     await syncFootballPlayerElos().catch(() => {})
     await syncNBAPlayerElos().catch(() => {})
   }, 6 * 3600000)
+
+  // Monthly ELO recalibration (every 30 days)
+  const THIRTY_DAYS = 30 * 24 * 3600000
+  setInterval(() => recalibrateElosFromSupabase().catch(() => {}), THIRTY_DAYS)
+  // Also run once on startup after 2 minutes
+  setTimeout(() => recalibrateElosFromSupabase().catch(() => {}), 120000)
 
   await loadSportWeights().catch(() => {})
   await loadTeamWeights().catch(() => {})
