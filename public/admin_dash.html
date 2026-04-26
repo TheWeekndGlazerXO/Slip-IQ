@@ -1392,7 +1392,6 @@ async function loadAllData() {
     const { data, error } = await sb
   .from('users')
   .select('*')
-  .eq('regard?', 'yes')
   .order('joined_at', { ascending: false })
   .range(from, from + pageSize - 1)
     if (error) {
