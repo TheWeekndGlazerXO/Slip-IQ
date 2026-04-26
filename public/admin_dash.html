@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="js/config.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIP IQ — Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #080b10;
+  --bg2: #0c1018;
+  --surface: #111620;
+  --surface2: #161d2a;
+  --border: #1e2d42;
+  --border2: #243550;
+  --accent: #00e5ff;
+  --accent2: #0099bb;
+  --gold: #f5c542;
+  --gold2: #c9a030;
+  --green: #00e676;
+  --red: #ff3d5a;
+  --orange: #ff8f00;
+  --purple: #ae52f4;
+  --text: #e8eeff;
+  --text2: #7a90b0;
+  --text3: #3d5070;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --display: 'Syne', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* noise overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── LOCK SCREEN ─────────────────────────────────────────── */
+#lockScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lock-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,229,255,0.06) 0%, transparent 70%);
+}
+
+.lock-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 48px 44px;
+  width: 380px;
+  max-width: 94vw;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+}
+
+.lock-logo {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.lock-title {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.1;
+}
+
+.lock-sub {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--mono);
+  margin-bottom: 36px;
+  letter-spacing: 1px;
+}
+
+.lock-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.lock-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 3px;
+  padding: 13px 16px;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 16px;
+}
+
+.lock-input:focus { border-color: var(--accent); }
+.lock-input.error { border-color: var(--red); animation: shake 0.3s; }
+
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+}
+
+.lock-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.lock-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.lock-btn:active { transform: translateY(0); }
+
+.lock-err {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--red);
+  text-align: center;
+  height: 14px;
+}
+
+/* ── MAIN DASH ───────────────────────────────────────────── */
+#dashboard {
+  display: none;
+  min-height: 100vh;
+}
+
+/* TOPBAR */
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(20px);
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 800;
+  color: #000;
+}
+
+.logo-text {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--text);
+}
+
+.logo-badge {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--green);
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(0,230,118,0); }
+}
+
+.refresh-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.lock-out-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lock-out-btn:hover { border-color: var(--red); color: var(--red); }
+
+.last-updated {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+}
+
+/* CONTENT */
+.content {
+  padding: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* SECTION HEADERS */
+.section-hd {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-hd:first-child { margin-top: 0; }
+.section-hd::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* METRIC GRIDS */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 24px; }
+
+@media(max-width:1100px) { .grid-4{grid-template-columns:repeat(2,1fr)} .grid-3{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:700px) { .grid-4,.grid-3,.grid-2{grid-template-columns:1fr} }
+
+/* METRIC CARD */
+.metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.metric:hover { border-color: var(--border2); }
+
+.metric-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2.5px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.metric-val {
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.metric-val.accent { color: var(--accent); }
+.metric-val.gold { color: var(--gold); }
+.metric-val.green { color: var(--green); }
+.metric-val.red { color: var(--red); }
+.metric-val.purple { color: var(--purple); }
+.metric-val.orange { color: var(--orange); }
+
+.metric-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+}
+
+.metric-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.badge-up { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+.badge-down { background: rgba(255,61,90,0.1); color: var(--red); border: 1px solid rgba(255,61,90,0.25); }
+.badge-neutral { background: rgba(122,144,176,0.1); color: var(--text2); border: 1px solid var(--border); }
+
+.metric-glow {
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  filter: blur(30px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.glow-accent { background: var(--accent); }
+.glow-gold { background: var(--gold); }
+.glow-green { background: var(--green); }
+.glow-purple { background: var(--purple); }
+
+/* SPLIT REVENUE */
+.split-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.split-title {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2.5px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.founders-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.founder {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+}
+
+.founder-name {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text2);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.founder-pct {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+.founder-amount {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.founder:first-child .founder-amount { color: var(--accent); }
+.founder:last-child .founder-amount { color: var(--gold); }
+
+.founder-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+.split-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.split-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  border-radius: 3px;
+  width: 50%;
+}
+
+.split-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+/* PLAN BREAKDOWN */
+.plan-breakdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.plan-row:last-child { border-bottom: none; }
+
+.plan-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.plan-name-cell {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.plan-price-cell {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  width: 55px;
+  flex-shrink: 0;
+}
+
+.plan-bar-wrap {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plan-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s ease;
+}
+
+.plan-count-cell {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.plan-mrr-cell {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* PROJECTION TABLE */
+.proj-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.proj-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+
+.proj-col-hd {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.proj-item {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(30,45,66,0.5);
+}
+
+.proj-item:last-child { border-bottom: none; }
+
+.proj-item-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+}
+
+.proj-item-val {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* USERS TABLE */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table-header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-title {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+.table-count {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.table-search {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.2s;
+}
+
+.table-search:focus { border-color: var(--accent); }
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tbl th {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  padding: 10px 16px;
+  text-align: left;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.tbl td {
+  padding: 11px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(30,45,66,0.6);
+  color: var(--text2);
+  vertical-align: middle;
+}
+
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: rgba(255,255,255,0.015); }
+
+.tbl td .email { color: var(--text); font-family: var(--mono); font-size: 11px; }
+
+.plan-pill {
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pill-free { background: rgba(122,144,176,0.1); color: var(--text2); border: 1px solid var(--border); }
+.pill-starter { background: rgba(0,229,255,0.08); color: #40d0ff; border: 1px solid rgba(0,229,255,0.2); }
+.pill-basic { background: rgba(0,229,255,0.12); color: var(--accent); border: 1px solid rgba(0,229,255,0.3); }
+.pill-plus { background: rgba(174,82,244,0.1); color: var(--purple); border: 1px solid rgba(174,82,244,0.25); }
+.pill-pro { background: rgba(174,82,244,0.15); color: #c77fff; border: 1px solid rgba(174,82,244,0.35); }
+.pill-elite { background: rgba(245,197,66,0.1); color: var(--gold); border: 1px solid rgba(245,197,66,0.25); }
+.pill-platinum { background: rgba(245,197,66,0.18); color: #ffdf44; border: 1px solid rgba(245,197,66,0.5); }
+
+.status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.status-active .status-dot { background: var(--green); }
+.status-past_due .status-dot { background: var(--orange); }
+.status-cancelled .status-dot { background: var(--red); }
+
+.credits-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  width: 60px;
+  margin-top: 3px;
+}
+
+.credits-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ACTIVITY FEED */
+.activity-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(30,45,66,0.5);
+}
+
+.activity-item:last-child { border-bottom: none; }
+
+.activity-icon {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ai-signup { background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); }
+.ai-upgrade { background: rgba(245,197,66,0.1); border: 1px solid rgba(245,197,66,0.2); }
+.ai-parlay { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.2); }
+
+.activity-body { flex: 1; }
+.activity-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.activity-text strong { color: var(--text); }
+.activity-time { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 2px; }
+
+/* CHURN CARD */
+.churn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.churn-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.churn-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.churn-val {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* PARLAY STATS */
+.parlay-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(30,45,66,0.5);
+}
+
+.parlay-stat-row:last-child { border-bottom: none; }
+
+.psr-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.psr-val {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* LOADING */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 30px 0;
+}
+
+.spin {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  z-index: 9998;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s;
+  pointer-events: none;
+}
+
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── LOCK SCREEN ──────────────────────────────────────── -->
+<div id="lockScreen">
+  <div class="lock-bg"></div>
+  <div class="lock-card">
+    <div class="lock-logo">Slip IQ</div>
+    <div class="lock-title">Command<br>Centre</div>
+    <div class="lock-sub">// RESTRICTED ACCESS</div>
+    <label class="lock-label">Access Code</label>
+    <input type="password" class="lock-input" id="lockInput" placeholder="••••••••" autocomplete="off">
+    <button class="lock-btn" onclick="tryUnlock()">AUTHENTICATE →</button>
+    <div class="lock-err" id="lockErr"></div>
+  </div>
+</div>
+
+<!-- ── DASHBOARD ────────────────────────────────────────── -->
+<div id="dashboard">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-mark">SQ</div>
+      <div class="logo-text">SLIP IQ</div>
+      <div class="logo-badge">COMMAND CENTRE</div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-indicator"><div class="live-dot"></div>LIVE</div>
+      <div class="last-updated" id="lastUpdated">—</div>
+      <button class="refresh-btn" onclick="loadAllData()">↺ REFRESH</button>
+      <button class="lock-out-btn" onclick="lockDash()">LOCK</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── REVENUE ───────────────────────────────────────── -->
+    <div class="section-hd">Revenue Overview</div>
+    <div class="grid-4">
+      <div class="metric">
+        <div class="metric-glow glow-gold"></div>
+        <div class="metric-label">Monthly Recurring Revenue</div>
+        <div class="metric-val gold" id="mrr">—</div>
+        <div class="metric-sub" id="mrrSub">loading...</div>
+      </div>
+      <div class="metric">
+        <div class="metric-glow glow-accent"></div>
+        <div class="metric-label">Annual Run Rate</div>
+        <div class="metric-val accent" id="arr">—</div>
+        <div class="metric-sub">MRR × 12</div>
+      </div>
+      <div class="metric">
+        <div class="metric-glow glow-green"></div>
+        <div class="metric-label">Total Users</div>
+        <div class="metric-val green" id="totalUsers">—</div>
+        <div class="metric-sub" id="totalUsersSub">loading...</div>
+      </div>
+      <div class="metric">
+        <div class="metric-glow glow-purple"></div>
+        <div class="metric-label">Paid Subscribers</div>
+        <div class="metric-val purple" id="paidUsers">—</div>
+        <div class="metric-sub" id="paidUsersSub">loading...</div>
+      </div>
+    </div>
+
+    <!-- ── 50/50 SPLIT ──────────────────────────────────── -->
+    <div class="grid-2">
+      <div class="split-card">
+        <div class="split-title">Founder Revenue Split — 50/50</div>
+        <div class="founders-row">
+          <div class="founder">
+            <div class="founder-name">Founder A</div>
+            <div class="founder-pct">50% share</div>
+            <div class="founder-amount" id="founderA">—</div>
+            <div class="founder-sub">MRR / month</div>
+          </div>
+          <div class="founder">
+            <div class="founder-name">Founder B</div>
+            <div class="founder-pct">50% share</div>
+            <div class="founder-amount" id="founderB">—</div>
+            <div class="founder-sub">MRR / month</div>
+          </div>
+        </div>
+        <div class="split-bar"><div class="split-bar-fill"></div></div>
+        <div class="split-label-row">
+          <span>Founder A ← 50%</span>
+          <span>50% → Founder B</span>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div class="parlay-stat-row">
+            <span class="psr-label">Annual each (ARR ÷ 2)</span>
+            <span class="psr-val" id="founderAArr">—</span>
+          </div>
+          <div class="parlay-stat-row">
+            <span class="psr-label">Per day (MRR ÷ 30)</span>
+            <span class="psr-val" id="founderADay">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROJECTIONS -->
+      <div class="proj-card">
+        <div class="split-title">Revenue Projections</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div>
+            <div class="proj-col-hd">Scenario</div>
+            <div class="proj-item"><div class="proj-item-label">Conservative</div><div class="proj-item-val" style="color:var(--text2)">+10% MoM</div></div>
+            <div class="proj-item"><div class="proj-item-label">Base Case</div><div class="proj-item-val" style="color:var(--accent)">+25% MoM</div></div>
+            <div class="proj-item"><div class="proj-item-label">Bull Case</div><div class="proj-item-val" style="color:var(--gold)">+50% MoM</div></div>
+          </div>
+          <div>
+            <div class="proj-col-hd">3-Month MRR</div>
+            <div class="proj-item"><div class="proj-item-val" id="proj3Con" style="color:var(--text2)">—</div></div>
+            <div class="proj-item"><div class="proj-item-val" id="proj3Base" style="color:var(--accent)">—</div></div>
+            <div class="proj-item"><div class="proj-item-val" id="proj3Bull" style="color:var(--gold)">—</div></div>
+          </div>
+          <div>
+            <div class="proj-col-hd">12-Month ARR</div>
+            <div class="proj-item"><div class="proj-item-val" id="proj12Con" style="color:var(--text2)">—</div></div>
+            <div class="proj-item"><div class="proj-item-val" id="proj12Base" style="color:var(--accent)">—</div></div>
+            <div class="proj-item"><div class="proj-item-val" id="proj12Bull" style="color:var(--gold)">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PLAN BREAKDOWN ───────────────────────────────── -->
+    <div class="section-hd">Plan Performance</div>
+    <div class="grid-2">
+      <div class="plan-breakdown">
+        <div class="split-title">Revenue by Tier</div>
+        <div id="planRows">
+          <div class="loading"><div class="spin"></div>Loading plan data...</div>
+        </div>
+      </div>
+
+      <!-- HEALTH METRICS -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="metric" style="flex:1">
+          <div class="metric-label">Conversion Rate</div>
+          <div class="metric-val accent" id="convRate">—</div>
+          <div class="metric-sub">Free → Paid</div>
+        </div>
+        <div class="metric" style="flex:1">
+          <div class="metric-label">Churn Rate (est.)</div>
+          <div class="metric-val orange" id="churnRate">—</div>
+          <div class="metric-sub" id="churnSub">cancelled / total paid</div>
+        </div>
+        <div class="metric" style="flex:1">
+          <div class="metric-label">ARPU (paid users)</div>
+          <div class="metric-val gold" id="arpu">—</div>
+          <div class="metric-sub">avg revenue per paid user</div>
+        </div>
+        <div class="metric" style="flex:1">
+          <div class="metric-label">Referral Conv. Rate</div>
+          <div class="metric-val purple" id="refConv">—</div>
+          <div class="metric-sub" id="refConvSub">users referred</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USER ACTIVITY ─────────────────────────────────── -->
+    <div class="section-hd">User Activity</div>
+    <div class="grid-4">
+      <div class="metric">
+        <div class="metric-label">New This Month</div>
+        <div class="metric-val accent" id="newMonth">—</div>
+        <div class="metric-sub">last 30 days</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">New This Week</div>
+        <div class="metric-val green" id="newWeek">—</div>
+        <div class="metric-sub">last 7 days</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Active This Week</div>
+        <div class="metric-val" id="activeWeek">—</div>
+        <div class="metric-sub">seen in last 7d</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Active Today</div>
+        <div class="metric-val" id="activeToday">—</div>
+        <div class="metric-sub">last 24 hours</div>
+      </div>
+    </div>
+
+    <!-- ── CREDITS + PARLAYS ─────────────────────────────── -->
+    <div class="section-hd">Engagement</div>
+    <div class="grid-2">
+      <div class="split-card">
+        <div class="split-title">Credits System</div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Total Credits Consumed</span>
+          <span class="psr-val" id="totalCreditsUsed">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Bonus Credits Active</span>
+          <span class="psr-val" id="totalBonus">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Users Out of Credits</span>
+          <span class="psr-val red" id="outOfCredits">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Value Bet Add-on Users</span>
+          <span class="psr-val gold" id="valueBetUsers">—</span>
+        </div>
+      </div>
+
+      <div class="split-card">
+        <div class="split-title">Parlay Performance</div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Total Parlays Built</span>
+          <span class="psr-val" id="totalParlays">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Won Parlays</span>
+          <span class="psr-val green" id="wonParlays">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Lost Parlays</span>
+          <span class="psr-val red" id="lostParlays">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Biggest Win (odds)</span>
+          <span class="psr-val gold" id="biggestWin">—</span>
+        </div>
+        <div class="parlay-stat-row">
+          <span class="psr-label">Best Streak</span>
+          <span class="psr-val" id="bestStreak">—</span>
+        </div>
+      </div>
+    </div>
+<!-- ── CHARTS ───────────────────────────────────────────── -->
+<div class="section-hd">Analytics & Charts</div>
+
+<!-- Row 1: Plan dist + Growth -->
+<div class="grid-2" style="margin-bottom:14px">
+  <div class="split-card">
+    <div class="split-title">Subscriber Distribution</div>
+    <div style="height:200px;position:relative"><canvas id="chartPlanDist"></canvas></div>
+  </div>
+  <div class="split-card">
+    <div class="split-title">Weekly Signups (Last 12 Weeks)</div>
+    <div style="height:200px;position:relative"><canvas id="chartGrowth"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 2: MRR Projection -->
+<div class="split-card" style="margin-bottom:14px">
+  <div class="split-title">MRR Growth Projection — 12 Months</div>
+  <div style="height:220px;position:relative"><canvas id="chartProjection"></canvas></div>
+</div>
+
+<!-- Row 3: MRR by plan + Daily activity -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="split-card">
+    <div class="split-title">MRR Contribution by Plan</div>
+    <div style="height:180px;position:relative"><canvas id="chartMrrByPlan"></canvas></div>
+  </div>
+  <div class="split-card">
+    <div class="split-title">Daily Active Users (Last 30 Days)</div>
+    <div style="height:180px;position:relative"><canvas id="chartActivity"></canvas></div>
+  </div>
+</div>
+
+<!-- Extra stats row -->
+<div class="section-hd">Platform Intelligence</div>
+<div class="grid-4" style="margin-bottom:24px">
+  <div class="metric">
+    <div class="metric-label">Parlay Win Rate</div>
+    <div class="metric-val green" id="parlayWinRate">—</div>
+    <div class="metric-sub">won / total parlays</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Leg Win Rate</div>
+    <div class="metric-val accent" id="legWinRate">—</div>
+    <div class="metric-sub">individual leg accuracy</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Total Legs Won</div>
+    <div class="metric-val" id="totalLegsWon">—</div>
+    <div class="metric-sub">all time</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Annual LTV / Paid User</div>
+    <div class="metric-val gold" id="ltv">—</div>
+    <div class="metric-sub">ARR ÷ paid users</div>
+  </div>
+</div>
+    <!-- ── RECENT SIGNUPS TABLE ──────────────────────────── -->
+    <div class="section-hd">Recent Signups</div>
+    <div class="table-card" style="margin-bottom:24px">
+      <div class="table-header">
+        <div class="table-title">New Users</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="text" class="table-search" placeholder="Search email..." id="userSearch" oninput="filterUsers()">
+          <div class="table-count" id="userCount">0 users</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="usersTable">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Plan</th>
+              <th>Status</th>
+              <th>Credits Used</th>
+              <th>Credits Left</th>
+              <th>Parlays</th>
+              <th>Best Win</th>
+              <th>Joined</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr><td colspan="9"><div class="loading"><div class="spin"></div>Loading users...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── TOP WINNERS ───────────────────────────────────── -->
+    <div class="section-hd">Top Winners by Parlay Odds</div>
+    <div class="table-card" style="margin-bottom:24px">
+      <div class="table-header">
+        <div class="table-title">Hall of Fame</div>
+        <div class="table-count" id="winnersCount">—</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="winnersTable">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Email</th>
+              <th>Plan</th>
+              <th>Biggest Win</th>
+              <th>Won / Total</th>
+              <th>Best Streak</th>
+              <th>Total Legs Won</th>
+            </tr>
+          </thead>
+          <tbody id="winnersBody">
+            <tr><td colspan="7"><div class="loading"><div class="spin"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── MOST ACTIVE ───────────────────────────────────── -->
+    <div class="section-hd">Most Active Users (by Credits Used)</div>
+    <div class="table-card" style="margin-bottom:48px">
+      <div class="table-header">
+        <div class="table-title">Power Users</div>
+        <div class="table-count" id="activeCount">—</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl" id="activeTable">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Email</th>
+              <th>Plan</th>
+              <th>Credits Used</th>
+              <th>Bonus Credits</th>
+              <th>Parlays</th>
+              <th>Last Active</th>
+              <th>Unlocked Sports</th>
+            </tr>
+          </thead>
+          <tbody id="activeBody">
+            <tr><td colspan="8"><div class="loading"><div class="spin"></div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /dashboard -->
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ── CONFIG ─────────────────────────────────────────────────
+const SUPABASE_URL         = window.SUPABASE_URL         || 'YOUR_SUPABASE_URL'
+const SUPABASE_ANON_KEY    = window.SUPABASE_ANON_KEY    || 'YOUR_SUPABASE_ANON_KEY'
+const SUPABASE_SERVICE_KEY = window.SUPABASE_SERVICE_KEY || null
+
+const PLAN_PRICES = {
+  free: 0, starter: 2.99, basic: 4.99, plus: 14.99,
+  pro: 14.99, elite: 49.99, platinum: 149.99
+}
+const PLAN_COLORS = {
+  free:'#7a90b0', starter:'#40d0ff', basic:'#00e5ff',
+  plus:'#ae52f4', pro:'#c77fff', elite:'#f5c542', platinum:'#ffdf44'
+}
+
+const PASS = 'marsai'
+let allUsers = []
+let charts = {}
+
+// ── LOCK ───────────────────────────────────────────────────
+function tryUnlock() {
+  const v = document.getElementById('lockInput').value
+  const err = document.getElementById('lockErr')
+  if (v === PASS) {
+    document.getElementById('lockScreen').style.display = 'none'
+    document.getElementById('dashboard').style.display = 'block'
+    loadAllData()
+  } else {
+    const inp = document.getElementById('lockInput')
+    inp.classList.add('error')
+    err.textContent = 'ACCESS DENIED — INVALID CODE'
+    setTimeout(() => { inp.classList.remove('error'); err.textContent = '' }, 1500)
+    inp.value = ''
+  }
+}
+document.getElementById('lockInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock() })
+function lockDash() {
+  document.getElementById('lockScreen').style.display = 'flex'
+  document.getElementById('dashboard').style.display = 'none'
+  document.getElementById('lockInput').value = ''
+}
+
+// ── SUPABASE ────────────────────────────────────────────────
+let sb = null
+try {
+  const { createClient } = supabase
+  const key = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY
+  sb = createClient(SUPABASE_URL, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  })
+} catch(e) { console.warn('Supabase init failed', e) }
+
+// ── UTILS ───────────────────────────────────────────────────
+const fmtBig = v => {
+  const n = parseFloat(v || 0)
+  if (n >= 1000000) return '€' + (n/1000000).toFixed(2) + 'M'
+  if (n >= 1000)    return '€' + (n/1000).toFixed(1) + 'K'
+  return '€' + n.toFixed(2)
+}
+const fmtNum = v => parseInt(v || 0).toLocaleString()
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—'
+const fmtAgo = d => {
+  if (!d) return '—'
+  const diff = Date.now() - new Date(d).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60) return m + 'm ago'
+  const h = Math.floor(m / 60)
+  if (h < 24) return h + 'h ago'
+  return Math.floor(h / 24) + 'd ago'
+}
+const pct = (a, b) => b > 0 ? (a / b * 100).toFixed(1) + '%' : '0%'
+const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v }
+
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.style.borderColor = isErr ? 'var(--red)' : 'var(--green)'
+  t.style.color = isErr ? 'var(--red)' : 'var(--green)'
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 3000)
+}
+
+function planPill(plan) {
+  const p = (plan || 'free').toLowerCase()
+  return `<span class="plan-pill pill-${p}">${p}</span>`
+}
+function statusHtml(status) {
+  const s = (status || 'active').toLowerCase()
+  const labels = { active: '● Active', past_due: '● Past Due', cancelled: '● Cancelled' }
+  return `<span class="status-${s}" style="font-size:10px;font-family:var(--mono)">${labels[s] || s}</span>`
+}
+function creditsBar(used, total) {
+  const p = total > 0 ? Math.min(100, (used / total) * 100) : 0
+  const color = p > 85 ? 'var(--red)' : p > 60 ? 'var(--orange)' : 'var(--accent)'
+  return `<div style="font-family:var(--mono);font-size:10px">${used}/${total}</div>
+    <div class="credits-bar"><div class="credits-bar-fill" style="width:${p}%;background:${color}"></div></div>`
+}
+
+// ── CHART HELPERS ────────────────────────────────────────────
+const chartDefaults = {
+  color: '#7a90b0',
+  plugins: { legend: { display: false }, tooltip: {
+    backgroundColor: '#111620', borderColor: '#1e2d42', borderWidth: 1,
+    titleColor: '#e8eeff', bodyColor: '#7a90b0',
+    titleFont: { family: 'IBM Plex Mono', size: 10 },
+    bodyFont: { family: 'IBM Plex Mono', size: 10 }, padding: 10
+  }},
+  scales: {
+    x: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } } },
+    y: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } } }
+  }
+}
+
+function makeChart(id, type, labels, datasets, extraOpts = {}) {
+  const ctx = document.getElementById(id)
+  if (!ctx) return
+  if (charts[id]) charts[id].destroy()
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: { ...chartDefaults, responsive: true, maintainAspectRatio: false, ...extraOpts }
+  })
+}
+
+// ── MAIN DATA LOAD ──────────────────────────────────────────
+async function loadAllData() {
+  if (!sb) { showToast('Supabase not configured', true); return }
+
+  showToast('Loading all users...')
+
+  // Paginate to get ALL users, not just first 1000
+  let allRows = []
+  let from = 0
+  const pageSize = 1000
+  while (true) {
+    const { data, error } = await sb
+      .from('users')
+      .select('*')
+      .order('joined_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      console.error('Query error:', error)
+      showToast('Error: ' + error.message, true)
+      // If RLS is blocking, we'll still show what we got
+      allRows = data || []
+      break
+    }
+    allRows = allRows.concat(data || [])
+    if (!data || data.length < pageSize) break
+    from += pageSize
+  }
+
+  allUsers = allRows
+  computeAndRender(allUsers)
+  set('lastUpdated', 'Updated ' + new Date().toLocaleTimeString())
+  showToast('✓ ' + allUsers.length + ' users loaded')
+}
+
+// ── COMPUTE + RENDER ─────────────────────────────────────────
+function computeAndRender(users) {
+  const now = Date.now()
+  const d30 = new Date(now - 30*86400000).toISOString()
+  const d7  = new Date(now - 7*86400000).toISOString()
+  const d1  = new Date(now - 86400000).toISOString()
+
+  const plans = ['free','starter','basic','plus','pro','elite','platinum']
+  const planCounts = {}
+  plans.forEach(p => planCounts[p] = 0)
+  users.forEach(u => {
+    const p = (u.plan || 'free').toLowerCase()
+    planCounts[p] = (planCounts[p] || 0) + 1
+  })
+
+  // MRR
+  let mrr = 0
+  users.forEach(u => {
+    if (u.plan_status === 'active' && u.plan !== 'free') mrr += PLAN_PRICES[u.plan] || 0
+  })
+  const arr = mrr * 12
+  const paid = users.filter(u => u.plan !== 'free' && u.plan_status === 'active').length
+  const churned = users.filter(u => u.plan_status !== 'active' && u.plan !== 'free').length
+  const churnRate = (paid + churned) > 0 ? (churned / (paid + churned) * 100).toFixed(1) : 0
+  const arpu = paid > 0 ? (mrr / paid).toFixed(2) : '0.00'
+  const referred = users.filter(u => u.referred_by).length
+  const refConvRate = users.length > 0 ? (referred / users.length * 100).toFixed(1) : 0
+
+  // Activity
+  const newMonth  = users.filter(u => u.joined_at > d30).length
+  const newWeek   = users.filter(u => u.joined_at > d7).length
+  const activeWk  = users.filter(u => u.last_seen_at && u.last_seen_at > d7).length
+  const activeDay = users.filter(u => u.last_seen_at && u.last_seen_at > d1).length
+
+  // Credits
+  const totalCreditsUsed = users.reduce((s, u) => s + (u.credits_used || 0), 0)
+  const totalBonus = users.reduce((s, u) => s + (u.credits_bonus || 0), 0)
+  const outOfCredits = users.filter(u => {
+    const monthly = u.monthly_credits || 25
+    return (monthly - (u.credits_used || 0) + (u.credits_bonus || 0)) <= 0
+  }).length
+  const valueBetUsers = users.filter(u => u.value_bet_enabled).length
+
+  // Parlays
+  const totalParlays = users.reduce((s, u) => s + (u.total_parlays || 0), 0)
+  const wonParlays = users.reduce((s, u) => s + (u.won_parlays || 0), 0)
+  const lostParlays = users.reduce((s, u) => s + (u.lost_parlays || 0), 0)
+  const biggestWin = Math.max(0, ...users.map(u => parseFloat(u.biggest_win_odds || 0)))
+  const bestStreak = Math.max(0, ...users.map(u => u.streak_best || 0))
+  const parlayWinRate = totalParlays > 0 ? (wonParlays / totalParlays * 100).toFixed(1) : 0
+  const legWinRate = (users.reduce((s,u) => s+(u.total_legs||0),0)) > 0
+    ? (users.reduce((s,u) => s+(u.won_legs||0),0) / users.reduce((s,u) => s+(u.total_legs||0),0) * 100).toFixed(1) : 0
+
+  // Projections
+  const compound = (base, rate, months) => base * Math.pow(1 + rate, months)
+  const proj3Con  = compound(mrr, 0.10, 3)
+  const proj3Base = compound(mrr, 0.25, 3)
+  const proj3Bull = compound(mrr, 0.50, 3)
+  const proj12Con  = compound(mrr, 0.10, 12) * 12
+  const proj12Base = compound(mrr, 0.25, 12) * 12
+  const proj12Bull = compound(mrr, 0.50, 12) * 12
+
+  // ── SET METRICS ──────────────────────────────────────────
+  set('mrr', fmtBig(mrr))
+  set('mrrSub', paid + ' paid subscribers')
+  set('arr', fmtBig(arr))
+  set('totalUsers', fmtNum(users.length))
+  set('totalUsersSub', newMonth + ' new this month')
+  set('paidUsers', fmtNum(paid))
+  set('paidUsersSub', pct(paid, users.length) + ' conversion rate')
+  set('founderA', fmtBig(mrr / 2))
+  set('founderB', fmtBig(mrr / 2))
+  set('founderAArr', fmtBig(arr / 2))
+  set('founderADay', '€' + (mrr / 2 / 30).toFixed(2))
+  set('proj3Con', fmtBig(proj3Con))
+  set('proj3Base', fmtBig(proj3Base))
+  set('proj3Bull', fmtBig(proj3Bull))
+  set('proj12Con', fmtBig(proj12Con))
+  set('proj12Base', fmtBig(proj12Base))
+  set('proj12Bull', fmtBig(proj12Bull))
+  set('convRate', pct(paid, users.length))
+  set('churnRate', churnRate + '%')
+  set('churnSub', churned + ' cancelled / ' + (paid + churned) + ' total paid')
+  set('arpu', '€' + arpu + '/mo')
+  set('refConv', refConvRate + '%')
+  set('refConvSub', referred + ' users referred')
+  set('newMonth', fmtNum(newMonth))
+  set('newWeek', fmtNum(newWeek))
+  set('activeWeek', fmtNum(activeWk))
+  set('activeToday', fmtNum(activeDay))
+  set('totalCreditsUsed', fmtNum(totalCreditsUsed))
+  set('totalBonus', fmtNum(totalBonus))
+  set('outOfCredits', fmtNum(outOfCredits))
+  set('valueBetUsers', fmtNum(valueBetUsers))
+  set('totalParlays', fmtNum(totalParlays))
+  set('wonParlays', fmtNum(wonParlays))
+  set('lostParlays', fmtNum(lostParlays))
+  set('biggestWin', biggestWin > 0 ? biggestWin.toFixed(2) + '×' : '—')
+  set('bestStreak', bestStreak > 0 ? bestStreak + ' wins' : '—')
+  set('parlayWinRate', parlayWinRate + '%')
+  set('legWinRate', legWinRate + '%')
+  set('totalLegsWon', fmtNum(users.reduce((s,u) => s+(u.won_legs||0),0)))
+  set('ltv', paid > 0 ? '€' + (arr / paid).toFixed(2) : '—')
+
+  // ── PLAN ROWS ────────────────────────────────────────────
+  const maxCount = Math.max(1, ...plans.map(p => planCounts[p] || 0))
+  document.getElementById('planRows').innerHTML = plans.map(p => {
+    const cnt = planCounts[p] || 0
+    const activeCnt = p === 'free' ? 0 : users.filter(u => u.plan === p && u.plan_status === 'active').length
+    const rev = (activeCnt * (PLAN_PRICES[p] || 0)).toFixed(2)
+    return `<div class="plan-row">
+      <div class="plan-dot" style="background:${PLAN_COLORS[p]}"></div>
+      <div class="plan-name-cell">${p.toUpperCase()}</div>
+      <div class="plan-price-cell">€${PLAN_PRICES[p]}/mo</div>
+      <div class="plan-bar-wrap"><div class="plan-bar-fill" style="width:${(cnt/maxCount*100)}%;background:${PLAN_COLORS[p]}"></div></div>
+      <div class="plan-count-cell" style="color:${PLAN_COLORS[p]}">${cnt}</div>
+      <div class="plan-mrr-cell">€${rev}</div>
+    </div>`
+  }).join('')
+
+  // ── CHARTS ───────────────────────────────────────────────
+  renderCharts(users, plans, planCounts, mrr, paid)
+
+  // ── TABLES ───────────────────────────────────────────────
+  renderUsersTable(users.slice(0, 100))
+  set('userCount', users.length + ' total')
+
+  const winners = users.filter(u => (u.biggest_win_odds || 0) > 0)
+    .sort((a, b) => parseFloat(b.biggest_win_odds || 0) - parseFloat(a.biggest_win_odds || 0))
+    .slice(0, 15)
+  renderWinnersTable(winners)
+  set('winnersCount', winners.length + ' users')
+
+  const active = users.filter(u => (u.credits_used || 0) > 0)
+    .sort((a, b) => (b.credits_used || 0) - (a.credits_used || 0))
+    .slice(0, 15)
+  renderActiveTable(active)
+  set('activeCount', active.length + ' users')
+}
+
+// ── CHARTS ───────────────────────────────────────────────────
+function renderCharts(users, plans, planCounts, mrr, paid) {
+  // 1. Plan distribution donut
+  const paidPlans = plans.filter(p => p !== 'free')
+  makeChart('chartPlanDist', 'doughnut',
+    paidPlans.map(p => p.toUpperCase()),
+    [{
+      data: paidPlans.map(p => planCounts[p] || 0),
+      backgroundColor: paidPlans.map(p => PLAN_COLORS[p] + 'cc'),
+      borderColor: paidPlans.map(p => PLAN_COLORS[p]),
+      borderWidth: 1
+    }],
+    { plugins: { legend: { display: true, position: 'right',
+      labels: { color: '#7a90b0', font: { family: 'IBM Plex Mono', size: 9 }, boxWidth: 10, padding: 8 }
+    }, tooltip: chartDefaults.plugins.tooltip }, scales: {} }
+  )
+
+  // 2. Signup growth — group by week for last 12 weeks
+  const weeks = []
+  const weekCounts = []
+  for (let i = 11; i >= 0; i--) {
+    const start = new Date(Date.now() - (i+1) * 7 * 86400000)
+    const end   = new Date(Date.now() - i * 7 * 86400000)
+    weeks.push('W-' + i)
+    weekCounts.push(users.filter(u => u.joined_at && new Date(u.joined_at) >= start && new Date(u.joined_at) < end).length)
+  }
+  makeChart('chartGrowth', 'bar', weeks, [{
+    data: weekCounts,
+    backgroundColor: 'rgba(0,229,255,0.15)',
+    borderColor: '#00e5ff',
+    borderWidth: 1,
+    borderRadius: 4
+  }], {
+    plugins: { ...chartDefaults.plugins },
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, beginAtZero: true } }
+  })
+
+  // 3. MRR projection line chart (12 months, 3 scenarios)
+  const months = Array.from({length: 13}, (_, i) => i === 0 ? 'Now' : 'M+' + i)
+  const projCon  = months.map((_, i) => mrr * Math.pow(1.10, i))
+  const projBase = months.map((_, i) => mrr * Math.pow(1.25, i))
+  const projBull = months.map((_, i) => mrr * Math.pow(1.50, i))
+  makeChart('chartProjection', 'line', months, [
+    { label: 'Conservative +10%', data: projCon,  borderColor: '#7a90b0', backgroundColor: 'transparent', pointRadius: 2, tension: 0.3 },
+    { label: 'Base +25%',         data: projBase, borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.05)', pointRadius: 2, tension: 0.3, fill: true },
+    { label: 'Bull +50%',         data: projBull, borderColor: '#f5c542', backgroundColor: 'rgba(245,197,66,0.05)', pointRadius: 2, tension: 0.3, fill: true },
+  ], {
+    plugins: { legend: { display: true, position: 'top',
+      labels: { color: '#7a90b0', font: { family: 'IBM Plex Mono', size: 9 }, boxWidth: 12, padding: 12 }
+    }, tooltip: chartDefaults.plugins.tooltip },
+    scales: {
+      x: chartDefaults.scales.x,
+      y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => '€' + (v >= 1000 ? (v/1000).toFixed(1)+'K' : v.toFixed(0)) } }
+    }
+  })
+
+  // 4. Plan MRR contribution bar
+  const paidPlanMrr = paidPlans.map(p => {
+    const activeCnt = users.filter(u => u.plan === p && u.plan_status === 'active').length
+    return activeCnt * (PLAN_PRICES[p] || 0)
+  })
+  makeChart('chartMrrByPlan', 'bar', paidPlans.map(p => p.toUpperCase()), [{
+    data: paidPlanMrr,
+    backgroundColor: paidPlans.map(p => PLAN_COLORS[p] + '99'),
+    borderColor: paidPlans.map(p => PLAN_COLORS[p]),
+    borderWidth: 1,
+    borderRadius: 4
+  }], {
+    scales: {
+      ...chartDefaults.scales,
+      y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => '€' + v.toFixed(0) } }
+    }
+  })
+
+  // 5. Activity heatmap — last 30 days active users by day
+  const dayLabels = []
+  const dayActive = []
+  for (let i = 29; i >= 0; i--) {
+    const start = new Date(Date.now() - (i+1) * 86400000)
+    const end   = new Date(Date.now() - i * 86400000)
+    dayLabels.push(i === 0 ? 'Today' : i + 'd')
+    dayActive.push(users.filter(u => u.last_seen_at && new Date(u.last_seen_at) >= start && new Date(u.last_seen_at) < end).length)
+  }
+  makeChart('chartActivity', 'bar', dayLabels, [{
+    data: dayActive,
+    backgroundColor: 'rgba(0,230,118,0.2)',
+    borderColor: '#00e676',
+    borderWidth: 1,
+    borderRadius: 2
+  }], {
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, beginAtZero: true } }
+  })
+}
+
+// ── TABLE RENDERS ─────────────────────────────────────────────
+function renderUsersTable(users) {
+  const body = document.getElementById('usersBody')
+  if (!users.length) { body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);font-family:var(--mono);font-size:10px;padding:20px">No users found</td></tr>'; return }
+  body.innerHTML = users.map(u => {
+    const monthly = u.monthly_credits || 25
+    return `<tr>
+      <td><span class="email">${u.email || '—'}</span></td>
+      <td>${planPill(u.plan)}</td>
+      <td>${statusHtml(u.plan_status)}</td>
+      <td style="font-family:var(--mono);font-size:10px">${u.credits_used || 0}</td>
+      <td>${creditsBar(u.credits_used || 0, monthly)}</td>
+      <td style="font-family:var(--mono);font-size:10px">${u.total_parlays || 0} <span style="color:var(--text3)">(${u.won_parlays || 0}W)</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--gold)">${parseFloat(u.biggest_win_odds||0)>0 ? parseFloat(u.biggest_win_odds).toFixed(2)+'×' : '—'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text3)">${fmtDate(u.joined_at)}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text3)">${fmtAgo(u.last_seen_at)}</td>
+    </tr>`
+  }).join('')
+}
+
+function renderWinnersTable(users) {
+  const body = document.getElementById('winnersBody')
+  if (!users.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);font-family:var(--mono);font-size:10px;padding:20px">No data</td></tr>'; return }
+  body.innerHTML = users.map((u, i) => `<tr>
+    <td style="font-family:var(--display);font-weight:700;color:${i===0?'var(--gold)':i===1?'var(--text2)':i===2?'var(--orange)':'var(--text3)'}">#${i+1}</td>
+    <td><span class="email">${u.email || '—'}</span></td>
+    <td>${planPill(u.plan)}</td>
+    <td style="font-family:var(--display);font-size:16px;font-weight:700;color:var(--gold)">${parseFloat(u.biggest_win_odds||0).toFixed(2)}×</td>
+    <td style="font-family:var(--mono);font-size:10px">${u.won_parlays||0} / ${u.total_parlays||0}</td>
+    <td style="font-family:var(--mono);font-size:10px;color:var(--green)">${u.streak_best || 0} wins</td>
+    <td style="font-family:var(--mono);font-size:10px">${u.won_legs||0} legs</td>
+  </tr>`).join('')
+}
+
+function renderActiveTable(users) {
+  const body = document.getElementById('activeBody')
+  if (!users.length) { body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);font-family:var(--mono);font-size:10px;padding:20px">No data</td></tr>'; return }
+  body.innerHTML = users.map((u, i) => {
+    const sports = (u.unlocked_sports || []).length
+    return `<tr>
+      <td style="font-family:var(--display);font-weight:700;color:var(--text3)">#${i+1}</td>
+      <td><span class="email">${u.email || '—'}</span></td>
+      <td>${planPill(u.plan)}</td>
+      <td style="font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent)">${u.credits_used||0}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--gold)">${(u.credits_bonus||0) > 0 ? '+'+u.credits_bonus : '—'}</td>
+      <td style="font-family:var(--mono);font-size:10px">${u.total_parlays||0}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text3)">${fmtAgo(u.last_seen_at)}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:${sports>0?'var(--purple)':'var(--text3)'}">${sports > 0 ? sports + ' sport' + (sports>1?'s':'') + ' unlocked' : 'none'}</td>
+    </tr>`
+  }).join('')
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase()
+  const filtered = q ? allUsers.filter(u => (u.email||'').toLowerCase().includes(q) || (u.full_name||'').toLowerCase().includes(q)) : allUsers
+  renderUsersTable(filtered.slice(0, 100))
+  set('userCount', filtered.length + ' users')
+}
+</script>
+</body>
+</html>
