@@ -204,20 +204,34 @@ function tryAuth() {
   var key = document.getElementById('adminKeyInput').value.trim()
   if (!key) { showAuthErr('Enter admin key'); return }
   ADMIN_KEY = key
-  // Try fetching stats — if 401, show error
-  fetch('/admin/stats', { headers: { 'x-admin-key': key } })
-    .then(r => {
-      if (r.status === 401) { showAuthErr('Invalid admin key'); return null }
-      return r.json()
+
+  document.getElementById('authGate').style.display = 'none'
+  document.getElementById('appTopbar').style.display = 'flex'
+  document.getElementById('appPage').style.display = 'block'
+  document.getElementById('loadingState').style.display = 'flex'
+  document.getElementById('dashContent').style.display = 'none'
+
+  Promise.all([
+    fetch('/admin/stats', { headers: { 'x-admin-key': key } }),
+    fetch('/admin/users', { headers: { 'x-admin-key': key } })
+  ])
+    .then(function(responses) {
+      if (responses[0].status === 401) {
+        document.getElementById('authGate').style.display = 'flex'
+        document.getElementById('appTopbar').style.display = 'none'
+        document.getElementById('appPage').style.display = 'none'
+        showAuthErr('Invalid admin key')
+        return null
+      }
+      return Promise.all(responses.map(function(r) { return r.json() }))
     })
-    .then(data => {
-      if (!data) return
-      document.getElementById('authGate').style.display = 'none'
-      document.getElementById('appTopbar').style.display = 'flex'
-      document.getElementById('appPage').style.display = 'block'
-      renderDash(data)
+    .then(function(results) {
+      if (!results) return
+      renderDash(results[0], results[1] || [])
     })
-    .catch(() => showAuthErr('Connection failed'))
+    .catch(function(e) {
+      document.getElementById('loadingState').innerHTML = '<div class="err-box">Connection failed: ' + e.message + '</div>'
+    })
 }
 
 function showAuthErr(msg) {
@@ -229,10 +243,12 @@ function showAuthErr(msg) {
 function loadStats() {
   document.getElementById('dashContent').style.display = 'none'
   document.getElementById('loadingState').style.display = 'flex'
-  fetch('/admin/stats', { headers: { 'x-admin-key': ADMIN_KEY } })
-    .then(r => r.json())
-    .then(data => renderDash(data))
-    .catch(e => {
+  Promise.all([
+    fetch('/admin/stats', { headers: { 'x-admin-key': ADMIN_KEY } }).then(function(r){ return r.json() }),
+    fetch('/admin/users', { headers: { 'x-admin-key': ADMIN_KEY } }).then(function(r){ return r.json() }).catch(function(){ return [] })
+  ])
+    .then(function(results) { renderDash(results[0], results[1] || []) })
+    .catch(function(e) {
       document.getElementById('loadingState').innerHTML = '<div class="err-box">Failed to load: ' + e.message + '</div>'
     })
 }
@@ -263,7 +279,8 @@ function kpi(label, value, cls, sub) {
   return '<div class="kpi ' + (cls||'') + '"><div class="kpi-lbl">' + label + '</div><div class="kpi-val ' + (cls||'') + '">' + value + '</div>' + (sub?'<div class="kpi-sub">'+sub+'</div>':'') + '</div>'
 }
 
-function renderDash(d) {
+function renderDash(d, allUsers) {
+  allUsers = allUsers || []
   document.getElementById('loadingState').style.display = 'none'
   document.getElementById('dashContent').style.display = 'block'
   document.getElementById('generatedAt').textContent = 'UPDATED ' + fmtDT(d.generatedAt)
@@ -369,6 +386,115 @@ function renderDash(d) {
   // ── MOST ACTIVE TABLE ──
   document.getElementById('activeTable').innerHTML =
     '<div class="table-hdr"><div class="table-title">MOST ACTIVE — BY CREDITS USED</div></div>' +
+    '<table class="standings-table"><thead><tr>' +
+    '<th>EMAIL</th><th>PLAN</th><th>CREDITS USED</th><th>PARLAYS</th><th>LAST SEEN</th>' +
+    '</tr></thead><tbody>' +
+    (d.mostActive || []).map(u =>
+      '<tr><td style="color:var(--text)">' + mask(u.email) + '</td>' +
+      '<td>' + planBadge(u.plan) + '</td>' +
+      '<td>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">' +
+        '<div style="height:100%;background:var(--accent);width:' + Math.min(100, Math.round((u.credits_used||0)/200*100)) + '%"></div>' +
+        '</div>' +
+        '<span style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.credits_used||0) + '</span>' +
+        '</div>' +
+      '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:11px">' + (u.total_parlays||0) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmtDT(u.last_seen_at) + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody></table>'
+
+  // ── FULL USER TABLE ──
+  var sec = document.getElementById('fullUsersSection')
+  if (!sec) {
+    sec = document.createElement('div')
+    sec.id = 'fullUsersSection'
+    document.getElementById('dashContent').appendChild(sec)
+  }
+
+  var usersToShow = allUsers.length ? allUsers : (d.recentSignups || [])
+  var planTotals = {}
+  usersToShow.forEach(function(u) { planTotals[u.plan] = (planTotals[u.plan]||0)+1 })
+
+  sec.innerHTML =
+    '<div class="sec-hdr" style="margin-top:28px"><div class="sec-title">ALL USERS (' + usersToShow.length + ')</div><div class="sec-line"></div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
+    Object.entries(planTotals).map(function(kv){
+      return '<div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 12px;text-align:center">' +
+        '<div class="kpi-val" style="font-size:20px">' + kv[1] + '</div>' +
+        '<div class="kpi-lbl">' + kv[0].toUpperCase() + '</div></div>'
+    }).join('') +
+    '</div>' +
+    '<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">' +
+    '<input type="text" id="userSearchBox" placeholder="Search email / name..." oninput="filterUserTable(this.value)" style="background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:5px;font-family:\'JetBrains Mono\';font-size:10px;padding:5px 10px;outline:none;width:220px">' +
+    '<select id="userPlanFilter" onchange="filterUserTable(document.getElementById(\'userSearchBox\').value)" style="background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:5px;font-family:\'JetBrains Mono\';font-size:9px;padding:5px 8px;outline:none">' +
+    '<option value="">All Plans</option>' +
+    ['free','starter','basic','plus','pro','elite','platinum'].map(function(p){ return '<option>' + p + '</option>' }).join('') +
+    '</select></div>' +
+    '<div class="table-wrap"><table><thead><tr>' +
+    '<th>EMAIL / NAME</th><th>PLAN</th><th>STATUS</th><th>CREDITS</th><th>PARLAYS W/L</th><th>BEST ODDS</th><th>STREAK</th><th>SPORTS UNLOCKED</th><th>JOINED</th><th>LAST SEEN</th>' +
+    '</tr></thead><tbody id="userTableBody">' +
+    renderUserRows(usersToShow) +
+    '</tbody></table></div>'
+
+  window._adminAllUsers = usersToShow
+}
+
+function renderUserRows(users) {
+  if (!users.length) return '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:20px;font-family:\'JetBrains Mono\';font-size:10px">No users found.</td></tr>'
+  var planMax = { free:25, starter:55, basic:55, plus:115, pro:265, elite:900, platinum:999999 }
+  return users.map(function(u) {
+    var monthly = u.monthly_credits || planMax[u.plan] || 25
+    var available = u.plan === 'platinum' ? '∞' : Math.max(0, monthly - (u.credits_used||0) + (u.credits_bonus||0))
+    var wonPct = (u.total_parlays||0) > 0 ? Math.round((u.won_parlays||0)/(u.total_parlays||1)*100) + '%' : '—'
+    var sports = (u.unlocked_sports||[]).length ? (u.unlocked_sports||[]).join(', ') : '—'
+    var streak = (u.streak_current||0) > 0
+      ? '<span style="color:var(--green)">' + u.streak_current + '🔥</span>'
+      : (u.streak_best||0) > 0 ? 'Best: ' + u.streak_best : '—'
+    var statusDot = u.plan_status === 'active'
+      ? '<span style="color:var(--green)">●</span>'
+      : '<span style="color:var(--red)">●</span>'
+    return '<tr>' +
+      '<td><div style="color:var(--text);font-weight:500">' + mask(u.email||'') + '</div>' +
+        '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">' + esc(u.full_name||u.display_name||'') + '</div></td>' +
+      '<td>' + planBadge(u.plan) + '</td>' +
+      '<td>' + statusDot + ' ' + (u.plan_status||'active') + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px">' +
+        '<span style="color:var(--accent)">' + available + '</span>' +
+        '<span style="color:var(--text3)"> / ' + monthly + '</span>' +
+        (u.credits_bonus > 0 ? '<div style="font-size:8px;color:var(--gold)">+' + u.credits_bonus + ' bonus</div>' : '') +
+      '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px">' +
+        '<span style="color:var(--green)">' + (u.won_parlays||0) + 'W</span>' +
+        ' / <span style="color:var(--red)">' + (u.lost_parlays||0) + 'L</span>' +
+        ' <span style="color:var(--text3)">(' + wonPct + ')</span>' +
+      '</td>' +
+      '<td style="font-family:\'Bebas Neue\';font-size:16px;color:var(--gold)">' + ((u.biggest_win_odds||0) > 0 ? u.biggest_win_odds + 'x' : '—') + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px">' + streak + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--teal)">' + sports + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmt(u.joined_at) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">' + fmtDT(u.last_seen_at) + '</td>' +
+      '</tr>'
+  }).join('')
+}
+
+function filterUserTable(q) {
+  var users = window._adminAllUsers || []
+  var planFilter = (document.getElementById('userPlanFilter')||{}).value || ''
+  var qLow = (q||'').toLowerCase()
+  var filtered = users.filter(function(u) {
+    var matchQ = !qLow || (u.email||'').toLowerCase().includes(qLow) || (u.full_name||'').toLowerCase().includes(qLow) || (u.display_name||'').toLowerCase().includes(qLow)
+    var matchPlan = !planFilter || u.plan === planFilter
+    return matchQ && matchPlan
+  })
+  var tbody = document.getElementById('userTableBody')
+  if (tbody) tbody.innerHTML = renderUserRows(filtered)
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+    '<div class="table-hdr"><div class="table-title">MOST ACTIVE — BY CREDITS USED</div></div>' +
     '<table><thead><tr>' +
     '<th>EMAIL</th><th>PLAN</th><th>CREDITS USED</th><th>PARLAYS</th><th>LAST SEEN</th>' +
     '</tr></thead><tbody>' +
@@ -388,7 +514,7 @@ function renderDash(d) {
       '</tr>'
     ).join('') +
     '</tbody></table>'
-}
+
 
 // Auto-load if ADMIN_KEY is in URL (for bookmarking)
 window.addEventListener('DOMContentLoaded', () => {
@@ -400,5 +526,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 })
 </script>
+<script src="/mobile-nav.js"></script>
 </body>
 </html>

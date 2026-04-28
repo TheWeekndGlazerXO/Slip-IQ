@@ -1,0 +1,387 @@
+/* ═══════════════════════════════════════════════════════════════
+   SLIP IQ — SHARED MOBILE RESPONSIVE CSS
+   Drop this file in your project root (same folder as home.html)
+   Then add ONE line to every page's <head>:
+     <link rel="stylesheet" href="/mobile.css">
+   Desktop/tablet (>768px) = completely unchanged.
+   Phone (≤768px) = full mobile UI with bottom nav bar.
+   ═══════════════════════════════════════════════════════════════ */
+
+   @media (max-width: 768px) {
+
+    /* ── CORE LAYOUT ─────────────────────────────────────────── */
+  
+    /* Hide the desktop sidebar on all pages */
+    .nav-rail { display: none !important; }
+  
+    /* Remove the sidebar margin from .main on all pages */
+    .main,
+    .main.col,
+    .main.sidebar-collapsed {
+      margin-left: 0 !important;
+      width: 100% !important;
+    }
+  
+    /* Allow body to scroll vertically (some pages set overflow:hidden) */
+    html, body { overflow: hidden !important; }
+  
+    /* Push page content above the fixed bottom nav */
+    .main { padding-bottom: 56px !important; }
+  
+    /* ── TOPBAR ──────────────────────────────────────────────── */
+    .topbar,
+    .topbar-inner {
+      padding: 0 10px !important;
+      height: auto !important;
+      min-height: 44px;
+    }
+  
+    /* Hide the scrolling news ticker — takes too much space */
+    .news-strip { display: none !important; }
+  
+    .topbar-right {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: nowrap;
+      gap: 0;
+      overflow-x: auto;
+    }
+  
+    .topbar-title {
+      font-size: 16px !important;
+      letter-spacing: 2px !important;
+    }
+  
+    .tstat { padding: 0 5px !important; }
+    .ts-num, .sp-v { font-size: 13px !important; }
+    .ts-lbl, .sp-lbl { font-size: 6px !important; }
+    .btn-sm { font-size: 8px !important; padding: 4px 7px !important; }
+  
+    /* ── SPORT TABS (home + leagues) ─────────────────────────── */
+    .sport-bar {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      flex-wrap: nowrap !important;
+    }
+    .sport-tab { font-size: 8px !important; padding: 7px 11px !important; flex-shrink: 0; }
+  
+    /* ── HOME PAGE: match list ───────────────────────────────── */
+  
+    /* Stack filter sidebar + center + parlay panel vertically */
+    .page#page-home { flex-direction: column !important; }
+  
+    /* Filter sidebar: full width, compact, no league list */
+    .filter-sidebar {
+      width: 100% !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border) !important;
+      flex-shrink: 0;
+    }
+    .fs-hdr { padding: 6px 10px 5px !important; }
+    .fs-controls { flex-direction: row !important; flex-wrap: wrap !important; gap: 5px !important; }
+    .fl-row { flex: 1; min-width: 110px; }
+  
+    /* Collapse league list on mobile — saves huge vertical space */
+    .league-section { display: none !important; }
+    .league-actions { display: none !important; }
+  
+    /* Scrollable view tabs */
+    .view-tabs { overflow-x: auto !important; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+    .view-tab { font-size: 8px !important; padding: 8px 9px !important; flex-shrink: 0; }
+  
+    /* Stats bar scrollable */
+    .stats-bar { overflow-x: auto !important; flex-wrap: nowrap !important; }
+    .stat-pill { flex-shrink: 0; padding: 2px 7px !important; }
+  
+    /* Match cards: slightly tighter on mobile */
+    .matches-scroll { padding: 6px 8px !important; }
+    .mc-team-name { font-size: 11px !important; }
+    .prob-pct { font-size: 14px !important; }
+    .match-card { border-radius: 7px !important; }
+  
+    /* Hide the desktop parlay panel — replaced by FAB + overlay */
+    .parlay-panel { display: none !important; }
+  
+    /* Center column takes full width */
+    .center { width: 100% !important; min-width: 0 !important; overflow: hidden; }
+  
+    /* Pagination: compact */
+    .pagination { padding: 7px !important; }
+    .pg-btn { font-size: 9px !important; padding: 4px 10px !important; }
+    .pg-info { font-size: 9px !important; }
+  
+    /* ── PARLAYS PAGE ────────────────────────────────────────── */
+    .parlays-body { flex-direction: column !important; }
+    .parlays-list {
+      width: 100% !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border) !important;
+      max-height: 38vh;
+      overflow-y: auto;
+    }
+    .parlay-detail { padding: 10px !important; }
+  
+    /* ── NEWS PAGE ───────────────────────────────────────────── */
+    .news-body { flex-direction: column !important; }
+    .news-list {
+      width: 100% !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border) !important;
+      max-height: 38vh;
+      overflow-y: auto;
+    }
+    .news-detail { padding: 10px !important; }
+    .news-filters { padding: 7px 10px !important; gap: 6px !important; }
+  
+    /* ── LEAGUES PAGE ────────────────────────────────────────── */
+    .tab-bar { overflow-x: auto !important; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+    .tab-btn { font-size: 8px !important; padding: 9px 11px !important; flex-shrink: 0; white-space: nowrap; }
+    .scroll-inner { padding: 10px !important; }
+  
+    /* Standings table: scrollable horizontally */
+    .standings-section { overflow-x: auto !important; }
+    .standings-table { min-width: 420px; font-size: 10px !important; }
+    .standings-table td, .standings-table th { padding: 5px 5px !important; }
+  
+    /* ELO rows */
+    .elo-bar-wrap { width: 60px !important; }
+    .elo-num { font-size: 16px !important; }
+  
+    /* Teams grid: single column */
+    .teams-grid { grid-template-columns: 1fr 1fr !important; padding: 8px !important; gap: 6px !important; }
+  
+    /* Managers grid */
+    .mgr-grid { grid-template-columns: 1fr !important; padding: 8px !important; }
+  
+    /* Cup bracket: scrollable */
+    .bracket-wrap { overflow-x: auto !important; }
+  
+    /* Filter bar in leagues */
+    .filter-bar { padding: 7px 10px !important; gap: 5px !important; flex-wrap: wrap !important; }
+    .filter-bar select, .filter-bar input { font-size: 10px !important; padding: 4px 6px !important; }
+  
+    /* Cup buttons */
+    .cup-btn { font-size: 8px !important; padding: 4px 8px !important; }
+  
+    /* ── ACCOUNT PAGE ────────────────────────────────────────── */
+    .content { padding: 12px !important; }
+    .profile-hero {
+      flex-wrap: wrap !important;
+      padding: 14px !important;
+      gap: 12px !important;
+    }
+    .profile-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .sign-out-btn { margin-left: 0 !important; }
+    .credit-big { font-size: 38px !important; }
+  
+    /* ── INFO PAGE ───────────────────────────────────────────── */
+    .info-tabs { overflow-x: auto !important; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
+    .info-tab { font-size: 9px !important; padding: 9px 12px !important; flex-shrink: 0; white-space: nowrap; }
+    .features-grid { grid-template-columns: 1fr !important; }
+    .tier-table-wrap { overflow-x: auto !important; }
+    .tier-table { min-width: 480px; font-size: 10px !important; }
+    .hero { padding: 18px 14px 14px !important; }
+    .hero-title { font-size: 28px !important; }
+  
+    /* ── STORE / SUBSCRIPTIONS PAGE ─────────────────────────── */
+    .plans-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+    .credits-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .addons-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
+    .plan-card { padding: 16px 13px !important; }
+    .plan-name { font-size: 16px !important; }
+    .plan-price { font-size: 28px !important; }
+    .plan-features li { font-size: 10px !important; }
+  
+    /* Store header */
+    .header { padding: 0 12px !important; }
+  
+    /* ── LOGIN PAGE ──────────────────────────────────────────── */
+    .card {
+      padding: 24px 18px !important;
+      border-radius: 12px !important;
+      margin: 10px !important;
+    }
+  
+    /* ── MODALS (match analysis, player) ─────────────────────── */
+    .modal-overlay { padding: 0 !important; align-items: flex-end !important; }
+    .modal {
+      max-height: 92vh !important;
+      border-radius: 14px 14px 0 0 !important;
+      margin-top: auto;
+    }
+    .modal-tabs { overflow-x: auto !important; flex-wrap: nowrap !important; }
+    .modal-tab { font-size: 8px !important; padding: 7px 10px !important; flex-shrink: 0; white-space: nowrap; }
+    .modal-scroll { padding: 10px 12px !important; }
+  
+    /* Player modal */
+    .pm-card { border-radius: 12px 12px 0 0 !important; max-height: 88vh; }
+    .pm-overlay { align-items: flex-end !important; padding: 0 !important; }
+  
+    /* Parlay overlay — already a bottom sheet, just make it taller */
+    .parlay-overlay-card { max-height: 88vh !important; }
+  
+    /* ── AI CHAT ─────────────────────────────────────────────── */
+    .ai-chat {
+      width: calc(100vw - 16px) !important;
+      right: 8px !important;
+      bottom: 64px !important;
+      max-height: 360px !important;
+    }
+    .chat-fab {
+      bottom: 60px !important;
+      right: 8px !important;
+      font-size: 9px !important;
+      padding: 8px 11px !important;
+    }
+  
+    /* ── PROFILE GRID (admin dash) ───────────────────────────── */
+    .grid-4 { grid-template-columns: 1fr 1fr !important; }
+    .grid-3 { grid-template-columns: 1fr 1fr !important; }
+    .grid-2 { grid-template-columns: 1fr !important; }
+    .founders-row { grid-template-columns: 1fr !important; }
+    .proj-grid { grid-template-columns: 1fr !important; }
+    .content { padding: 12px !important; }
+    .topbar { padding: 0 12px !important; }
+  
+    /* Tables: scrollable */
+    .table-card { overflow-x: auto; }
+    .tbl { min-width: 540px; }
+    .tbl td, .tbl th { padding: 8px 10px !important; font-size: 10px !important; }
+  
+    /* ══════════════════════════════════════════════════════════
+       MOBILE BOTTOM NAV BAR
+       Injected by mobile-nav.js — styles live here
+       ══════════════════════════════════════════════════════════ */
+  
+    .slipiq-mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--bg2, #070d1a);
+      border-top: 1px solid var(--border2, #152d55);
+      display: flex;
+      z-index: 9000;
+      /* safe area for iPhone home bar */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  
+    .slipiq-mobile-nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+      color: var(--text3, #3a5a7a);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: color .15s;
+      background: none;
+      border: none;
+      padding: 4px 0;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+  
+    .slipiq-mobile-nav-item.active {
+      color: var(--accent, #00c8f8);
+    }
+  
+    .slipiq-mobile-nav-item:active {
+      color: var(--accent, #00c8f8);
+      background: rgba(0, 200, 248, 0.06);
+    }
+  
+    .slipiq-mobile-nav-item .nav-icon-emoji {
+      font-size: 19px;
+      line-height: 1;
+    }
+  
+    .slipiq-mobile-nav-item .nav-label-text {
+      font-size: 7px;
+      letter-spacing: 0.5px;
+    }
+  
+    /* Active dot indicator */
+    .slipiq-mobile-nav-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent, #00c8f8);
+    }
+  
+    /* ── PARLAY MOBILE FAB ───────────────────────────────────── */
+    .slipiq-parlay-fab {
+      position: fixed;
+      bottom: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #00c8f8, #00e5c8);
+      color: #000;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 9px 18px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 200, 248, 0.45);
+      z-index: 8999;
+      white-space: nowrap;
+      display: none; /* shown by JS when legs > 0 */
+      transition: transform 0.2s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+  
+    .slipiq-parlay-fab:active {
+      transform: translateX(-50%) scale(0.97);
+    }
+  
+    /* ── MISC FIXES ──────────────────────────────────────────── */
+  
+    /* Make select dropdowns look correct on iOS */
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+  
+    /* Prevent text overflow in small cards */
+    .mc-team-name,
+    .bm-name,
+    .player-name-row {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  
+    /* Correct score grid: 2 cols on mobile instead of 3 */
+    /* (inside modal mp2 pane) */
+    #mp2 [style*="grid-template-columns:repeat(3,1fr)"] {
+      grid-template-columns: 1fr 1fr !important;
+    }
+  
+    /* Profile hero on account page */
+    .profile-hero .avatar {
+      width: 48px !important;
+      height: 48px !important;
+      font-size: 22px !important;
+    }
+    .ph-name { font-size: 20px !important; }
+  
+    /* Plan cards on store: single col on very small screens */
+  }
+  
+  @media (max-width: 480px) {
+    .plans-grid { grid-template-columns: 1fr !important; }
+    .grid-4 { grid-template-columns: 1fr 1fr !important; }
+    .teams-grid { grid-template-columns: 1fr !important; }
+  }

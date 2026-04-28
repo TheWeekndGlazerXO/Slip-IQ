@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/mobile.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slip IQ — Leagues Hub</title>
@@ -215,9 +216,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
     <div class="sport-tab active" id="st-football"          onclick="switchSport('football')">⚽ FOOTBALL</div>
     <div class="sport-tab"        id="st-basketball"        onclick="switchSport('basketball')">🏀 NBA</div>
     <div class="sport-tab"        id="st-american_football" onclick="switchSport('american_football')">🏈 NFL</div>
-    <div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>
-    <div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>
-    <div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>
+    <!-- DISABLED: Tennis/F1/Boxing
+      <div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>
+      <div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>
+      <div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>
+      -->
     <div class="sport-tab"        id="st-mma"               onclick="switchSport('mma')">🥋 MMA</div>
   </div>
 
@@ -821,7 +824,7 @@ function renderBracket(data){
   var html='<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'+
     '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+data.name+'</div>'+
     '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>'+
-    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>'+
+    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>'+
   '</div>';
   html+='<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
 
@@ -1560,7 +1563,7 @@ var countByKey = {};
   var html = '<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
     '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+(data.name||'')+'</div>' +
     '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>' +
-    '<button onclick="predictTournamentWinner(\''+esc(data.name)+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
+    '<button onclick="predictTournamentWinner(\''+esc(data.name||'')+'\',\''+esc(currentBracketSlug)+'\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer">⚡ PREDICT WINNER</button>' +
   '</div>';
   html += '<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
   // Win probability bar
@@ -1667,5 +1670,6 @@ window.addEventListener('DOMContentLoaded',function(){
 });
 
 </script>
+<script src="/mobile-nav.js"></script>
 </body>
 </html>

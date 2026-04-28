@@ -1,0 +1,16 @@
+{
+    "appId": "net.slipiq.app",
+    "appName": "Slip IQ",
+    "webDir": "public",
+    "server": {
+      "url": "https://slipiq.net",
+      "cleartext": false
+    },
+    "plugins": {
+      "SplashScreen": {
+        "launchShowDuration": 2000,
+        "backgroundColor": "#04080f",
+        "showSpinner": false
+      }
+    }
+  }

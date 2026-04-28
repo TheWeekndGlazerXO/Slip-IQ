@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/mobile.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/config.js"></script>
 <meta charset="UTF-8">
@@ -416,6 +417,143 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .pc-platinum{background:linear-gradient(135deg,rgba(255,215,0,.15),rgba(168,85,247,.15));border:1px solid rgba(255,215,0,.4);color:#ffd700}
 .descriptor-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-family:'JetBrains Mono';font-size:8px;margin:2px;border:1px solid rgba(255,255,255,.1)}
 .mismatch-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.2);border-radius:7px;margin-bottom:6px}
+
+/* ─── MOBILE RESPONSIVE (phones only, ≤768px) ─────────────────────────────── */
+@media (max-width: 768px) {
+
+/* Hide desktop sidebar entirely */
+.nav-rail { display: none !important; }
+.main { margin-left: 0 !important; }
+
+/* Topbar: stack vertically, hide news ticker */
+.news-strip { display: none; }
+.topbar-inner {
+  flex-wrap: wrap;
+  height: auto;
+  padding: 6px 8px;
+  gap: 6px;
+}
+.topbar-right {
+  width: 100%;
+  justify-content: space-between;
+  gap: 0;
+}
+.tstat { padding: 0 5px; }
+.ts-num { font-size: 14px; }
+.ts-lbl { font-size: 6px; }
+.btn-sm { font-size: 8px; padding: 4px 7px; }
+
+/* Sport tabs: scrollable */
+.sport-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sport-tab { font-size: 8px; padding: 7px 10px; }
+
+/* Home page: stack everything vertically */
+.page#page-home { flex-direction: column !important; }
+
+/* Hide desktop filter sidebar — use compact header instead */
+.filter-sidebar { 
+  width: 100% !important;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.fs-hdr { padding: 7px 10px 6px; }
+.fs-controls { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+.fl-row { flex: 1; min-width: 120px; }
+
+/* Collapse league list by default on mobile */
+.league-section { display: none; }
+.league-actions { display: none; }
+
+/* Center column: full width */
+.center { width: 100%; min-width: 0; }
+
+/* View tabs: scrollable */
+.view-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.view-tab { font-size: 8px; padding: 8px 9px; }
+
+/* Stats bar: scrollable */
+.stats-bar { overflow-x: auto; flex-wrap: nowrap; }
+.stat-pill { flex-shrink: 0; }
+
+/* Match cards: slightly more compact */
+.mc-team-name { font-size: 12px; }
+.prob-pct { font-size: 15px; }
+.matches-scroll { padding: 7px 8px; }
+
+/* Hide desktop parlay panel — overlay handles it on mobile */
+.parlay-panel { display: none !important; }
+
+/* Floating parlay FAB (shows legs count) */
+.parlay-mobile-fab {
+  position: fixed;
+  bottom: 70px;
+  right: 12px;
+  background: var(--grad);
+  color: #000;
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0,200,248,.4);
+  z-index: 148;
+  display: none; /* shown by JS when legs > 0 */
+}
+
+/* Move AI chat fab up so it doesn't clash with parlay fab */
+.chat-fab { bottom: 12px; right: 12px; }
+.ai-chat { bottom: 50px; }
+
+/* Bottom nav bar */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  display: flex;
+  z-index: 200;
+  height: 52px;
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  color: var(--text3);
+  font-family: 'JetBrains Mono';
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  transition: color .15s;
+  border: none;
+  background: none;
+  padding: 4px 0;
+}
+.mobile-nav-item.active { color: var(--accent); }
+.mobile-nav-item span:first-child { font-size: 18px; }
+
+/* Push content above bottom nav */
+.main { padding-bottom: 52px; }
+
+/* Modals: full screen on mobile */
+.modal { max-height: 100vh; border-radius: 14px 14px 0 0; margin-top: auto; }
+.modal-overlay { padding: 0; align-items: flex-end; }
+
+/* Parlays page */
+.parlays-body { flex-direction: column; }
+.parlays-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+
+/* News page */
+.news-body { flex-direction: column; }
+.news-list { width: 100%; border-right: none; max-height: 40vh; }
+}
 </style>
 </head>
 <body>
@@ -1259,10 +1397,17 @@ function renderLineupsPane(m) {
     document.getElementById("mp1").innerHTML = driverHtml;
     return;
   }
+  var homeUnavailable = home.length === 1 && home[0]._squadUnavailable;
+  var awayUnavailable = away.length === 1 && away[0]._squadUnavailable;
+  var has = (home.length > 0 && !homeUnavailable) || (away.length > 0 && !awayUnavailable);
 
-  var has = home.length > 0 || away.length > 0;
+  if (homeUnavailable || awayUnavailable) {
+    var teamToFetch = homeUnavailable ? (m.home||'') : (m.away||'');
+    fetch('/squad/fetch/' + encodeURIComponent(teamToFetch), { method: 'POST', headers: authHeaders() }).catch(function(){});
+  }
+
   if (!has) {
-    document.getElementById("mp1").innerHTML = '<div class="empty-state" style="padding:50px 20px"><div class="empty-icon">👥</div><div class="empty-text">Lineups / rosters not yet available.</div></div>';
+    document.getElementById("mp1").innerHTML = '<div class="empty-state" style="padding:50px 20px"><div class="empty-icon">⏳</div><div class="empty-text">Squad data not yet loaded for this team.<br><span style="color:var(--accent);font-size:9px">Fetching in background — try again in 30 seconds.</span></div></div>';
     return;
   }
 
@@ -1999,7 +2144,7 @@ async function openSavedParlay(idx) {
     var res = Array.isArray(lr) && lr[i] ? lr[i] : null;
     var hit = res ? res.hit : null;
     var score = res ? (res.homeScore+'-'+res.awayScore) : '';
-    var icon = hit === null ? '⏳' : hit ? '✅' : '❌';
+    var icon = hit === null ? '⏳ PENDING' : hit ? '✅ HIT' : '❌ MISS';
     var col = hit === null ? 'var(--text3)' : hit ? 'var(--green)' : 'var(--red)';
     var autoTag = (res && res.resolvedAt) ? '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--purple);margin-left:4px">🤖 auto</span>' : '';
     return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px;margin-bottom:5px;border-left:3px solid '+((l.prob||50)>=65?"var(--green)":(l.prob||50)>=50?"var(--orange)":"var(--red)")+'">' +
@@ -2428,9 +2573,65 @@ async function init() {
   }
 
   await loadCurrentSport();
+  injectMobileNav();
   loadNewsTicker();
   loadUserCredits();
 }
+// ─── MOBILE NAV + PARLAY FAB ─────────────────────────────────────────────────
+function injectMobileNav() {
+  if (window.innerWidth > 768) return;
+
+  // Bottom nav
+  var nav = document.createElement('div');
+  nav.className = 'mobile-nav';
+  nav.innerHTML = `
+    <button class="mobile-nav-item active" onclick="showPage('home',this);updateMobileNav(this)" id="mnav-home">
+      <span>⚽</span><span>MATCHES</span>
+    </button>
+    <button class="mobile-nav-item" onclick="showPage('news',this);updateMobileNav(this)" id="mnav-news">
+      <span>📰</span><span>NEWS</span>
+    </button>
+    <button class="mobile-nav-item" onclick="showPage('parlays',this);updateMobileNav(this)" id="mnav-parlays">
+      <span>🎯</span><span>PARLAYS</span>
+    </button>
+    <button class="mobile-nav-item" onclick="window.location.href='account.html'" id="mnav-account">
+      <span>👤</span><span>ACCOUNT</span>
+    </button>
+    <button class="mobile-nav-item" onclick="window.location.href='subscriptions.html'" id="mnav-upgrade">
+      <span>⭐</span><span>UPGRADE</span>
+    </button>
+  `;
+  document.body.appendChild(nav);
+
+  // Parlay FAB
+  var fab = document.createElement('button');
+  fab.className = 'parlay-mobile-fab';
+  fab.id = 'parlayMobileFab';
+  fab.onclick = openParlayOverlay;
+  fab.textContent = '🎯 0 LEGS';
+  document.body.appendChild(fab);
+}
+
+function updateMobileNav(el) {
+  document.querySelectorAll('.mobile-nav-item').forEach(function(b){ b.classList.remove('active'); });
+  if (el) el.classList.add('active');
+}
+
+// Patch renderParlay to update the mobile FAB
+var _origRenderParlay = renderParlay;
+renderParlay = function() {
+  _origRenderParlay.apply(this, arguments);
+  var fab = document.getElementById('parlayMobileFab');
+  if (!fab) return;
+  var count = parlaySelections.length;
+  if (count > 0) {
+    fab.style.display = 'block';
+    var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1).toFixed(2);
+    fab.textContent = '🎯 ' + count + ' LEGS · ' + co + 'x';
+  } else {
+    fab.style.display = 'none';
+  }
+};
 window.addEventListener("DOMContentLoaded", init);
 </script>
 <!-- PARLAY OVERLAY -->
@@ -2454,5 +2655,6 @@ window.addEventListener("DOMContentLoaded", init);
     </div>
   </div>
 </div>
+<script src="/mobile-nav.js"></script>
 </body>
 </html>

@@ -385,15 +385,30 @@ const ALLOWED_LEAGUE_IDS_WHITELIST = new Set([
   5,    // UEFA Europa League
   24,   // UEFA Conference League
   8,    // Premier League
+  9,    // Championship
   7,    // FA Cup
   462,  // EFL Cup / Carabao Cup
   564,  // La Liga
+  507,  // Copa del Rey
   384,  // Serie A
+  481,  // Coppa Italia
   82,   // Bundesliga
+  327,  // DFB Pokal
   301,  // Ligue 1
+  390,  // Coupe de France
+  456,  // Primeira Liga
+  78,   // Eredivisie
+  1,    // Süper Lig
+  519,  // Scottish Premiership
+  155,  // Copa America
+  182,  // Brasileirão
   23,   // FIFA World Cup
   20,   // UEFA Euro
-  1269, // Copa America
+  1269, // Copa America (alt ID)
+  1322, // MLS
+  61,   // Belgian Pro League
+  65,   // Danish Superliga
+  72,   // Greek Super League
 ])
 
 
@@ -2385,7 +2400,7 @@ async function smFetchWithFallback(url, extraParams, cacheKey, ttl) {
 }
 
 async function smFixtures(days) {
-  days = Math.min(days || 7, 7)
+  days = Math.min(days || 14, 14)
   if (!SM_KEY) return []
   const start  = new Date().toISOString().slice(0, 10)
   const endStr = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
@@ -3276,6 +3291,10 @@ async function fetchSquadFromSupabase(teamName) {
 
 function buildExpectedLineupFromSquad(teamName, teamElo) {
   let squad = squadDB.get(teamName) || []
+  // If squad is genuinely empty AND not yet fetched, return sentinel
+  if (!squad.length) {
+    return [{ _squadUnavailable: true, teamName }]
+  }
 
   // If we have fewer than 11 players in RAM, trigger a background Supabase fetch
   // The next request will benefit from it
@@ -3343,18 +3362,8 @@ function buildExpectedLineupFromSquad(teamName, teamElo) {
             sm_player_id: backup.sm_player_id||null, _fromSquad: true, _backup: true,
           })
         } else {
-          // Absolute fallback — generate with initials style name
-          let seed = 0; for (let c = 0; c < teamName.length; c++) seed = seed * 31 + teamName.charCodeAt(c)
-          const pElo = Math.max(1300, Math.min(2000, teamElo - 80 + Math.abs((seed * playerNum) % 160)))
-          const attrs = buildPlayerAttrs(pos + playerNum, pos, pElo, teamElo, null)
-          const backupNames = ['A. Smith','J. Jones','M. Brown','D. Wilson','R. Garcia','T. Müller','F. Silva','K. Osei','N. Dubois','P. Rossi']
-          const fakeName = backupNames[(playerNum + teamName.length) % backupNames.length]
-          lineup.push({
-            number: playerNum, name: fakeName, position: pos, elo: pElo, isKey: false,
-            speed: attrs.speed, attack: attrs.attack, defense: attrs.defense,
-            bigMatch: attrs.bigMatch, playstyle: FOOTBALL_PLAYSTYLES[pos]||FOOTBALL_PLAYSTYLES.CM,
-            _placeholder: true,
-          })
+          // No squad data — return sentinel so frontend shows "unavailable"
+          lineup.push({ _unavailable: true, position: slot.pos })
         }
       }
     }
@@ -3719,7 +3728,8 @@ async function resolveFootballBatch(preds) {
     const yesterday = new Date(Date.now() - 2 * 86400000).toISOString().slice(0,10)
     const today     = new Date().toISOString().slice(0,10)
     const r = await http(`${SM_BASE}/fixtures/between/${yesterday}/${today}`, {
-      api_token: SM_KEY, include: 'participants;scores;state', per_page: 100
+      api_token: SM_KEY, include: 'participants;scores;state', per_page: 200,
+      'filters[state_id]': '5' // only fetch finished fixtures
     })
     const fixtures = (r.data?.data || []).filter(f => f.state_id === 5)
     for (const fix of fixtures) {
@@ -4031,16 +4041,43 @@ async function autoPopulateSquads() {
   console.log('🔄 Auto-populating squads (streaming mode — memory-safe)...')
   // Priority 1: Top clubs hardcoded (always loaded first)
   const TOP_CLUBS = [
+    // Premier League (all 20)
     'Arsenal','Liverpool','Manchester City','Chelsea','Manchester United',
     'Tottenham Hotspur','Newcastle United','Aston Villa','Brentford','Fulham',
     'Nottingham Forest','Crystal Palace','Bournemouth','West Ham United',
+    'Wolverhampton Wanderers','Everton','Leicester City','Ipswich Town','Southampton','Brighton',
+    // La Liga (top 10)
     'Real Madrid','Barcelona','Atletico Madrid','Athletic Club','Real Sociedad',
+    'Villarreal','Real Betis','Girona','Osasuna','Rayo Vallecano',
+    // Bundesliga (top 10)
     'Bayern Munich','Borussia Dortmund','RB Leipzig','Bayer 04 Leverkusen','VfB Stuttgart',
+    'Eintracht Frankfurt','Borussia Mönchengladbach','SC Freiburg','Werder Bremen','Hoffenheim',
+    // Serie A (top 10)
     'Inter Milan','Napoli','AC Milan','Juventus','Atalanta','AS Roma',
+    'Lazio','Fiorentina','Bologna','Torino',
+    // Ligue 1 (top 8)
     'Paris Saint-Germain','Monaco','Olympique Marseille','Lille','Nice',
-    'Benfica','Porto','Sporting CP',
-    'PSV','Ajax','Feyenoord',
-    'Celtic','Rangers','Galatasaray','Fenerbahce',
+    'Lyon','Rennes','Lens',
+    // Primeira Liga
+    'Benfica','Porto','Sporting CP','Braga','Vitória SC',
+    // Eredivisie
+    'PSV','Ajax','Feyenoord','AZ Alkmaar','FC Utrecht',
+    // Scottish Premiership
+    'Celtic','Rangers','Hearts','Hibernian',
+    // Turkish Süper Lig
+    'Galatasaray','Fenerbahce','Besiktas','Trabzonspor',
+    // UCL/UEL clubs commonly appearing
+    'Shakhtar Donetsk','Club Brugge','Benfica','Red Bull Salzburg',
+    'Young Boys','Slavia Prague','Dinamo Zagreb','Olimpija Ljubljana',
+    // MLS (Inter Miami etc)
+    'Inter Miami CF','LA Galaxy','Los Angeles FC','Seattle Sounders',
+    'Portland Timbers','Atlanta United','New York City FC','New England Revolution',
+    'CF Montréal','Toronto FC','Orlando City','FC Cincinnati',
+    'Columbus Crew','Chicago Fire','Minnesota United','Real Salt Lake',
+    'Colorado Rapids','Vancouver Whitecaps','San Jose Earthquakes',
+    'Houston Dynamo','Austin FC','Nashville SC','St. Louis City',
+    'Charlotte FC','New York Red Bulls','Philadelphia Union','DC United',
+    'New England Revolution','Sporting Kansas City',
   ]
   for (const teamName of TOP_CLUBS) {
     if (squadLoadedSet.has(teamName)) continue
@@ -4133,7 +4170,7 @@ function isAllowedFixture(f) {
       if (!isUEFA) return false
     }
     // English Premier League ID=8: block Nigerian PL, Indian PL, etc.
-    if (leagueId === 8   && countryName && countryName !== 'England' && countryName !== 'United Kingdom') return false
+    if (leagueId === 8 && countryName && !['England','United Kingdom','UK'].includes(countryName)) return false
     if (leagueId === 564 && countryName && countryName !== 'Spain')   return false
     if (leagueId === 384 && countryName && countryName !== 'Italy')   return false
     if (leagueId === 82  && countryName && countryName !== 'Germany') return false
@@ -4164,7 +4201,7 @@ async function loadAllowedLeagueIds() {
 
 app.get("/predictions", async (req, res) => {
   try {
-    const days = Math.min(parseInt(req.query.days || "7"), 7)
+    const days = Math.min(parseInt(req.query.days || "14"), 14)
     const leagueTier = parseInt(req.query.tier || "0") // 0 = all, 1/2/3 = tiers
     // Serve instantly from warm cache
     const warm = cache.get('predictions_warm')
@@ -4189,7 +4226,7 @@ app.get("/predictions", async (req, res) => {
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
 
-    const fixtures = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 120)
+    const fixtures = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 300)
     smAll.clear()
 
     console.log(`⚙️  Building ${fixtures.length} SM predictions...`)
@@ -4370,6 +4407,25 @@ app.get('/squad/byname/:teamName', async (req, res) => {
   if (cached && cached.length) return res.json(cached)
   res.json([])
 })
+
+// On-demand squad fetch — called when user opens a match with no squad data
+app.post('/squad/fetch/:teamName', async (req, res) => {
+  const teamName = decodeURIComponent(req.params.teamName)
+  res.json({ ok: true, queued: true }) // respond immediately
+  // Background fetch
+  if (!squadLoadedSet.has(teamName) && SM_KEY) {
+    try {
+      const found = await smSearchTeam(teamName).catch(() => null)
+      if (found?.id) {
+        console.log(`🔍 On-demand squad fetch: ${teamName} (SM ID: ${found.id})`)
+        await loadSingleTeamSquad(found.id, teamName)
+        squadLoadedSet.add(teamName)
+      }
+    } catch(e) { console.log('⚠️ On-demand squad fetch failed:', teamName) }
+  }
+})
+
+
 app.get('/team/profile/:teamName', async (req, res) => {
   function buildTeamDescriptors(teamName, tElo, w) {
     const descriptors = [], strengths = [], weaknesses = []
@@ -6136,9 +6192,9 @@ app.listen(PORT, async () => {
 // Pre-warm predictions cache so first user gets fast response
 setTimeout(() => warmPredictionsCache(), 5000)
 setInterval(() => warmPredictionsCache(), 3600000)
-// Auto-resolve finished predictions every 30 minutes
-setTimeout(() => resolveFinishedPredictions().catch(() => {}), 30000)
-setInterval(() => resolveFinishedPredictions().catch(() => {}), 30 * 60000)
+// Auto-resolve finished predictions — every 10 minutes for timely parlay updates
+setTimeout(() => resolveFinishedPredictions().catch(() => {}), 20000)
+setInterval(() => resolveFinishedPredictions().catch(() => {}), 10 * 60000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
