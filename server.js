@@ -317,7 +317,19 @@ const compression = require('compression')
 const helmet = require('helmet')
 app.use(compression())
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }))
-app.use(express.static(path.join(__dirname, "public"), { maxAge: '1d', etag: true }))
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: '7d',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    if (filePath.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}))
+
+// Always redirect root to home.html — skip index.html entirely
+app.get('/', (req, res) => {
+  res.redirect(301, '/home.html')
+})
 
 app.use(cors())
 app.use("/webhook/stripe", express.raw({ type: "application/json" }))
@@ -368,47 +380,72 @@ const SM_BASE      = "https://api.sportmonks.com/v3/football"
 const SM_MOTO_BASE = "https://api.sportmonks.com/v3/motorsport"
 const OPEN_F1_BASE = "https://api.openf1.org/v1"
 const SQUAD_PRIORITY_LEAGUES = new Set([
-  2, 5, 24,
-  8, 9, 7, 462,
-  564, 507, 456,
-  384, 481, 390,
-  82, 327, 78,
-  301, 61, 65,
-  1, 519,
-  155, 182,
-  23, 20, 1269,
+  2, 5, 24,        // UCL, UEL, UECL
+  8, 9, 7, 462,    // Premier League, Championship, FA Cup, Carabao
+  564, 507, 456,   // La Liga, Copa del Rey, Primeira Liga
+  384, 481, 390,   // Serie A, Coppa Italia, Coupe de France
+  82, 327, 78,     // Bundesliga, DFB Pokal, Eredivisie
+  301, 61, 65,     // Ligue 1, Belgian Pro, Danish SL
+  1, 519,          // Süper Lig, Scottish Prem
+  155, 182,        // Copa America, Brasileirao
+  23, 20, 1269,    // World Cup, Euros, Copa America alt
+  72, 73, 564,     // Greek SL alternatives
+  271, 244, 268,   // Extra SM league IDs for top leagues
+  462, 463,        // EFL Cup variants
 ])
 
 // Whitelist — ONLY these leagues will show on the matches page
 const ALLOWED_LEAGUE_IDS_WHITELIST = new Set([
+  // ── UEFA COMPETITIONS ──────────────────────────────────
   2,    // UEFA Champions League
   5,    // UEFA Europa League
   24,   // UEFA Conference League
-  8,    // Premier League
-  9,    // Championship
+  // ── ENGLAND ────────────────────────────────────────────
+  8,    // Premier League (confirmed English from debug)
+  420,  // Premier League alt (must pass country check below)
   7,    // FA Cup
   462,  // EFL Cup / Carabao Cup
-  564,  // La Liga
+  463,  // EFL Cup alt
+  // ── SPAIN ──────────────────────────────────────────────
+  564,  // La Liga (confirmed from debug)
   507,  // Copa del Rey
-  384,  // Serie A
+  // ── ITALY ──────────────────────────────────────────────
+  384,  // Serie A (confirmed from debug)
   481,  // Coppa Italia
+  // ── GERMANY ────────────────────────────────────────────
   82,   // Bundesliga
   327,  // DFB Pokal
+  // ── FRANCE ─────────────────────────────────────────────
   301,  // Ligue 1
+  956,  // Ligue 1 alt ID (confirmed from debug)
   390,  // Coupe de France
+  // ── PORTUGAL ───────────────────────────────────────────
   456,  // Primeira Liga
+  // ── NETHERLANDS ────────────────────────────────────────
   78,   // Eredivisie
-  1,    // Süper Lig
-  519,  // Scottish Premiership
-  155,  // Copa America
-  182,  // Brasileirão
+  // ── TURKEY ─────────────────────────────────────────────
+  600,  // Super Lig (confirmed from debug)
+  // ── SCOTLAND ───────────────────────────────────────────
+  501,  // Scottish Premiership (confirmed from debug)
+  519,  // Scottish Premiership alt
+  // ── BELGIUM ────────────────────────────────────────────
+  363,  // First Division A (confirmed from debug)
+  // ── NETHERLANDS ────────────────────────────────────────
+  271,  // Superliga / Eredivisie alt (confirmed from debug)
+  474,  // Superliga alt
+  // ── DENMARK ────────────────────────────────────────────
+  // (use name-based only — IDs overlap with other leagues)
+  // ── GREECE ─────────────────────────────────────────────
+  989,  // Super League (confirmed from debug)
+  // ── SAUDI ARABIA ───────────────────────────────────────
+  // (use name-based — not in debug list, ESPN supplement)
+  // ── INTERNATIONAL ──────────────────────────────────────
   23,   // FIFA World Cup
   20,   // UEFA Euro
-  1269, // Copa America (alt ID)
+  155,  // Copa America
+  // ── MLS ────────────────────────────────────────────────
   1322, // MLS
-  61,   // Belgian Pro League
-  65,   // Danish Superliga
-  72,   // Greek Super League
+  2545, // MLS Next Pro (confirmed from debug, but we'll block below)
 ])
 
 
@@ -952,7 +989,71 @@ const ELO_BASE = {
 
 // ── PLAYER ELO STARTING VALUES (adaptive system adjusts from here) ─────────
 // Order = descending ability. Non-listed players cap at 1989 so these always lead.
+
+const TOP_50_PLAYERS_2026 = [
+  { name:"Harry Kane",        club:"Bayern Munich",    position:"ST",  elo:2090, rank:1  },
+  { name:"Lamine Yamal",      club:"Barcelona",        position:"RW",  elo:2082, rank:2  },
+  { name:"Michael Olise",     club:"Bayern Munich",    position:"RW",  elo:2074, rank:3  },
+  { name:"Erling Haaland",    club:"Manchester City",  position:"ST",  elo:2050, rank:4  },
+  { name:"Kylian Mbappé",     club:"Real Madrid",      position:"LW",  elo:2068, rank:5  },
+  { name:"Kylian Mbappe",     club:"Real Madrid",      position:"LW",  elo:2068, rank:5  },
+  { name:"Khvicha Kvaratskhelia",club:"PSG",           position:"LW",  elo:2046, rank:6  },
+  { name:"Vitinha",           club:"PSG",              position:"CM",  elo:2062, rank:7  },
+  { name:"Declan Rice",       club:"Arsenal",          position:"CDM", elo:2044, rank:8  },
+  { name:"William Saliba",    club:"Arsenal",          position:"CB",  elo:1996, rank:9  },
+  { name:"Achraf Hakimi",     club:"PSG",              position:"RB",  elo:2038, rank:10 },
+  { name:"Gabriel Magalhães", club:"Arsenal",          position:"CB",  elo:2032, rank:11 },
+  { name:"Gabriel Magalhaes", club:"Arsenal",          position:"CB",  elo:2032, rank:11 },
+  { name:"João Neves",        club:"PSG",              position:"CDM", elo:2020, rank:12 },
+  { name:"Joao Neves",        club:"PSG",              position:"CDM", elo:2020, rank:12 },
+  { name:"Luis Díaz",         club:"Bayern Munich",    position:"LW",  elo:1978, rank:13 },
+  { name:"Luis Diaz",         club:"Bayern Munich",    position:"LW",  elo:1978, rank:13 },
+  { name:"Nuno Mendes",       club:"PSG",              position:"LB",  elo:2026, rank:14 },
+  { name:"Federico Valverde", club:"Real Madrid",      position:"CM",  elo:1936, rank:15 },
+  { name:"David Raya",        club:"Arsenal",          position:"GK",  elo:1990, rank:16 },
+  { name:"Ousmane Dembélé",   club:"PSG",              position:"RW",  elo:1832, rank:17 },
+  { name:"Ousmane Dembele",   club:"PSG",              position:"RW",  elo:1832, rank:17 },
+  { name:"Raphinha",          club:"Barcelona",        position:"RW",  elo:1932, rank:18 },
+  { name:"Bruno Fernandes",   club:"Manchester United",position:"CAM", elo:2038, rank:19 },
+  { name:"Rayan Cherki",      club:"Manchester City",  position:"CAM", elo:2004, rank:20 },
+  { name:"Gianluigi Donnarumma",club:"Manchester City",position:"GK",  elo:1984, rank:21 },
+  { name:"Lautaro Martínez",  club:"Inter Milan",      position:"ST",  elo:1880, rank:22 },
+  { name:"Lautaro Martinez",  club:"Inter Milan",      position:"ST",  elo:1880, rank:22 },
+  { name:"Vinícius Júnior",   club:"Real Madrid",      position:"LW",  elo:1968, rank:23 },
+  { name:"Vinicius Junior",   club:"Real Madrid",      position:"LW",  elo:1968, rank:23 },
+  { name:"Pedri",             club:"Barcelona",        position:"CM",  elo:2056, rank:24 },
+  { name:"Joshua Kimmich",    club:"Bayern Munich",    position:"CM",  elo:1890, rank:25 },
+  { name:"Thibaut Courtois",  club:"Real Madrid",      position:"GK",  elo:1870, rank:26 },
+  { name:"Dani Olmo",         club:"Barcelona",        position:"CAM", elo:1870, rank:27 },
+  { name:"Jurrien Timber",    club:"Arsenal",          position:"CB",  elo:1850, rank:28 },
+  { name:"Reece James",       club:"Chelsea",          position:"RB",  elo:2014, rank:29 },
+  { name:"Kevin De Bruyne",   club:"Manchester City",  position:"CAM", elo:1896, rank:30 },
+  { name:"Joan Garcia",       club:"Barcelona",        position:"GK",  elo:1840, rank:31 },
+  { name:"Luka Modric",       club:"AC Milan",         position:"CM",  elo:1830, rank:32 },
+  { name:"Désiré Doué",       club:"PSG",              position:"LW",  elo:1820, rank:33 },
+  { name:"Antoine Semenyo",   club:"Manchester City",  position:"RW",  elo:1810, rank:34 },
+  { name:"Eberechi Eze",      club:"Arsenal",          position:"CAM", elo:1800, rank:35 },
+  { name:"Bryan Mbeumo",      club:"Brentford",        position:"RW",  elo:1790, rank:36 },
+  { name:"Marcus Rashford",   club:"Manchester United",position:"LW",  elo:1780, rank:37 },
+  { name:"Julian Alvarez",    club:"Atletico Madrid",  position:"ST",  elo:1900, rank:38 },
+  { name:"Julián Álvarez",    club:"Atletico Madrid",  position:"ST",  elo:1900, rank:38 },
+  { name:"Mason Greenwood",   club:"Marseille",        position:"RW",  elo:1770, rank:39 },
+  { name:"Hugo Ekitiké",      club:"Liverpool",        position:"ST",  elo:2008, rank:40 },
+  { name:"Hugo Ekitike",      club:"Liverpool",        position:"ST",  elo:2008, rank:40 },
+  { name:"Marc Guehi",        club:"Liverpool",        position:"CB",  elo:1760, rank:41 },
+  { name:"Riccardo Calafiori",club:"Arsenal",          position:"CB",  elo:1750, rank:42 },
+  { name:"Willian Pacho",     club:"PSG",              position:"CB",  elo:1740, rank:43 },
+  { name:"Marquinhos",        club:"PSG",              position:"CB",  elo:1860, rank:44 },
+  { name:"Marc Cucurella",    club:"Chelsea",          position:"LB",  elo:1730, rank:45 },
+  { name:"Joao Pedro",        club:"Chelsea",          position:"ST",  elo:1720, rank:46 },
+  { name:"João Pedro",        club:"Chelsea",          position:"ST",  elo:1720, rank:46 },
+  { name:"Victor Osimhen",    club:"Galatasaray",      position:"ST",  elo:1816, rank:47 },
+  { name:"Florian Wirtz",     club:"Liverpool",        position:"CAM", elo:1960, rank:48 },
+  { name:"Jude Bellingham",   club:"Real Madrid",      position:"CAM", elo:1964, rank:49 },
+  { name:"Rodri",             club:"Manchester City",  position:"CDM", elo:1952, rank:50 },
+]
 const PLAYER_ELO_OVERRIDE = {
+  
   
   "Harry Kane":2090, "Michael Olise":2082, "Lamine Yamal":2074,
   "Kylian Mbappe":2068, "Kylian Mbappé":2068,
@@ -991,6 +1092,7 @@ const PLAYER_ELO_OVERRIDE = {
   "Marcus Thuram":1812, "Nicolo Barella":1808,
   "Hakan Calhanoglu":1804, "Alessandro Bastoni":1800,
 }
+
 // ── NATIONAL TEAM ELOs (World Cup 2026) ──────────────────────────────────────
 // Separate from club ELO — reflects international form and importance to national team
 const NATIONAL_TEAM_ELO = {
@@ -2943,23 +3045,54 @@ function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW, extras
 function detectMismatches(homeLineup, awayLineup, homeName, awayName) {
   const mismatches = []
   if (!homeLineup?.length || !awayLineup?.length) return mismatches
-  const checkMismatch = (atk, def, atkTeam) => {
-    const isPositional = (atk.position==="LW"&&def.position==="RB")||(atk.position==="RW"&&def.position==="LB")||(atk.position==="ST"&&def.position==="CB")||(atk.position==="CAM"&&def.position==="CDM")
-    if (!isPositional) return
-    const atkAdv = (atk.attack||60) - (def.defense||50)
-    const spdAdv = (atk.speed||60)  - (def.speed||50)
-    if (atkAdv > 20 || spdAdv > 25) {
-      const weight = Math.min(0.95, 0.5 + (atkAdv + spdAdv) / 200)
-      mismatches.push({ attacker:{name:atk.name,pos:atk.position,elo:atk.elo,attack:atk.attack,speed:atk.speed}, defender:{name:def.name,pos:def.position,elo:def.elo,defense:def.defense,speed:def.speed}, atkAdvantage:Math.round(atkAdv), speedAdvantage:Math.round(spdAdv), favor:atkTeam, weight:parseFloat(weight.toFixed(2)) })
+
+  const MATCHUPS = [
+    { atkPos: ['ST','LW','RW','CAM'], defPos: ['CB','LB','RB'], atkStat: 'attack', defStat: 'defense', threshold: 18 },
+    { atkPos: ['ST'], defPos: ['GK'], atkStat: 'attack', defStat: 'defense', threshold: 22, label: 'Finishing vs Keeper' },
+    { atkPos: ['CM','CDM','CAM'], defPos: ['CM','CDM','CAM'], atkStat: 'attack', defStat: 'defense', threshold: 20, label: 'Midfield Battle' },
+    { atkPos: ['LW','RW'], defPos: ['LB','RB'], atkStat: 'speed', defStat: 'speed', threshold: 20, label: 'Pace Battle' },
+  ]
+
+  const getBest = (lineup, positions) => lineup
+    .filter(p => positions.includes(p.position))
+    .sort((a, b) => ((b.attack||b.speed||0) - (a.attack||a.speed||0)))
+    .slice(0, 1)
+
+  const sides = [
+    { atk: homeLineup, def: awayLineup, atkTeam: homeName },
+    { atk: awayLineup, def: homeLineup, atkTeam: awayName },
+  ]
+
+  for (const matchup of MATCHUPS) {
+    for (const side of sides) {
+      const atkPool = getBest(side.atk, matchup.atkPos)
+      const defPool = getBest(side.def, matchup.defPos)
+      if (!atkPool.length || !defPool.length) continue
+
+      const atk = atkPool[0], def = defPool[0]
+      const atkVal = atk[matchup.atkStat] || atk.attack || atk.speed || 60
+      const defVal = def[matchup.defStat] || def.defense || def.speed || 60
+      const advantage = atkVal - defVal
+
+      if (advantage >= matchup.threshold) {
+        const already = mismatches.find(mm =>
+          mm.attacker.name === atk.name && mm.defender.name === def.name)
+        if (!already) {
+          mismatches.push({
+            attacker: { name: atk.name, pos: atk.position, elo: atk.elo, attack: atk.attack, speed: atk.speed },
+            defender: { name: def.name, pos: def.position, elo: def.elo, defense: def.defense, speed: def.speed },
+            atkAdvantage: Math.round(advantage),
+            speedAdvantage: Math.round((atk.speed || 60) - (def.speed || 60)),
+            favor: side.atkTeam,
+            weight: parseFloat(Math.min(0.95, 0.5 + advantage / 120).toFixed(2)),
+            label: matchup.label || null,
+          })
+        }
+      }
     }
   }
-  const homeAtk = homeLineup.filter(p => ["ST","LW","RW","CAM"].includes(p.position))
-  const awayAtk = awayLineup.filter(p => ["ST","LW","RW","CAM"].includes(p.position))
-  const homeDef = homeLineup.filter(p => ["CB","LB","RB","CDM"].includes(p.position))
-  const awayDef = awayLineup.filter(p => ["CB","LB","RB","CDM"].includes(p.position))
-  for (const atk of homeAtk) for (const def of awayDef) checkMismatch(atk, def, homeName)
-  for (const atk of awayAtk) for (const def of homeDef) checkMismatch(atk, def, awayName)
-  return mismatches.sort((a, b) => b.atkAdvantage - a.atkAdvantage).slice(0, 6)
+
+  return mismatches.sort((a, b) => b.atkAdvantage - a.atkAdvantage).slice(0, 5)
 }
 
 // ── LEAGUE NORMALISATION ──────────────────────────────────
@@ -3022,52 +3155,88 @@ function inferTactics(elo, form) {
 // ── THE ODDS API ──────────────────────────────────────────
 // ESPN football leagues — supplementary source for leagues not in SM plan
 const ESPN_FOOTBALL_LEAGUES = [
+  // European cups — MUST be first so they load before league cap kicks in
+  { slug: 'uefa.champions',   name: 'Champions League',      country: 'World' },
+  { slug: 'uefa.europa',      name: 'Europa League',         country: 'World' },
+  { slug: 'uefa.europa.conf', name: 'Conference League',     country: 'World' },
+  // Top 5 leagues
   { slug: 'eng.1',            name: 'Premier League',        country: 'England' },
   { slug: 'esp.1',            name: 'La Liga',               country: 'Spain' },
   { slug: 'ger.1',            name: 'Bundesliga',            country: 'Germany' },
   { slug: 'ita.1',            name: 'Serie A',               country: 'Italy' },
   { slug: 'fra.1',            name: 'Ligue 1',               country: 'France' },
-  { slug: 'uefa.champions',   name: 'Champions League',      country: 'World' },
-  { slug: 'uefa.europa',      name: 'Europa League',         country: 'World' },
-  { slug: 'uefa.europa.conf', name: 'Conference League',     country: 'World' },
-  { slug: 'eng.fa',           name: 'FA Cup',                country: 'England' },
-  { slug: 'bra.1',            name: 'Brasileirão',           country: 'Brazil' },
-  { slug: 'ksa.1',            name: 'Saudi Pro League',      country: 'Saudi Arabia' },
-  { slug: 'usa.1',            name: 'MLS',                   country: 'USA' },
-  { slug: 'sco.1',            name: 'Scottish Premiership',  country: 'Scotland' },
-  { slug: 'por.1',            name: 'Primeira Liga',         country: 'Portugal' },
+  // Other top leagues
   { slug: 'ned.1',            name: 'Eredivisie',            country: 'Netherlands' },
-  { slug: 'tur.1',            name: 'Süper Lig',             country: 'Turkey' },
+  { slug: 'por.1',            name: 'Primeira Liga',         country: 'Portugal' },
+  { slug: 'bra.1',            name: 'Brasileirão',           country: 'Brazil' },
+  // World Cup (when active)
+  { slug: 'fifa.world',       name: 'World Cup',             country: 'World' },
 ]
 
 async function fetchESPNFootballGames() {
   return cached('espn_football_all', async () => {
     const all = []
+    const today = new Date()
+    // Build date strings for next 14 days to force ESPN to return upcoming fixtures
+    const dateParams = []
+    for (let i = 0; i <= 14; i++) {
+      const d = new Date(today.getTime() + i * 86400000)
+      dateParams.push(d.toISOString().slice(0,10).replace(/-/g,''))
+    }
+
     for (const lg of ESPN_FOOTBALL_LEAGUES) {
       try {
-        // Fetch scoreboard (current/live) AND upcoming schedule
-        const [sbR, scR] = await Promise.allSettled([
-          httpExt(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard`, { limit: 100 }),
-          httpExt(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/schedule`, { limit: 100 }),
-        ])
-        const sbEvents = sbR.status === 'fulfilled' ? (sbR.value.data?.events || []) : []
-        // ESPN schedule wraps events differently
-        const scRaw = scR.status === 'fulfilled' ? scR.value.data : {}
-        const scEvents = scRaw?.events || []
-
         const seen = new Set()
         const combined = []
-        for (const e of [...sbEvents, ...scEvents]) {
+
+        // 1. Scoreboard (current day — gets live + today's games)
+        const sbR = await httpExt(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard`,
+          { limit: 100 }
+        ).catch(() => null)
+        for (const e of sbR?.data?.events || []) {
           if (!seen.has(e.id)) { seen.add(e.id); combined.push(e) }
         }
+
+        // 2. Scoreboard with date range for next 14 days
+        // ESPN scoreboard accepts a dates param like 20260501-20260514
+        const rangeStart = dateParams[0]
+        const rangeEnd   = dateParams[dateParams.length - 1]
+        const rangeR = await httpExt(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/scoreboard`,
+          { limit: 200, dates: `${rangeStart}-${rangeEnd}` }
+        ).catch(() => null)
+        for (const e of rangeR?.data?.events || []) {
+          if (!seen.has(e.id)) { seen.add(e.id); combined.push(e) }
+        }
+
+        // 3. Schedule endpoint (different structure — has upcoming fixtures)
+        const scR = await httpExt(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.slug}/schedule`,
+          { limit: 200, seasontype: 2 }
+        ).catch(() => null)
+        const scData = scR?.data || {}
+        // Schedule wraps by date key: { "20260501": { games: [...] }, ... }
+        const scheduleEvents = scData?.events || []
+        const scheduleByDate = scData?.content?.schedule || scData?.schedule || {}
+        for (const e of scheduleEvents) {
+          if (!seen.has(e.id)) { seen.add(e.id); combined.push(e) }
+        }
+        for (const dateKey of Object.values(scheduleByDate)) {
+          for (const e of (dateKey?.games || dateKey?.events || [])) {
+            if (!seen.has(e.id)) { seen.add(e.id); combined.push(e) }
+          }
+        }
+
         for (const e of combined) e._espnLeague = lg
         all.push(...combined)
-        await sleep(120)
+        console.log(`  ✅ ESPN ${lg.name}: ${combined.length} events`)
+        await sleep(150)
       } catch(e) {
         console.log(`  ⚠️  ESPN ${lg.name}: ${e.message?.slice(0, 40)}`)
       }
     }
-    console.log(`✅ ESPN football: ${all.length} events across ${ESPN_FOOTBALL_LEAGUES.length} leagues`)
+    console.log(`✅ ESPN football total: ${all.length} events across ${ESPN_FOOTBALL_LEAGUES.length} leagues`)
     return all
   }, TTL.S)
 }
@@ -3084,11 +3253,15 @@ function buildESPNFootballPrediction(event, oddsMap) {
     const home = homeC.team?.displayName || homeC.team?.name || 'Home'
     const away = awayC.team?.displayName || awayC.team?.name || 'Away'
     const lg     = event._espnLeague || { name: 'Football', country: 'Unknown' }
-    const league = normLeague(lg.name)
+    const league = normLeague(lg.name) || lg.name
     if (!league) return null
 
-    if (comp.status?.type?.completed) return null
-    const isLive = comp.status?.type?.name === 'STATUS_IN_PROGRESS'
+    // Only skip truly finished games — not scheduled/upcoming
+    const statusName = comp.status?.type?.name || ''
+    const isCompleted = comp.status?.type?.completed === true && 
+      (statusName === 'STATUS_FINAL' || statusName === 'STATUS_FULL_TIME')
+    if (isCompleted) return null
+    const isLive = statusName === 'STATUS_IN_PROGRESS'
 
     const hElo = getElo(home, league, 0.4)
     const aElo = getElo(away, league, 0.6)
@@ -3635,8 +3808,9 @@ if (isPriorityLeague) {
       drawOdds: parseFloat(drawOdds.toFixed(2)),
       awayOdds: parseFloat(awayOdds.toFixed(2)),
       hasRealOdds, confidence,
-      upsetProb:    Math.min(95, Math.round(awayProb * 0.8 + (homeOdds < 1.6 ? 15 : 5))),
-      isUpsetWatch: awayProb > 28 && homeOdds > 1.5,
+      upsetProb: homeProb < awayProb ? homeProb : awayProb,
+      upsetTeam: homeProb < awayProb ? home : away,
+      isUpsetWatch: (homeProb < awayProb ? homeProb : awayProb) >= 22 && (homeProb < awayProb ? homeProb : awayProb) <= 44,
       valueBet:     hVal.isValue || aVal.isValue,
       homeValueEdge: hVal.edge, awayValueEdge: aVal.edge,
       homeElo: hElo, awayElo: aElo,
@@ -3834,11 +4008,40 @@ async function updateParlaysForFixture(fixtureId, sport, actualWinner, actualTea
 }
 // ── LEAGUE SORT ORDER ─────────────────────────────────────
 const LEAGUE_RANK = {
-  "Champions League":1,"Premier League":2,"La Liga":3,"Serie A":4,"Bundesliga":5,
-  "Ligue 1":6,"Europa League":7,"Conference League":8,"FA Cup":9,"Carabao Cup":10,
-  "Championship":11,"Primeira Liga":12,"Eredivisie":13,"Süper Lig":14,
-  "Belgian Pro League":15,"Scottish Premiership":16,"Argentine Primera":17,
-  "Brasileirão":20,"MLS":21,"Saudi Pro League":22,
+  // Tier 1 — always show first
+  "Champions League":    1,
+  "Premier League":      2,
+  "La Liga":             3,
+  "Serie A":             4,
+  "Bundesliga":          5,
+  "Ligue 1":             6,
+  // Tier 2 — cup competitions
+  "Europa League":       7,
+  "Conference League":   8,
+  "FA Cup":              9,
+  "Carabao Cup":         10,
+  // Tier 3 — other top leagues
+  "Primeira Liga":       11,
+  "Eredivisie":          12,
+  "Süper Lig":           13,
+  "Scottish Premiership":14,
+  "Belgian Pro League":  15,
+  "Danish Superliga":    16,
+  "Greek Super League":  17,
+  // Tier 4 — Saudi + Americas
+  "Saudi Pro League":    18,
+  "MLS":                 19,
+  "Brasileirão":         20,
+  "Argentine Primera":   21,
+  // Tier 5 — cup competitions (other)
+  "Copa del Rey":        22,
+  "Coppa Italia":        23,
+  "DFB Pokal":           24,
+  "Coupe de France":     25,
+  // International
+  "World Cup":           26,
+  "UEFA Euro":           27,
+  "Copa America":        28,
 }
 
 // ── AI ─────────────────────────────────────────────────────
@@ -3867,7 +4070,15 @@ async function warmPredictionsCache() {
 
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
-    const smFixFiltered = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 120)
+      const TOP_LEAGUE_IDS_WARM = new Set([2, 5, 24, 8, 9, 7, 462, 564, 507, 384, 481, 82, 327, 301, 390, 456, 78, 519, 1, 61])
+    const smFixFiltered = [...smAll.values()]
+      .filter(f => isAllowedFixture(f))
+      .sort((a, b) => {
+        const aTop = TOP_LEAGUE_IDS_WARM.has(a.league_id || a.league?.id) ? 0 : 1
+        const bTop = TOP_LEAGUE_IDS_WARM.has(b.league_id || b.league?.id) ? 0 : 1
+        return aTop - bTop
+      })
+      .slice(0, 200)
     smAll.clear()
 
     const smResults = []
@@ -3878,26 +4089,32 @@ async function warmPredictionsCache() {
     }
     smFixFiltered.length = 0
 
-    // ESPN supplement — fetch any games SM missed
+    // ESPN supplement — force fresh fetch every warm cycle
+    cache.delete('espn_football_all')
     let espnSupp = []
     try {
       const espnEvents = await fetchESPNFootballGames().catch(() => [])
-      const smPairs = new Set(smResults.map(m => `${(m.home||'').toLowerCase().slice(0,6)}||${(m.away||'').toLowerCase().slice(0,6)}`))
+      const normT = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8)
+      const smPairs = new Set(smResults.map(m => `${normT(m.home)}||${normT(m.away)}`))
       espnSupp = espnEvents
         .map(e => buildESPNFootballPrediction(e, oddsMap || {}))
         .filter(p => {
           if (!p) return false
-          const key = `${(p.home||'').toLowerCase().slice(0,6)}||${(p.away||'').toLowerCase().slice(0,6)}`
-          return !smPairs.has(key)
+          const key = `${normT(p.home)}||${normT(p.away)}`
+          // Also check reverse fixture (ESPN sometimes flips home/away)
+          const keyRev = `${normT(p.away)}||${normT(p.home)}`
+          return !smPairs.has(key) && !smPairs.has(keyRev)
         })
       console.log(`✅ ESPN supplement: ${espnSupp.length} additional games`)
     } catch(e) { console.log('⚠️ ESPN supplement:', e.message?.slice(0,50)) }
 
-    const results = [...smResults, ...espnSupp]
-
-    cache.set('predictions_warm', { data: results, ts: Date.now() })
-    console.log(`✅ Cache warmed: ${results.length} predictions (SM:${smResults.length} ESPN:${espnSupp.length})`)
-    return results
+// Merge: SM first (has richer data), ESPN fills gaps — but always include ESPN top leagues
+const espnTopLeagues = new Set(['Champions League','Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','World Cup'])
+const espnPriority = espnSupp.filter(p => espnTopLeagues.has(p.league))
+const espnOther    = espnSupp.filter(p => !espnTopLeagues.has(p.league))
+const results = [...espnPriority, ...smResults, ...espnOther]
+console.log(`✅ Cache warmed: ${results.length} predictions (SM:${smResults.length} ESPN:${espnSupp.length})`)
+return results
   } catch(e) {
     console.log('⚠️  Cache warm failed:', e.message)
     return []
@@ -4154,44 +4371,144 @@ const WHITELISTED_LEAGUE_NAMES = new Set([
   'Champions League','Europa League','Conference League',
   'World Cup','UEFA Euro','Copa America',
 ])
+// ── STRICT LEAGUE ID → COUNTRY MAP ───────────────────────────────────────────
+// Only these exact SM IDs are allowed, with their required country
+const LEAGUE_ID_COUNTRY_REQUIRED = {
+  // England
+  8:    ['England','United Kingdom','UK','Great Britain',''],
+  420:  ['England','United Kingdom','UK','Great Britain',''],
+  7:    ['England','United Kingdom','UK','Great Britain',''],
+  462:  ['England','United Kingdom','UK','Great Britain',''],
+  463:  ['England','United Kingdom','UK','Great Britain',''],
+  // Spain
+  564:  ['Spain',''],
+  507:  ['Spain',''],
+  // Italy
+  384:  ['Italy',''],
+  481:  ['Italy',''],
+  // Germany
+  82:   ['Germany',''],
+  327:  ['Germany',''],
+  // France
+  301:  ['France',''],
+  956:  ['France',''],
+  390:  ['France',''],
+  // Portugal
+  456:  ['Portugal',''],
+  // Netherlands
+  78:   ['Netherlands','Holland',''],
+  // Turkey
+  600:  ['Turkey','Türkiye',''],
+  // Scotland
+  501:  ['Scotland','United Kingdom','UK',''],
+  519:  ['Scotland','United Kingdom','UK',''],
+  // Belgium
+  363:  ['Belgium',''],
+  // Superligan / Danish
+  271:  ['Denmark','Netherlands','Holland',''],  // could be either
+  474:  ['Denmark',''],
+  // Greece
+  989:  ['Greece',''],
+  // MLS
+  1322: ['USA','United States',''],
+  // International — no country restriction
+  2:    [''],  // UCL
+  5:    [''],  // UEL
+  24:   [''],  // UECL
+  23:   [''],  // World Cup
+  20:   [''],  // UEFA Euro
+  155:  [''],  // Copa America
+}
+
 function isAllowedFixture(f) {
+  // ESPN-sourced fixtures: already filtered to correct leagues, always allow
+  if (f._source === 'espn' || f._espnLeague) return true
+
   const leagueId    = f.league_id || f.league?.id
   const rawName     = f.league?.name || ''
   const countryName = f.league?.country?.name || ''
+
+  // Block Championship teams masquerading as Premier League
+  // These teams are NOT in the 24/25 Premier League
+  const CHAMPIONSHIP_TEAMS = new Set([
+    'sheffield united','leicester city','ipswich town',
+    ,'coventry city','middlesbrough','watford','millwall',
+    'swansea city','hull city','norwich city','stoke city','cardiff city',
+    'blackburn rovers','queens park rangers','bristol city','derby county',
+    'plymouth argyle','luton town','west bromwich albion','preston north end',
+    'sheffield wednesday'
+  ])
+  const homeName = (f.participants?.find(p => p.meta?.location === 'home')?.name || '').toLowerCase()
+  const awayName = (f.participants?.find(p => p.meta?.location === 'away')?.name || '').toLowerCase()
+  // If BOTH teams are Championship teams and it's tagged as "Premier League" — block it
+  if (rawName === 'Premier League' && leagueId !== 8 &&
+      CHAMPIONSHIP_TEAMS.has(homeName) && CHAMPIONSHIP_TEAMS.has(awayName)) {
+    console.log(`🚫 Blocked fake PL: ${homeName} vs ${awayName} (SM ID: ${leagueId})`)
+    return false
+  }
   const leagueName  = normLeague(rawName)
 
-  if (leagueId && ALLOWED_LEAGUE_IDS_WHITELIST.has(leagueId)) {
-    // UEFA IDs (2=UCL, 5=UEL, 24=UECL): block non-UEFA "champions leagues" (Club World Cup etc.)
-    const UEFA_IDS = new Set([2, 5, 24])
-    if (UEFA_IDS.has(leagueId)) {
-      const raw = rawName.toLowerCase()
-      const isUEFA = raw.includes('uefa') || raw.includes('champions league') ||
-                     raw.includes('europa league') || raw.includes('conference league')
-      if (!isUEFA) return false
+  // BLOCK: U21, U23, youth, women, reserve, B teams
+  // ── BLOCK: women, youth, reserves, second divisions we don't want ──────────
+  const rawLo = rawName.toLowerCase()
+  const BAD_KEYWORDS = [
+    'u21','u23','u20','u19','u18','u17','u16',
+    'youth','reserve','women','ladies','feminine','femenino','feminin',
+    ' b ',' ii ','under-21','under21',
+    'serie b','2. bundesliga','segunda','segunda b',
+    'liga portugal 2','championship b',
+    'frauen','damen','féminine',
+    'mls next pro',          // block MLS Next Pro
+    'primera b','primera nacional',
+    'copa do nordeste',      // Brazilian regional
+    'k league 2','v-league', // Asian leagues
+    'a-league women','nwsl', // women
+    'brasileiro women',
+    'serie a women',
+    'google pixel frauen',
+    'youth league',          // UEFA Youth
+    'u-17','u-19','u-21',
+  ]
+  if (BAD_KEYWORDS.some(k => rawLo.includes(k))) return false
+
+  // Block by team name patterns
+  
+  const TEAM_BAD = ['u21','u23','u20','u19',' b ',' ii ','reserves','youth','under-']
+  if (TEAM_BAD.some(k => homeName.includes(k) || awayName.includes(k))) return false
+
+  // ── PRIMARY CHECK: exact SM league ID whitelist ───────────────────────────
+  if (leagueId && LEAGUE_ID_COUNTRY_REQUIRED[leagueId] !== undefined) {
+    const allowedCountries = LEAGUE_ID_COUNTRY_REQUIRED[leagueId]
+    // If empty array entry = no country restriction (international comps)
+    if (allowedCountries.includes('')) return true
+    // Otherwise require country match
+    if (allowedCountries.includes(countryName)) return true
+    // Country mismatch on a known ID = definitely wrong league (e.g. Maltese Premier League with ID 420)
+    return false
+  }
+
+  // ── SECONDARY CHECK: name-based for Saudi, MLS supplement, friendlies ─────
+  // These leagues don't always have consistent SM IDs so we check by name+country
+  const EXTRA_NAME_COUNTRY = [
+    { nameFragment: 'saudi professional',  country: 'Saudi Arabia' },
+    { nameFragment: 'roshn saudi',         country: 'Saudi Arabia' },
+    { nameFragment: 'saudi pro league',    country: 'Saudi Arabia' },
+    { nameFragment: 'major league soccer', country: '' },  // MLS — any country tag
+    { nameFragment: 'friendly international', country: '' },  // block these (too many)
+    { nameFragment: 'international champions', country: '' },
+  ]
+
+  const rlo = rawName.toLowerCase()
+  for (const rule of EXTRA_NAME_COUNTRY) {
+    if (rlo.includes(rule.nameFragment)) {
+      // Block friendlies explicitly
+      if (rule.nameFragment.includes('friendly')) return false
+      if (rule.country === '' || countryName === rule.country) return true
     }
-    // English Premier League ID=8: block Nigerian PL, Indian PL, etc.
-    if (leagueId === 8 && countryName && !['England','United Kingdom','UK'].includes(countryName)) return false
-    if (leagueId === 564 && countryName && countryName !== 'Spain')   return false
-    if (leagueId === 384 && countryName && countryName !== 'Italy')   return false
-    if (leagueId === 82  && countryName && countryName !== 'Germany') return false
-    if (leagueId === 301 && countryName && countryName !== 'France')  return false
-    return true
   }
 
-  if (!leagueName) return false
-
-  // UEFA by name: must be UEFA-branded
-  if (['Champions League','Europa League','Conference League'].includes(leagueName)) {
-    const raw = rawName.toLowerCase()
-    return raw.includes('uefa') || raw === 'champions league' ||
-           raw === 'europa league' || raw === 'conference league'
-  }
-
-  // Premier League by name: English only
-  if (leagueName === 'Premier League' && countryName &&
-      countryName !== 'England' && countryName !== 'United Kingdom') return false
-
-  return WHITELISTED_LEAGUE_NAMES.has(leagueName)
+  // ── Everything else: blocked ───────────────────────────────────────────────
+  return false
 }
 
 async function loadAllowedLeagueIds() {
@@ -4226,10 +4543,19 @@ app.get("/predictions", async (req, res) => {
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
 
-    const fixtures = [...smAll.values()].filter(f => isAllowedFixture(f)).slice(0, 300)
+    const TOP_LEAGUE_IDS = new Set([2, 5, 24, 8, 9, 7, 462, 564, 507, 384, 481, 82, 327, 301, 390, 456, 78, 519, 1, 61])
+
+    const allFiltered = [...smAll.values()].filter(f => isAllowedFixture(f))
     smAll.clear()
 
-    console.log(`⚙️  Building ${fixtures.length} SM predictions...`)
+    // Sort: top 8 leagues first, then others
+    const fixtures = allFiltered.sort((a, b) => {
+      const aTop = TOP_LEAGUE_IDS.has(a.league_id || a.league?.id) ? 0 : 1
+      const bTop = TOP_LEAGUE_IDS.has(b.league_id || b.league?.id) ? 0 : 1
+      return aTop - bTop
+    }).slice(0, 300)
+
+    console.log(`⚙️  Building ${fixtures.length} SM predictions (priority leagues first)...`)
 
     const smResults = []
     const BATCH = 10
@@ -4242,8 +4568,29 @@ app.get("/predictions", async (req, res) => {
     }
     fixtures.length = 0
 
-    const results = smResults
-    console.log(`✅ ${results.length} SM predictions ready`)
+    // Add ESPN games for leagues SM is missing
+    cache.delete('espn_football_all')
+    let espnLive = []
+    try {
+      const espnEvents = await fetchESPNFootballGames().catch(() => [])
+      const normT = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8)
+      const smPairs = new Set(smResults.map(m => `${normT(m.home)}||${normT(m.away)}`))
+      espnLive = espnEvents
+        .map(e => buildESPNFootballPrediction(e, oddsMap))
+        .filter(p => {
+          if (!p) return false
+          const key    = `${normT(p.home)}||${normT(p.away)}`
+          const keyRev = `${normT(p.away)}||${normT(p.home)}`
+          return !smPairs.has(key) && !smPairs.has(keyRev)
+        })
+      console.log(`✅ ESPN live supplement: ${espnLive.length} additional games`)
+    } catch(e) { console.log('⚠️ ESPN live:', e.message?.slice(0,50)) }
+
+    const espnTopLeagues = new Set(['Champions League','Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','World Cup'])
+    const espnPriority = espnLive.filter(p => espnTopLeagues.has(p.league))
+    const espnOther    = espnLive.filter(p => !espnTopLeagues.has(p.league))
+    const results = [...espnPriority, ...smResults, ...espnOther]
+    console.log(`✅ ${results.length} total predictions ready (SM:${smResults.length} ESPN:${espnLive.length})`)
     res.json(results.sort((a, b) => {
       const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
       return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
@@ -5056,13 +5403,32 @@ app.get('/elo/sport/:sport', (req, res) => {
       }
       results = teams.sort((a,b)=>b.elo-a.elo).slice(0,limit)
     } else {
-      const all = []
-      for (const [k, v] of playerDB) {
-        const p = typeof v === 'object' ? v : {}
-        if (posFilter && p.position !== posFilter) continue
-        all.push({ name:p.player_name||k.split('__')[0], team:p.team_name||k.split('__')[1], elo:p.elo||1500, position:p.position, playstyle:p.playstyle?.name||p.playstyle_name, sport:'football' })
+      var top50Results = TOP_50_PLAYERS_2026.map(function(p) {
+        var k = p.name + '__' + (p.club || '')
+        var db = playerDB.get(k)
+        if (!db) {
+          for (var [key, val] of playerDB) {
+            if (key.toLowerCase().startsWith(p.name.toLowerCase() + '__')) { db = val; break }
+          }
+        }
+        var actualElo = (db && db.elo && db.elo > 1300) ? Math.max(p.elo, db.elo) : p.elo
+        return {
+          name: p.name, team: p.club, elo: actualElo,
+          position: p.position, sport: 'football',
+          playstyle: assignPlayerPlaystyles(p.name, p.position, { elo: actualElo })[0],
+          playstyles: assignPlayerPlaystyles(p.name, p.position, { elo: actualElo }),
+          rank: p.rank,
+          goals_this_season: db ? db.goals_this_season : null,
+          appearances: db ? db.appearances : null,
+          real_rating: db ? db.real_rating : null,
+        }
+      })
+      if (posFilter) {
+        results = top50Results.filter(function(p){ return p.position === posFilter })
+      } else {
+        results = top50Results
       }
-      results = all.sort((a,b)=>b.elo-a.elo).slice(0,limit)
+      results = results.slice(0, Math.min(limit, 50))
     }
   } else if (sport === 'basketball') {
     const typeParam = req.query.type || 'player'
@@ -5462,37 +5828,56 @@ app.get('/bracket/:slug', async (req, res) => {
 
   // Serve hardcoded 2025/26 bracket if available
   if (HARDCODED_BRACKETS[slug]) {
-    const hc = HARDCODED_BRACKETS[slug]
-    // Try to enrich with live ESPN data for upcoming matches
+    var hc = JSON.parse(JSON.stringify(HARDCODED_BRACKETS[slug])) // deep copy
     try {
-      const liveR = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/scoreboard?limit=50`).then(r => r.json()).catch(() => null)
-      if (liveR && liveR.events) {
-        for (const event of liveR.events) {
-          const comp = event.competitions?.[0]
-          if (!comp?.status?.type?.completed) continue
-          const homeC = comp.competitors?.find(c => c.homeAway === 'home')
-          const awayC = comp.competitors?.find(c => c.homeAway === 'away')
-          if (!homeC || !awayC) continue
-          // Update any matching TBD matches
-          for (const [roundName, matches] of Object.entries(hc.rounds)) {
-            for (const m of matches) {
-              if (!m.isFinished && (m.home === 'TBD' || m.away === 'TBD')) continue
-              const hN = (homeC.team?.displayName || '').toLowerCase()
-              const aN = (awayC.team?.displayName || '').toLowerCase()
-              const mhN = (m.home || '').toLowerCase()
-              const maN = (m.away || '').toLowerCase()
-              if ((hN.slice(0,4) === mhN.slice(0,4) || mhN.includes(hN.slice(0,4))) &&
-                  (aN.slice(0,4) === maN.slice(0,4) || maN.includes(aN.slice(0,4)))) {
-                m.homeScore = parseInt(homeC.score || 0)
-                m.awayScore = parseInt(awayC.score || 0)
-                m.isFinished = true
+      var liveSlug = BRACKET_MAP[slug] ? BRACKET_MAP[slug].espn : null
+      if (liveSlug) {
+        var liveR = await httpExt(
+          'https://site.api.espn.com/apis/site/v2/sports/soccer/' + liveSlug + '/scoreboard',
+          { limit: 100 }
+        ).catch(function(){ return null })
+
+        if (liveR && liveR.data && liveR.data.events) {
+          for (var ev of liveR.data.events) {
+            var comp = ev.competitions && ev.competitions[0]
+            if (!comp) continue
+            var homeC = (comp.competitors || []).find(function(c){ return c.homeAway === 'home' })
+            var awayC = (comp.competitors || []).find(function(c){ return c.homeAway === 'away' })
+            if (!homeC || !awayC) continue
+
+            var evHome = (homeC.team && homeC.team.displayName) || ''
+            var evAway = (awayC.team && awayC.team.displayName) || ''
+            var isComplete = comp.status && comp.status.type && comp.status.type.completed
+
+            for (var roundName of Object.keys(hc.rounds)) {
+              for (var m of hc.rounds[roundName]) {
+                var mhLo = (m.home || '').toLowerCase()
+                var maLo = (m.away || '').toLowerCase()
+                var ehLo = evHome.toLowerCase()
+                var eaLo = evAway.toLowerCase()
+
+                var homeMatch = ehLo.slice(0,5) === mhLo.slice(0,5) || mhLo.includes(ehLo.slice(0,5))
+                var awayMatch = eaLo.slice(0,5) === maLo.slice(0,5) || maLo.includes(eaLo.slice(0,5))
+
+                if (homeMatch && awayMatch) {
+                  if (isComplete && homeC.score != null) {
+                    m.homeScore = parseInt(homeC.score)
+                    m.awayScore = parseInt(awayC.score || 0)
+                    m.isFinished = true
+                  } else if (comp.status && comp.status.type && comp.status.type.name === 'STATUS_IN_PROGRESS') {
+                    m.homeScore = parseInt(homeC.score || 0)
+                    m.awayScore = parseInt(awayC.score || 0)
+                    m.isLive = true
+                  }
+                }
               }
             }
           }
         }
       }
-    } catch(e) {}
-
+    } catch(e) {
+      console.log('Live bracket enrichment failed:', e.message && e.message.slice(0,50))
+    }
     return res.json(hc)
   }
 
@@ -5755,7 +6140,21 @@ app.get('/roster/:sport/:teamId', async (req, res) => {
   res.json([])
 })
 app.get("/debug/leagues", async (req, res) => {
-  const warm = cache.get('sm_fix_14')?.data || []
+  let warm = cache.get('sm_fix_14')?.data || cache.get('sm_fix_7')?.data || []
+  if (!warm.length && SM_KEY) {
+    try { warm = await smFixtures(14) } catch(e) {}
+  }
+  // Also pull from warmed predictions cache as fallback
+  if (!warm.length) {
+    const wp = cache.get('predictions_warm')?.data || []
+    if (wp.length) {
+      const leagueMap = {}
+      for (const p of wp) {
+        if (p.league) leagueMap[p.leagueId||p.league] = { name: p.league, count: (leagueMap[p.leagueId||p.league]?.count||0) + 1 }
+      }
+      return res.json({ total: wp.length, leagues: Object.entries(leagueMap).map(([id,v]) => ({ id, name: v.name, normName: v.name, count: v.count })).sort((a,b) => b.count - a.count), source: 'predictions_warm' })
+    }
+  }
   const liveData = cache.get('sm_live')?.data || []
   const all = [...warm, ...liveData]
   const leagueMap = {}
@@ -6188,7 +6587,20 @@ app.listen(PORT, async () => {
   await loadAllowedLeagueIds().catch(() => {}) // load all SM league IDs before anything else
 
   console.log("🔄 Pre-warming caches...")
-  smFixtures(14).then(f => console.log(`✅ SM fixtures: ${f.length} loaded`)).catch(e => console.log("⚠️  SM warm:", e.message))
+  smFixtures(14).then(f => {
+    console.log(`✅ SM fixtures: ${f.length} loaded`)
+    // Log league IDs so you can see what's actually coming from your SM account
+    const leagueIds = {}
+    for (const fix of f) {
+      const id = fix.league_id || fix.league?.id
+      const name = fix.league?.name || 'Unknown'
+      if (id) leagueIds[id] = (leagueIds[id] || { name, count: 0 })
+      if (id) leagueIds[id].count++
+    }
+    const sorted = Object.entries(leagueIds).sort((a,b) => b[1].count - a[1].count).slice(0, 20)
+    console.log('📋 SM LEAGUE IDs FROM YOUR ACCOUNT:')
+    sorted.forEach(([id, v]) => console.log(`   ID: ${id} | ${v.name} | ${v.count} fixtures`))
+  }).catch(e => console.log("⚠️  SM warm:", e.message))
 // Pre-warm predictions cache so first user gets fast response
 setTimeout(() => warmPredictionsCache(), 5000)
 setInterval(() => warmPredictionsCache(), 3600000)
@@ -6197,8 +6609,8 @@ setTimeout(() => resolveFinishedPredictions().catch(() => {}), 20000)
 setInterval(() => resolveFinishedPredictions().catch(() => {}), 10 * 60000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
-  setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
-  setTimeout(() => fetchF1NextRace().catch(() => {}), 9000)
+  // setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
+  // setTimeout(() => fetchF1NextRace().catch(() => {}), 9000)
   setTimeout(() => { fetchOddsAPI().then(o => console.log(`✅ Odds API: ${Object.keys(o).length} matches`)).catch(() => {}) }, 11000)
   setTimeout(() => smPreMatchNews().catch(() => {}), 13000)
   setTimeout(() => smTransferRumours().catch(() => {}), 15000)

@@ -1,16 +1,29 @@
 {
-    "appId": "net.slipiq.app",
-    "appName": "Slip IQ",
-    "webDir": "public",
-    "server": {
-      "url": "https://slipiq.net",
-      "cleartext": false
-    },
-    "plugins": {
-      "SplashScreen": {
-        "launchShowDuration": 2000,
-        "backgroundColor": "#04080f",
-        "showSpinner": false
-      }
+  "appId": "com.slipiq.app",
+  "appName": "Slip IQ",
+  "webDir": "public",
+  "server": {
+    "url": "https://slipiq.net/home.html",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#04080f",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false,
+    "startPage": "home.html"
+  },
+  "android": {
+    "startPage": "home.html"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#04080f",
+      "iosSpinnerStyle": "small",
+      "spinnerColor": "#00c8f8",
+      "showSpinner": false
     }
   }
+}

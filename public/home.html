@@ -44,8 +44,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
 .nav-rail.collapsed .upgrade-btn::before{content:"⭐";font-size:16px}
 .main{margin-left:var(--sidebar-w);display:flex;flex-direction:column;height:100vh;transition:margin-left .25s ease}
 .main.sidebar-collapsed{margin-left:52px}
-.topbar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;flex-direction:column;z-index:50}
-.topbar-inner{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px}
+.topbar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;flex-direction:column;z-index:50;padding-top:env(safe-area-inset-top, 0px)}
+.topbar-inner{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;gap:10px;padding-left:max(12px, env(safe-area-inset-left));padding-right:max(12px, env(safe-area-inset-right))}
 .news-strip{flex:1;overflow:hidden;position:relative;height:46px;display:flex;align-items:center}
 .news-strip::before,.news-strip::after{content:'';position:absolute;top:0;width:28px;height:100%;z-index:2;pointer-events:none}
 .news-strip::before{left:0;background:linear-gradient(to right,var(--panel),transparent)}
@@ -144,7 +144,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .prob-pct{font-family:'Bebas Neue';font-size:17px;line-height:1}
 .ph{color:var(--green)}.pm{color:var(--orange)}.pl{color:var(--red)}
 .prob-odds{font-family:'JetBrains Mono';font-size:9px;color:var(--text3);margin-top:1px}
-.upset-badge{position:absolute;top:-1px;right:2px;background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:var(--gold);font-family:'JetBrains Mono';font-size:6px;padding:1px 3px;border-radius:2px}
+.upset-badge{position:absolute;top:-1px;right:2px;background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:var(--gold);font-family:'JetBrains Mono';font-size:6px;padding:1px 5px;border-radius:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .real-odds-tag{padding:2px 11px;font-family:'JetBrains Mono';font-size:7px;color:var(--teal);background:rgba(0,229,200,.04);border-top:1px solid rgba(0,229,200,.1);letter-spacing:1px}
 .sport-info-bar{padding:5px 11px;background:rgba(0,200,248,.04);border-top:1px solid var(--border);font-family:'JetBrains Mono';font-size:8px;color:var(--text3);letter-spacing:1px}
 .parlay-panel{width:520px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .25s ease}
@@ -508,7 +508,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .ai-chat { bottom: 50px; }
 
 /* Bottom nav bar */
-.mobile-nav {
+.mobile-nav{
   position: fixed;
   bottom: 0;
   left: 0;
@@ -517,7 +517,8 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
   border-top: 1px solid var(--border2);
   display: flex;
   z-index: 200;
-  height: 52px;
+  height: calc(52px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .mobile-nav-item {
   flex: 1;
@@ -540,7 +541,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .mobile-nav-item span:first-child { font-size: 18px; }
 
 /* Push content above bottom nav */
-.main { padding-bottom: 52px; }
+.main { padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
 
 /* Modals: full screen on mobile */
 .modal { max-height: 100vh; border-radius: 14px 14px 0 0; margin-top: auto; }
@@ -602,10 +603,10 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       <div class="sport-tab active" id="st-football"          onclick="switchSport('football')">⚽ FOOTBALL</div>
       <div class="sport-tab"        id="st-basketball"        onclick="switchSport('basketball')">🏀 NBA</div>
       <div class="sport-tab"        id="st-american_football" onclick="switchSport('american_football')">🏈 NFL</div>
-      <div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>
-      <div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>
-      <div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>
-      <div class="sport-tab"        id="st-mma"               onclick="switchSport('mma')">🥋 MMA</div>
+      <!--<div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>-->
+      <!--<div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>-->
+      <!--<div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>-->
+      <!--<div class="sport-tab"        id="st-mma"               onclick="switchSport('mma')">🥋 MMA</div>-->
     </div>
   </div>
 
@@ -842,7 +843,9 @@ function authHeaders() {
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-var API = "";
+var API = (window.Capacitor && window.Capacitor.isNativePlatform()) 
+  ? "https://slipiq.net"
+  : "";
 var USER_ID = "user_" + (localStorage.getItem("slipiq_uid") || (function() {
   var id = Math.random().toString(36).slice(2);
   localStorage.setItem("slipiq_uid", id);
@@ -1138,6 +1141,19 @@ function card(m, cfg) {
   html += '<span class="mc-date">' + dateStr + '</span>';
   if (m.valueBet) html += '<span class="value-badge">VALUE</span>';
   if (m.mismatches && m.mismatches.length > 0) html += '<span class="mismatch-badge">⚡MISMATCH</span>';
+  if (m.isUpsetWatch) {
+    var isHomeUpset = m.upsetTeam === m.home;
+    var upsetForm = isHomeUpset ? m.homeForm : m.awayForm;
+    var favTeam = isHomeUpset ? m.away : m.home;
+    var upsetReasons = [];
+    if (upsetForm && upsetForm.slice(0,3).filter(function(r){return r==='W';}).length >= 2) upsetReasons.push((isHomeUpset?'Home':'Away')+' form');
+    var favInjury = isHomeUpset ? m.awayInjuryImpact : m.homeInjuryImpact;
+    if (favInjury && favInjury > 10) upsetReasons.push('Fav injuries');
+    var eloDiff = isHomeUpset ? (m.awayElo - m.homeElo) : (m.homeElo - m.awayElo);
+    if (eloDiff < 80) upsetReasons.push('ELO close');
+    var upsetTip = (m.upsetTeam||'Underdog') + ' upset · ' + (upsetReasons.length ? upsetReasons.slice(0,1)[0] : 'real chance');
+    html += '<span class="value-badge" style="border-color:rgba(168,85,247,.4);color:var(--purple);background:rgba(168,85,247,.15)">⚡' + upsetTip + '</span>';
+  }
   html += '</div>';
 
   html += '<div class="mc-body" onclick="openAnalysis(\'' + m.id + '\')">';
@@ -1173,7 +1189,10 @@ function card(m, cfg) {
   html += '<div class="mc-probs' + (hasDraw ? '' : ' two-col') + '">';
 
   var mid = JSON.stringify(m.id);
-  html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'home\',\'' + esc((m.home || '') + ' Win') + '\',' + (m.homeOdds || 2) + ',' + (m.homeProb || 50) + ')">';
+  var _hOdds = m.homeOdds || parseFloat((100/Math.max(1,m.homeProb||50)*1.06).toFixed(2));
+  var _dOdds = m.drawOdds || parseFloat((100/Math.max(1,m.drawProb||25)*1.06).toFixed(2));
+  var _aOdds = m.awayOdds || parseFloat((100/Math.max(1,m.awayProb||50)*1.06).toFixed(2));
+  html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'home\',\'' + esc((m.home || '') + ' Win') + '\',' + _hOdds + ',' + (m.homeProb || 50) + ')">';
   html += '<div class="prob-outcome">' + sn(m.home) + '</div>';
   html += '<div class="prob-pct ' + hc + '">' + (m.homeProb || '—') + '%</div>';
   html += '<div class="prob-odds">' + (m.homeOdds || '—') + '</div></div>';
@@ -1185,8 +1204,8 @@ function card(m, cfg) {
     html += '<div class="prob-odds">' + m.drawOdds + '</div></div>';
   }
 
-  html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'away\',\'' + esc((m.away || '') + ' Win') + '\',' + (m.awayOdds || 2) + ',' + (m.awayProb || 50) + ')">';
-  if (m.isUpsetWatch) html += '<div class="upset-badge">⚡UPSET</div>';
+  html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'away\',\'' + esc((m.away || '') + ' Win') + '\',' + _aOdds + ',' + (m.awayProb || 50) + ')">';
+  
   html += '<div class="prob-outcome">' + sn(m.away) + '</div>';
   html += '<div class="prob-pct ' + ac + '">' + (m.awayProb || '—') + '%</div>';
   html += '<div class="prob-odds">' + (m.awayOdds || '—') + '</div></div>';
@@ -1482,8 +1501,7 @@ if (m.dcOdds && m.dcProbs && m.drawOdds) {
   })
   dcHtml += '</div></div>'
 }
-document.getElementById("mp2").innerHTML = resultHtml + dcHtml + goalsHtml + ouSel + csHtml;
-  var picks = [{l:(m.home||'')+" Win",p:m.homeProb,o:m.homeOdds,pick:"home"},{l:(m.away||'')+" Win",p:m.awayProb,o:m.awayOdds,pick:"away"}];
+var picks = [{l:(m.home||'')+" Win",p:m.homeProb,o:m.homeOdds,pick:"home"},{l:(m.away||'')+" Win",p:m.awayProb,o:m.awayOdds,pick:"away"}];
   if (m.drawOdds) picks.splice(1,0,{l:"Draw",p:m.drawProb,o:m.drawOdds,pick:"draw"});
 
   picks.forEach(function(x){
@@ -1546,7 +1564,7 @@ document.getElementById("mp2").innerHTML = resultHtml + dcHtml + goalsHtml + ouS
       }).join("") + '</div></div>';
   }
 
-  document.getElementById("mp2").innerHTML = resultHtml + goalsHtml + ouSel + csHtml;
+  document.getElementById("mp2").innerHTML = resultHtml + dcHtml + goalsHtml + ouSel + csHtml;
 }
 
 function renderH2HPane(m) {
@@ -2581,7 +2599,6 @@ async function init() {
 function injectMobileNav() {
   if (window.innerWidth > 768) return;
 
-  // Bottom nav
   var nav = document.createElement('div');
   nav.className = 'mobile-nav';
   nav.innerHTML = `
@@ -2591,19 +2608,18 @@ function injectMobileNav() {
     <button class="mobile-nav-item" onclick="showPage('news',this);updateMobileNav(this)" id="mnav-news">
       <span>📰</span><span>NEWS</span>
     </button>
+    <button class="mobile-nav-item" onclick="window.location.href='leagues.html'" id="mnav-leagues">
+      <span>🏆</span><span>LEAGUES</span>
+    </button>
     <button class="mobile-nav-item" onclick="showPage('parlays',this);updateMobileNav(this)" id="mnav-parlays">
       <span>🎯</span><span>PARLAYS</span>
     </button>
     <button class="mobile-nav-item" onclick="window.location.href='account.html'" id="mnav-account">
       <span>👤</span><span>ACCOUNT</span>
     </button>
-    <button class="mobile-nav-item" onclick="window.location.href='subscriptions.html'" id="mnav-upgrade">
-      <span>⭐</span><span>UPGRADE</span>
-    </button>
   `;
   document.body.appendChild(nav);
 
-  // Parlay FAB
   var fab = document.createElement('button');
   fab.className = 'parlay-mobile-fab';
   fab.id = 'parlayMobileFab';
@@ -2611,7 +2627,6 @@ function injectMobileNav() {
   fab.textContent = '🎯 0 LEGS';
   document.body.appendChild(fab);
 }
-
 function updateMobileNav(el) {
   document.querySelectorAll('.mobile-nav-item').forEach(function(b){ b.classList.remove('active'); });
   if (el) el.classList.add('active');
@@ -2632,7 +2647,12 @@ renderParlay = function() {
     fab.style.display = 'none';
   }
 };
-window.addEventListener("DOMContentLoaded", init);
+window.addEventListener("DOMContentLoaded", () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+  init();
+});
 </script>
 <!-- PARLAY OVERLAY -->
 <div class="parlay-overlay" id="parlayOverlay" onclick="if(event.target===this)closeParlayOverlay()">

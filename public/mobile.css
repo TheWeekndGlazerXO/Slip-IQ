@@ -6,7 +6,13 @@
    Desktop/tablet (>768px) = completely unchanged.
    Phone (≤768px) = full mobile UI with bottom nav bar.
    ═══════════════════════════════════════════════════════════════ */
-
+/* Safe area for notch/dynamic island phones */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
    @media (max-width: 768px) {
 
     /* ── CORE LAYOUT ─────────────────────────────────────────── */
