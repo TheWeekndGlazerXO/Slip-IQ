@@ -908,6 +908,24 @@ body::after {
 
   <div class="content">
 
+    <!-- ── TODAY / TOMORROW ─────────────────────────────── -->
+    <div id="todayWidget" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:2.5px;color:var(--text3);text-transform:uppercase">Today — <span id="todayDateLabel" style="color:var(--accent)">—</span></div>
+          <a href="/marketing.html" style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--text3);text-decoration:none;border:1px solid var(--border);padding:3px 10px;border-radius:4px;transition:all 0.2s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">Open Calendar →</a>
+        </div>
+        <div id="todayEvents" style="font-family:var(--mono);font-size:10px;color:var(--text3)">No events today</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:2.5px;color:var(--text3);text-transform:uppercase">Tomorrow — <span id="tomorrowDateLabel" style="color:var(--gold)">—</span></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3)">Preview</div>
+        </div>
+        <div id="tomorrowEvents" style="font-family:var(--mono);font-size:10px;color:var(--text3)">Nothing scheduled</div>
+      </div>
+    </div>
+
     <!-- ── REVENUE ───────────────────────────────────────── -->
     <div class="section-hd">Revenue Overview</div>
     <div class="grid-4">
@@ -1271,6 +1289,8 @@ const PLAN_COLORS = {
 }
 
 const PASS = 'marsai'
+const DEDUCT_MRR = 1500        // £1,500 hidden revenue deducted from all MRR/ARR display
+const DEDUCT_PLATINUM_USERS = 10  // platinum users excluded from all user count calculations
 let allUsers = []
 let charts = {}
 
@@ -1378,7 +1398,51 @@ function makeChart(id, type, labels, datasets, extraOpts = {}) {
     options: { ...chartDefaults, responsive: true, maintainAspectRatio: false, ...extraOpts }
   })
 }
+// ── TODAY / TOMORROW WIDGET ────────────────────────────────────
+function loadTodayWidget() {
+  const TYPE_COLORS = {
+    todo:'#7a90b0', meeting:'#00e5ff', task:'#00e676',
+    video:'#ae52f4', stunt:'#ff8f00', sale:'#ff4fa3',
+    discount:'#f5c542', launch:'#ff3d5a'
+  }
+  const TYPE_ICONS = { todo:'📝', meeting:'📞', task:'✅', video:'🎬', stunt:'⚡', sale:'💰', discount:'🏷️', launch:'🚀' }
 
+  try {
+    const allEvents = JSON.parse(localStorage.getItem('mkt_events') || '{}')
+
+    const pad = n => String(n).padStart(2, '0')
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`
+    const tom = new Date(now); tom.setDate(tom.getDate() + 1)
+    const tomStr = `${tom.getFullYear()}-${pad(tom.getMonth()+1)}-${pad(tom.getDate())}`
+
+    document.getElementById('todayDateLabel').textContent = now.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })
+    document.getElementById('tomorrowDateLabel').textContent = tom.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })
+
+    const renderDay = (dateStr, elId) => {
+      const evts = allEvents[dateStr] || []
+      const el = document.getElementById(elId)
+      if (!evts.length) { el.innerHTML = `<span style="color:var(--text3)">Nothing scheduled</span>`; return }
+      el.innerHTML = evts.map(ev => {
+        const color = TYPE_COLORS[ev.type] || '#7a90b0'
+        const icon  = TYPE_ICONS[ev.type] || '📌'
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(30,45,66,0.5)">
+          <span style="font-size:12px">${icon}</span>
+          <div style="flex:1">
+            <div style="color:${color};font-size:10px">${ev.title}</div>
+            ${ev.time ? `<div style="color:var(--text3);font-size:9px">@ ${ev.time}</div>` : ''}
+          </div>
+          ${ev.type==='launch' ? '<span style="font-family:var(--mono);font-size:8px;padding:2px 8px;border-radius:3px;background:rgba(255,61,90,0.1);color:var(--red);border:1px solid rgba(255,61,90,0.3)">LAUNCH</span>' : ''}
+        </div>`
+      }).join('')
+    }
+
+    renderDay(todayStr, 'todayEvents')
+    renderDay(tomStr, 'tomorrowEvents')
+  } catch(e) {
+    console.warn('Could not load today widget:', e)
+  }
+}
 // ── MAIN DATA LOAD ──────────────────────────────────────────
 async function loadAllData() {
   if (!sb) { showToast('Supabase not configured', true); return }
@@ -1411,6 +1475,7 @@ async function loadAllData() {
   computeAndRender(allUsers)
   set('lastUpdated', 'Updated ' + new Date().toLocaleTimeString())
   showToast('✓ ' + allUsers.length + ' users loaded')
+  loadTodayWidget()
 }
 
 // ── COMPUTE + RENDER ─────────────────────────────────────────
@@ -1420,51 +1485,59 @@ function computeAndRender(users) {
   const d7  = new Date(now - 7*86400000).toISOString()
   const d1  = new Date(now - 86400000).toISOString()
 
+  // Separate display users (hides DEDUCT_PLATINUM_USERS platinum users from all calculations)
+  // Tables still receive the full `users` array so rows remain visible
+  const platinumUsers = users.filter(u => (u.plan || '').toLowerCase() === 'platinum')
+  const hiddenPlatinum = platinumUsers.slice(0, DEDUCT_PLATINUM_USERS)
+  const hiddenIds = new Set(hiddenPlatinum.map(u => u.id || u.email))
+  const calcUsers = users.filter(u => !hiddenIds.has(u.id || u.email))
+
   const plans = ['free','starter','basic','plus','pro','elite','platinum']
   const planCounts = {}
   plans.forEach(p => planCounts[p] = 0)
-  users.forEach(u => {
+  calcUsers.forEach(u => {
     const p = (u.plan || 'free').toLowerCase()
     planCounts[p] = (planCounts[p] || 0) + 1
   })
 
-  // MRR
+  // MRR — calculated from calcUsers then subtract DEDUCT_MRR
   let mrr = 0
-  users.forEach(u => {
+  calcUsers.forEach(u => {
     if (u.plan_status === 'active' && u.plan !== 'free') mrr += PLAN_PRICES[u.plan] || 0
   })
+  mrr = Math.max(0, mrr - DEDUCT_MRR)
   const arr = mrr * 12
-  const paid = users.filter(u => u.plan !== 'free' && u.plan_status === 'active').length
-  const churned = users.filter(u => u.plan_status !== 'active' && u.plan !== 'free').length
+  const paid = calcUsers.filter(u => u.plan !== 'free' && u.plan_status === 'active').length
+  const churned = calcUsers.filter(u => u.plan_status !== 'active' && u.plan !== 'free').length
   const churnRate = (paid + churned) > 0 ? (churned / (paid + churned) * 100).toFixed(1) : 0
   const arpu = paid > 0 ? (mrr / paid).toFixed(2) : '0.00'
-  const referred = users.filter(u => u.referred_by).length
-  const refConvRate = users.length > 0 ? (referred / users.length * 100).toFixed(1) : 0
+  const referred = calcUsers.filter(u => u.referred_by).length
+  const refConvRate = calcUsers.length > 0 ? (referred / calcUsers.length * 100).toFixed(1) : 0
 
   // Activity
-  const newMonth  = users.filter(u => u.joined_at > d30).length
-  const newWeek   = users.filter(u => u.joined_at > d7).length
-  const activeWk  = users.filter(u => u.last_seen_at && u.last_seen_at > d7).length
-  const activeDay = users.filter(u => u.last_seen_at && u.last_seen_at > d1).length
+  const newMonth  = calcUsers.filter(u => u.joined_at > d30).length
+  const newWeek   = calcUsers.filter(u => u.joined_at > d7).length
+  const activeWk  = calcUsers.filter(u => u.last_seen_at && u.last_seen_at > d7).length
+  const activeDay = calcUsers.filter(u => u.last_seen_at && u.last_seen_at > d1).length
 
   // Credits
-  const totalCreditsUsed = users.reduce((s, u) => s + (u.credits_used || 0), 0)
-  const totalBonus = users.reduce((s, u) => s + (u.credits_bonus || 0), 0)
-  const outOfCredits = users.filter(u => {
+  const totalCreditsUsed = calcUsers.reduce((s, u) => s + (u.credits_used || 0), 0)
+  const totalBonus = calcUsers.reduce((s, u) => s + (u.credits_bonus || 0), 0)
+  const outOfCredits = calcUsers.filter(u => {
     const monthly = u.monthly_credits || 25
     return (monthly - (u.credits_used || 0) + (u.credits_bonus || 0)) <= 0
   }).length
-  const valueBetUsers = users.filter(u => u.value_bet_enabled).length
+  const valueBetUsers = calcUsers.filter(u => u.value_bet_enabled).length
 
   // Parlays
-  const totalParlays = users.reduce((s, u) => s + (u.total_parlays || 0), 0)
-  const wonParlays = users.reduce((s, u) => s + (u.won_parlays || 0), 0)
-  const lostParlays = users.reduce((s, u) => s + (u.lost_parlays || 0), 0)
-  const biggestWin = Math.max(0, ...users.map(u => parseFloat(u.biggest_win_odds || 0)))
-  const bestStreak = Math.max(0, ...users.map(u => u.streak_best || 0))
+  const totalParlays = calcUsers.reduce((s, u) => s + (u.total_parlays || 0), 0)
+  const wonParlays = calcUsers.reduce((s, u) => s + (u.won_parlays || 0), 0)
+  const lostParlays = calcUsers.reduce((s, u) => s + (u.lost_parlays || 0), 0)
+  const biggestWin = Math.max(0, ...calcUsers.map(u => parseFloat(u.biggest_win_odds || 0)))
+  const bestStreak = Math.max(0, ...calcUsers.map(u => u.streak_best || 0))
   const parlayWinRate = totalParlays > 0 ? (wonParlays / totalParlays * 100).toFixed(1) : 0
-  const legWinRate = (users.reduce((s,u) => s+(u.total_legs||0),0)) > 0
-    ? (users.reduce((s,u) => s+(u.won_legs||0),0) / users.reduce((s,u) => s+(u.total_legs||0),0) * 100).toFixed(1) : 0
+  const legWinRate = (calcUsers.reduce((s,u) => s+(u.total_legs||0),0)) > 0
+    ? (calcUsers.reduce((s,u) => s+(u.won_legs||0),0) / calcUsers.reduce((s,u) => s+(u.total_legs||0),0) * 100).toFixed(1) : 0
 
   // Projections
   const compound = (base, rate, months) => base * Math.pow(1 + rate, months)
@@ -1479,7 +1552,7 @@ function computeAndRender(users) {
   set('mrr', fmtBig(mrr))
   set('mrrSub', paid + ' paid subscribers')
   set('arr', fmtBig(arr))
-  set('totalUsers', fmtNum(users.length))
+  set('totalUsers', fmtNum(calcUsers.length))
   set('totalUsersSub', newMonth + ' new this month')
   set('paidUsers', fmtNum(paid))
   set('paidUsersSub', pct(paid, users.length) + ' conversion rate')
@@ -1516,6 +1589,8 @@ function computeAndRender(users) {
   set('legWinRate', legWinRate + '%')
   set('totalLegsWon', fmtNum(users.reduce((s,u) => s+(u.won_legs||0),0)))
   set('ltv', paid > 0 ? '€' + (arr / paid).toFixed(2) : '—')
+  // Debug info — remove when satisfied
+  console.log(`[Admin] Raw users: ${users.length} | Calc users (deducted): ${calcUsers.length} | Raw MRR before deduct: €${(mrr + DEDUCT_MRR).toFixed(2)} | Displayed MRR: €${mrr.toFixed(2)}`)
 
   // ── PLAN ROWS ────────────────────────────────────────────
   const maxCount = Math.max(1, ...plans.map(p => planCounts[p] || 0))
@@ -1534,9 +1609,9 @@ function computeAndRender(users) {
   }).join('')
 
   // ── CHARTS ───────────────────────────────────────────────
-  renderCharts(users, plans, planCounts, mrr, paid)
+  renderCharts(calcUsers, plans, planCounts, mrr, paid)
 
-  // ── TABLES ───────────────────────────────────────────────
+  // ── TABLES — full users array so hidden platinum still appears ──
   renderUsersTable(users.slice(0, 100))
   set('userCount', users.length + ' total')
 

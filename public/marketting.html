@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIP IQ — Marketing Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #080b10;
+  --bg2: #0c1018;
+  --surface: #111620;
+  --surface2: #161d2a;
+  --border: #1e2d42;
+  --border2: #243550;
+  --accent: #00e5ff;
+  --accent2: #0099bb;
+  --gold: #f5c542;
+  --green: #00e676;
+  --red: #ff3d5a;
+  --orange: #ff8f00;
+  --purple: #ae52f4;
+  --pink: #ff4fa3;
+  --text: #e8eeff;
+  --text2: #7a90b0;
+  --text3: #3d5070;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --display: 'Syne', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+body::after { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 9999; }
+
+/* TOPBAR */
+.topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 28px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; backdrop-filter: blur(20px); }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg, var(--pink), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 11px; font-weight: 800; color: #fff; }
+.logo-text { font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: 3px; }
+.logo-badge { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; color: var(--text3); background: var(--surface); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* NAV TABS */
+.nav-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
+.nav-tab { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 14px; border-radius: 5px; cursor: pointer; color: var(--text3); border: none; background: transparent; transition: all 0.2s; white-space: nowrap; }
+.nav-tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.nav-tab:hover:not(.active) { color: var(--text2); }
+
+/* LAUNCH COUNTDOWN BANNER */
+#launchBanner { display: none; background: linear-gradient(135deg, rgba(255,61,90,0.12), rgba(255,61,90,0.04)); border-bottom: 1px solid rgba(255,61,90,0.25); padding: 10px 28px; text-align: center; }
+.launch-banner-inner { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.launch-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--red); text-transform: uppercase; }
+.launch-countdown { display: flex; gap: 16px; }
+.countdown-unit { text-align: center; }
+.countdown-num { font-family: var(--display); font-size: 28px; font-weight: 800; color: var(--red); line-height: 1; }
+.countdown-lbl { font-family: var(--mono); font-size: 8px; color: var(--text3); letter-spacing: 1px; }
+.launch-event-name { font-family: var(--display); font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* TABS CONTENT */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.content { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+/* SECTION HEADER */
+.section-hd { font-family: var(--mono); font-size: 9px; letter-spacing: 3px; color: var(--text3); text-transform: uppercase; margin-bottom: 16px; margin-top: 36px; display: flex; align-items: center; gap: 12px; }
+.section-hd:first-child { margin-top: 0; }
+.section-hd::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* CARDS */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+.card-title { font-family: var(--mono); font-size: 8px; letter-spacing: 2.5px; color: var(--text3); text-transform: uppercase; margin-bottom: 16px; }
+
+/* GRIDS */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+@media(max-width:1100px) { .grid-4{grid-template-columns:repeat(2,1fr)} .grid-3{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:700px) { .grid-4,.grid-3,.grid-2{grid-template-columns:1fr} }
+
+/* ── CALENDAR ─────────────────────────────────────── */
+.cal-wrapper { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
+@media(max-width:960px) { .cal-wrapper { grid-template-columns: 1fr; } }
+
+.cal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.cal-month { font-family: var(--display); font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+.cal-nav-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
+.cal-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-dow { font-family: var(--mono); font-size: 8px; letter-spacing: 1.5px; color: var(--text3); text-align: center; padding: 6px 0; text-transform: uppercase; }
+.cal-day { aspect-ratio: 1; border-radius: 7px; border: 1px solid transparent; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 5px; transition: all 0.15s; min-height: 54px; }
+.cal-day:hover { background: var(--surface2); border-color: var(--border); }
+.cal-day.other-month .cal-day-num { color: var(--text3); }
+.cal-day.today { border-color: var(--accent) !important; background: rgba(0,229,255,0.04); }
+.cal-day.selected { background: rgba(0,229,255,0.08); border-color: var(--accent); }
+.cal-day.has-launch { background: rgba(255,61,90,0.1); border-color: rgba(255,61,90,0.4) !important; }
+.cal-day.has-launch .cal-day-num { color: var(--red); font-weight: 700; }
+.cal-day-num { font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text); line-height: 1; }
+.cal-dots { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; }
+.cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.dot-todo { background: var(--text3); }
+.dot-meeting { background: var(--accent); }
+.dot-task { background: var(--green); }
+.dot-video { background: var(--purple); }
+.dot-stunt { background: var(--orange); }
+.dot-sale { background: var(--pink); }
+.dot-discount { background: var(--gold); }
+.dot-launch { background: var(--red); }
+
+/* EVENT PANEL */
+.event-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.ep-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.ep-date { font-family: var(--display); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.ep-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; }
+.ep-add-btn { width: 100%; margin-top: 12px; background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; border: none; border-radius: 7px; padding: 10px; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: opacity 0.2s; }
+.ep-add-btn:hover { opacity: 0.85; }
+.ep-events { flex: 1; overflow-y: auto; padding: 14px 20px; }
+.ep-empty { font-family: var(--mono); font-size: 10px; color: var(--text3); text-align: center; padding: 24px 0; letter-spacing: 1px; }
+.ep-event { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(30,45,66,0.5); }
+.ep-event:last-child { border-bottom: none; }
+.ep-type-badge { font-family: var(--mono); font-size: 7px; letter-spacing: 1px; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.ep-event-title { font-size: 12px; color: var(--text); margin-bottom: 2px; }
+.ep-event-notes { font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.ep-del { margin-left: auto; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 2px 5px; border-radius: 3px; transition: color 0.15s; flex-shrink: 0; }
+.ep-del:hover { color: var(--red); }
+
+/* ADD EVENT MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 440px; max-width: 100%; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-family: var(--display); font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+.form-row { margin-bottom: 14px; }
+.form-label { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 6px; }
+.form-input, .form-select, .form-textarea { width: 100%; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 10px 13px; border-radius: 7px; outline: none; transition: border-color 0.2s; }
+.form-textarea { min-height: 80px; resize: vertical; }
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-select option { background: var(--surface2); }
+.event-type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.et-btn { padding: 8px 4px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); font-family: var(--mono); font-size: 8px; letter-spacing: 0.5px; color: var(--text3); cursor: pointer; text-align: center; transition: all 0.15s; }
+.et-btn.active { color: var(--text); border-color: var(--accent); background: rgba(0,229,255,0.08); }
+.et-btn[data-type="launch"].active { border-color: var(--red); background: rgba(255,61,90,0.1); color: var(--red); }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.btn-save { flex: 1; background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; border: none; border-radius: 7px; padding: 12px; font-family: var(--display); font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-cancel { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 7px; padding: 12px 18px; font-family: var(--mono); font-size: 10px; cursor: pointer; }
+
+/* ── AI ASSISTANT ─────────────────────────────────── */
+.marsai-wrapper { display: grid; grid-template-columns: 340px 1fr; gap: 14px; height: calc(100vh - 180px); min-height: 500px; }
+@media(max-width:900px) { .marsai-wrapper { grid-template-columns: 1fr; height: auto; } }
+
+.marsai-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.marsai-profile { padding: 22px; border-bottom: 1px solid var(--border); text-align: center; }
+.marsai-avatar { width: 60px; height: 60px; background: linear-gradient(135deg, var(--pink), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 22px; font-weight: 800; color: #fff; margin: 0 auto 10px; position: relative; }
+.marsai-avatar::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--pink); opacity: 0.4; animation: ring-pulse 2s infinite; }
+@keyframes ring-pulse { 0%,100%{transform:scale(1);opacity:0.4} 50%{transform:scale(1.1);opacity:0} }
+.marsai-name { font-family: var(--display); font-size: 18px; font-weight: 800; }
+.marsai-tagline { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; margin-top: 3px; }
+.marsai-status { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 8px; color: var(--green); margin-top: 8px; }
+.marsai-status::before { content: ''; width: 5px; height: 5px; background: var(--green); border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.marsai-capabilities { padding: 14px 18px; border-bottom: 1px solid var(--border); flex: 1; overflow-y: auto; }
+.cap-title { font-family: var(--mono); font-size: 7px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; margin-bottom: 10px; }
+.cap-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(30,45,66,0.4); }
+.cap-item:last-child { border-bottom: none; }
+.cap-icon { width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+.cap-text { font-size: 10px; color: var(--text2); }
+.marsai-memory { padding: 14px 18px; }
+.mem-item { font-family: var(--mono); font-size: 9px; color: var(--text3); padding: 5px 8px; background: var(--surface2); border-radius: 4px; margin-bottom: 5px; cursor: pointer; transition: color 0.15s; }
+.mem-item:hover { color: var(--text2); }
+
+.marsai-chat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.chat-header-title { font-family: var(--display); font-size: 14px; font-weight: 700; }
+.chat-clear { background: none; border: 1px solid var(--border); color: var(--text3); font-family: var(--mono); font-size: 8px; letter-spacing: 1px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.chat-clear:hover { color: var(--text2); border-color: var(--border2); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.msg { display: flex; gap: 10px; }
+.msg.user { flex-direction: row-reverse; }
+.msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+.msg.marsai .msg-avatar { background: linear-gradient(135deg, var(--pink), var(--purple)); }
+.msg.user .msg-avatar { background: var(--surface2); border: 1px solid var(--border); }
+.msg-bubble { max-width: 75%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--text2); line-height: 1.6; }
+.msg.marsai .msg-bubble { border-color: rgba(255,79,163,0.2); background: rgba(174,82,244,0.05); }
+.msg.user .msg-bubble { background: rgba(0,229,255,0.06); border-color: rgba(0,229,255,0.15); color: var(--text); }
+.msg-time { font-family: var(--mono); font-size: 8px; color: var(--text3); margin-top: 5px; }
+.msg-bubble strong { color: var(--text); }
+
+/* Suggestion cards */
+.suggestion-card { background: var(--surface2); border: 1px solid rgba(255,79,163,0.2); border-radius: 8px; padding: 12px 14px; margin-top: 8px; }
+.suggestion-text { font-size: 11px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+.suggestion-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.sug-btn { font-family: var(--mono); font-size: 8px; letter-spacing: 0.5px; padding: 5px 10px; border-radius: 4px; cursor: pointer; border: none; transition: all 0.15s; }
+.sug-yes { background: rgba(0,230,118,0.12); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+.sug-no { background: rgba(255,61,90,0.1); color: var(--red); border: 1px solid rgba(255,61,90,0.2); }
+.sug-date { background: rgba(0,229,255,0.08); color: var(--accent); border: 1px solid rgba(0,229,255,0.2); }
+
+/* TYPING INDICATOR */
+.typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.typing-dot { width: 5px; height: 5px; background: var(--text3); border-radius: 50%; animation: typing-bounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+.chat-input-area { padding: 14px 20px; border-top: 1px solid var(--border); }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input { flex: 1; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 10px 13px; border-radius: 7px; outline: none; transition: border-color 0.2s; }
+.chat-input:focus { border-color: var(--pink); }
+.chat-send { background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; border: none; border-radius: 7px; padding: 10px 16px; font-family: var(--display); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+.chat-send:hover { opacity: 0.85; }
+.chat-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.quick-btn { font-family: var(--mono); font-size: 8px; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text3); cursor: pointer; transition: all 0.15s; }
+.quick-btn:hover { border-color: var(--pink); color: var(--text2); }
+
+/* ── EFFECTS TAB ──────────────────────────────────── */
+.effects-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 14px; }
+.effects-chart-card canvas { width: 100% !important; }
+
+/* ── JOURNAL ──────────────────────────────────────── */
+.journal-wrapper { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
+@media(max-width:900px) { .journal-wrapper { grid-template-columns: 1fr; } }
+
+.journal-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; max-height: 700px; }
+.jl-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.jl-title { font-family: var(--display); font-size: 13px; font-weight: 700; }
+.jl-new { background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; border: none; border-radius: 5px; padding: 5px 12px; font-family: var(--mono); font-size: 8px; letter-spacing: 1px; cursor: pointer; }
+.jl-items { flex: 1; overflow-y: auto; }
+.jl-item { padding: 12px 18px; border-bottom: 1px solid rgba(30,45,66,0.5); cursor: pointer; transition: background 0.15s; }
+.jl-item:hover, .jl-item.active { background: var(--surface2); }
+.jl-item-date { font-family: var(--mono); font-size: 8px; color: var(--text3); margin-bottom: 4px; }
+.jl-item-title { font-size: 12px; color: var(--text2); }
+.jl-item.active .jl-item-title { color: var(--text); }
+
+.journal-editor { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.je-toolbar { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.je-title-input { flex: 1; background: none; border: none; color: var(--text); font-family: var(--display); font-size: 18px; font-weight: 700; outline: none; min-width: 200px; }
+.je-title-input::placeholder { color: var(--text3); }
+.je-meta { font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.je-body { flex: 1; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.je-textarea { flex: 1; background: none; border: none; color: var(--text2); font-family: var(--sans); font-size: 13px; line-height: 1.8; outline: none; resize: none; min-height: 300px; }
+.je-textarea::placeholder { color: var(--text3); }
+.je-image-zone { border: 1px dashed var(--border2); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+.je-image-zone:hover { border-color: var(--pink); }
+.je-image-zone-text { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; }
+.je-save { background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-family: var(--display); font-size: 11px; font-weight: 700; cursor: pointer; }
+.je-images { display: flex; gap: 8px; flex-wrap: wrap; }
+.je-img-thumb { width: 80px; height: 80px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+.ai-insight-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(174,82,244,0.1); border: 1px solid rgba(174,82,244,0.2); border-radius: 20px; padding: 4px 12px; font-family: var(--mono); font-size: 9px; color: var(--purple); cursor: pointer; transition: all 0.15s; }
+.ai-insight-pill:hover { background: rgba(174,82,244,0.18); }
+
+/* ── SETTINGS ──────────────────────────────────────── */
+.settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.settings-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(30,45,66,0.5); }
+.settings-item:last-child { border-bottom: none; }
+.settings-label { font-size: 12px; color: var(--text2); }
+.settings-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 2px; }
+.settings-input { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 12px; border-radius: 6px; outline: none; width: 200px; }
+.settings-input:focus { border-color: var(--pink); }
+
+/* METRIC MINI */
+.metric-mini { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.mm-label { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; }
+.mm-val { font-family: var(--display); font-size: 26px; font-weight: 800; }
+.mm-sub { font-family: var(--mono); font-size: 9px; color: var(--text2); margin-top: 4px; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--green); color: var(--green); font-family: var(--mono); font-size: 10px; letter-spacing: 1px; padding: 10px 18px; border-radius: 8px; z-index: 9000; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* LEGEND */
+.legend-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9px; color: var(--text2); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.legend-line-dashed { width: 20px; height: 2px; border-top: 2px dashed; }
+
+/* WEEKLY SUMMARY */
+.summary-card { background: linear-gradient(135deg, rgba(174,82,244,0.08), rgba(255,79,163,0.04)); border: 1px solid rgba(174,82,244,0.2); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
+.summary-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.summary-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--pink), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.summary-title { font-family: var(--display); font-size: 14px; font-weight: 700; }
+.summary-date { font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.summary-text { font-size: 12px; color: var(--text2); line-height: 1.7; }
+.summary-text strong { color: var(--text); }
+.summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+.ss-item { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+.ss-label { font-family: var(--mono); font-size: 7px; letter-spacing: 1.5px; color: var(--text3); text-transform: uppercase; margin-bottom: 4px; }
+.ss-val { font-family: var(--display); font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- LAUNCH COUNTDOWN -->
+<div id="launchBanner">
+  <div class="launch-banner-inner">
+    <div class="launch-label">🚀 Launch Countdown</div>
+    <div class="launch-countdown" id="launchCountdown">
+      <div class="countdown-unit"><div class="countdown-num" id="cdDays">00</div><div class="countdown-lbl">DAYS</div></div>
+      <div class="countdown-unit"><div class="countdown-num" id="cdHours">00</div><div class="countdown-lbl">HRS</div></div>
+      <div class="countdown-unit"><div class="countdown-num" id="cdMins">00</div><div class="countdown-lbl">MIN</div></div>
+      <div class="countdown-unit"><div class="countdown-num" id="cdSecs">00</div><div class="countdown-lbl">SEC</div></div>
+    </div>
+    <div class="launch-event-name" id="launchEventName">—</div>
+    <div class="launch-label" id="launchDateLabel">—</div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">M</div>
+    <div class="logo-text">SLIP IQ</div>
+    <div class="logo-badge">MARKETING</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('calendar')">Calendar</button>
+    <button class="nav-tab" onclick="switchTab('marsai')">MARSAI</button>
+    <button class="nav-tab" onclick="switchTab('effects')">Effects</button>
+    <button class="nav-tab" onclick="switchTab('journal')">Journal</button>
+    <button class="nav-tab" onclick="switchTab('settings')">Settings</button>
+  </div>
+  <div style="font-family:var(--mono);font-size:9px;color:var(--text3)" id="topDate">—</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ CALENDAR TAB -->
+<div class="tab-content active" id="tab-calendar">
+  <div class="content">
+    <div class="section-hd">Marketing Calendar</div>
+
+    <!-- Legend -->
+    <div class="legend-row" style="margin-bottom:16px">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--text3)"></div>To-Do</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Meeting</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Task</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Video</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Stunt</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--pink)"></div>Sale</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>Discount</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>🚀 Launch</div>
+    </div>
+
+    <div class="cal-wrapper">
+      <div class="cal-card">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">← PREV</button>
+          <div class="cal-month" id="calMonthLabel">—</div>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">NEXT →</button>
+        </div>
+        <div class="cal-grid" id="calGrid">
+          <div class="cal-dow">MON</div><div class="cal-dow">TUE</div><div class="cal-dow">WED</div>
+          <div class="cal-dow">THU</div><div class="cal-dow">FRI</div><div class="cal-dow">SAT</div><div class="cal-dow">SUN</div>
+        </div>
+      </div>
+
+      <div class="event-panel" id="eventPanel">
+        <div class="ep-header">
+          <div class="ep-date" id="epDate">Select a day</div>
+          <div class="ep-sub" id="epEventCount">0 events</div>
+          <button class="ep-add-btn" onclick="openAddModal()">+ ADD EVENT</button>
+        </div>
+        <div class="ep-events" id="epEvents">
+          <div class="ep-empty">Click a day to view &amp; add events</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming events list -->
+    <div class="section-hd" style="margin-top:28px">Upcoming Events</div>
+    <div class="card">
+      <div id="upcomingList" style="font-family:var(--mono);font-size:10px;color:var(--text3)">No upcoming events scheduled.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ MARSAI TAB -->
+<div class="tab-content" id="tab-marsai">
+  <div class="content">
+    <!-- Weekly Summary -->
+    <div class="summary-card" id="weeklySummary">
+      <div class="summary-header">
+        <div class="summary-icon">🤖</div>
+        <div>
+          <div class="summary-title" id="aiName">MARSAI</div>
+          <div class="summary-date">Weekly Intelligence Briefing — <span id="summaryWeek">loading...</span></div>
+        </div>
+        <div style="margin-left:auto">
+          <button class="sug-btn sug-date" onclick="generateWeeklySummary()" style="font-size:9px;padding:6px 14px">↺ Refresh</button>
+        </div>
+      </div>
+      <div class="summary-text" id="summaryText">Loading your weekly intelligence briefing...</div>
+      <div class="summary-stats" id="summaryStats">
+        <div class="ss-item"><div class="ss-label">Stunts Active</div><div class="ss-val" id="ssStunts">—</div></div>
+        <div class="ss-item"><div class="ss-label">Videos Sched.</div><div class="ss-val" id="ssVideos">—</div></div>
+        <div class="ss-item"><div class="ss-label">Journal Entries</div><div class="ss-val" id="ssJournal">—</div></div>
+        <div class="ss-item"><div class="ss-label">Tasks Pending</div><div class="ss-val" id="ssTasks">—</div></div>
+      </div>
+    </div>
+
+    <div class="marsai-wrapper">
+      <!-- Sidebar -->
+      <div class="marsai-sidebar">
+        <div class="marsai-profile">
+          <div class="marsai-avatar" id="marsaiAvatarLetter">M</div>
+          <div class="marsai-name" id="marsaiDisplayName">MARSAI</div>
+          <div class="marsai-tagline">Marketing Intelligence Engine</div>
+          <div class="marsai-status">ONLINE — LEARNING</div>
+        </div>
+        <div class="marsai-capabilities">
+          <div class="cap-title">Capabilities</div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(0,229,255,0.1)">📊</div><div class="cap-text">Revenue & user trend analysis</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(174,82,244,0.1)">📅</div><div class="cap-text">Auto-schedules stunts & videos</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(0,230,118,0.1)">📈</div><div class="cap-text">Pinpoints what caused growth spikes</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(255,197,66,0.1)">⚠️</div><div class="cap-text">Flags underperforming campaigns</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(255,79,163,0.1)">✍️</div><div class="cap-text">Writes to your marketing journal</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(255,143,0,0.1)">🎯</div><div class="cap-text">A/B test content suggestions</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(255,61,90,0.1)">🔥</div><div class="cap-text">Churn early-warning signals</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(0,229,255,0.1)">💡</div><div class="cap-text">Competitor timing intelligence</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(174,82,244,0.1)">🗓️</div><div class="cap-text">Adds optimised tasks to calendar</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(0,230,118,0.1)">📋</div><div class="cap-text">Daily & weekly briefings</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(245,197,66,0.1)">🏆</div><div class="cap-text">Identifies best-converting content</div></div>
+          <div class="cap-item"><div class="cap-icon" style="background:rgba(255,79,163,0.1)">🧠</div><div class="cap-text">Learns from past performance</div></div>
+        </div>
+        <div class="marsai-memory" style="padding:14px 18px;border-top:1px solid var(--border)">
+          <div class="cap-title">Recent Memory</div>
+          <div id="memoryList">
+            <div class="mem-item">No memories yet — start chatting!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="marsai-chat">
+        <div class="chat-header">
+          <div class="chat-header-title">Chat with <span id="chatAiName">MARSAI</span></div>
+          <button class="chat-clear" onclick="clearChat()">CLEAR CHAT</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg marsai">
+            <div class="msg-avatar">🤖</div>
+            <div>
+              <div class="msg-bubble">Hey! I'm <strong id="greetAiName">MARSAI</strong>, your marketing intelligence engine. I have access to your calendar events, journal entries, and platform statistics. Ask me anything — or let me run a full analysis and tell you what's working.</div>
+              <div class="msg-time" id="greetTime">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-quick">
+              <button class="quick-btn" onclick="quickPrompt('What marketing actions have had the biggest impact on revenue?')">📈 Revenue impact</button>
+              <button class="quick-btn" onclick="quickPrompt('What should I post this week to get new signups?')">📲 Content ideas</button>
+              <button class="quick-btn" onclick="quickPrompt('What is underperforming right now and why?')">⚠️ Underperformers</button>
+              <button class="quick-btn" onclick="quickPrompt('Give me a daily briefing for today.')">📋 Daily briefing</button>
+              <button class="quick-btn" onclick="quickPrompt('Suggest an optimal posting schedule for next 2 weeks.')">📅 Schedule</button>
+            </div>
+            <div class="chat-input-row">
+              <input class="chat-input" id="chatInput" type="text" placeholder="Ask MARSAI anything..." onkeydown="if(event.key==='Enter')sendMessage()">
+              <button class="chat-send" onclick="sendMessage()">SEND →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ EFFECTS TAB -->
+<div class="tab-content" id="tab-effects">
+  <div class="content">
+    <div class="section-hd">Marketing Effects Analysis</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-bottom:18px;line-height:1.6">
+      Dashed vertical lines indicate days when a <span style="color:var(--purple)">video</span> or <span style="color:var(--orange)">marketing stunt</span> was enacted. Click any marker to see event details.
+    </div>
+
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="metric-mini"><div class="mm-label">Active Stunts</div><div class="mm-val accent" id="eff-stunts">—</div><div class="mm-sub">scheduled</div></div>
+      <div class="metric-mini"><div class="mm-label">Videos Planned</div><div class="mm-val purple" id="eff-videos">—</div><div class="mm-sub">this month</div></div>
+      <div class="metric-mini"><div class="mm-label">Best Stunt Impact</div><div class="mm-val green" id="eff-best">—</div><div class="mm-sub">highest signup spike</div></div>
+      <div class="metric-mini"><div class="mm-label">Next Event</div><div class="mm-val gold" id="eff-next">—</div><div class="mm-sub">days away</div></div>
+    </div>
+
+    <!-- User growth + event markers -->
+    <div class="effects-chart-card">
+      <div class="card-title">User Growth Over Time (with event markers)</div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>New Signups</div>
+        <div class="legend-item"><div class="legend-line-dashed" style="border-color:var(--purple)"></div>Video Posted</div>
+        <div class="legend-item"><div class="legend-line-dashed" style="border-color:var(--orange)"></div>Marketing Stunt</div>
+        <div class="legend-item"><div class="legend-line-dashed" style="border-color:var(--red)"></div>Launch Day</div>
+      </div>
+      <div style="height:260px;position:relative"><canvas id="effGrowthChart"></canvas></div>
+    </div>
+
+    <!-- Revenue + markers -->
+    <div class="effects-chart-card">
+      <div class="card-title">Revenue Over Time (with event markers)</div>
+      <div style="height:220px;position:relative"><canvas id="effRevenueChart"></canvas></div>
+    </div>
+
+    <!-- Plan distribution over time -->
+    <div class="grid-2">
+      <div class="effects-chart-card" style="margin-bottom:0">
+        <div class="card-title">Subscriber Distribution Snapshot</div>
+        <div style="height:200px;position:relative"><canvas id="effPlanChart"></canvas></div>
+      </div>
+      <div class="effects-chart-card" style="margin-bottom:0">
+        <div class="card-title">Engagement Heatmap (signups by day of week)</div>
+        <div style="height:200px;position:relative"><canvas id="effDowChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Event impact table -->
+    <div class="section-hd" style="margin-top:28px">Event Impact Log</div>
+    <div class="card">
+      <div id="eventImpactTable" style="font-family:var(--mono);font-size:10px;color:var(--text3)">Add video or stunt events to the calendar to see their impact logged here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ JOURNAL TAB -->
+<div class="tab-content" id="tab-journal">
+  <div class="content">
+    <div class="section-hd">Marketing Journal</div>
+    <div class="journal-wrapper">
+      <div class="journal-list">
+        <div class="jl-header">
+          <div class="jl-title">Entries</div>
+          <button class="jl-new" onclick="newJournalEntry()">+ NEW</button>
+        </div>
+        <div class="jl-items" id="journalList">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);padding:20px;text-align:center">No entries yet</div>
+        </div>
+      </div>
+
+      <div class="journal-editor">
+        <div class="je-toolbar">
+          <input class="je-title-input" id="jeTitle" placeholder="Entry title..." value="">
+          <div class="je-meta" id="jeMeta">—</div>
+          <div class="ai-insight-pill" onclick="getAiJournalInsight()">🤖 Ask MARSAI</div>
+          <button class="je-save" onclick="saveJournalEntry()">SAVE</button>
+        </div>
+        <div class="je-body">
+          <textarea class="je-textarea" id="jeBody" placeholder="Write your marketing plans, ideas, campaign notes, retrospectives...
+
+MARSAI can read everything you write here and will use it to make smarter suggestions."></textarea>
+          <div>
+            <div class="je-image-zone" onclick="document.getElementById('jeImageUpload').click()">
+              <input type="file" id="jeImageUpload" accept="image/*" multiple style="display:none" onchange="handleImageUpload(event)">
+              <div class="je-image-zone-text">📎 CLICK TO ATTACH IMAGES — screenshots, mockups, inspiration</div>
+            </div>
+            <div class="je-images" id="jeImagePreviews" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ SETTINGS TAB -->
+<div class="tab-content" id="tab-settings">
+  <div class="content">
+    <div class="section-hd">Marketing Settings</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">AI Assistant Personalisation</div>
+        <div class="settings-item">
+          <div><div class="settings-label">Assistant Name</div><div class="settings-sub">How the AI introduces itself</div></div>
+          <input class="settings-input" id="settingAiName" value="MARSAI" oninput="updateAiName()">
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Your Name / Brand</div><div class="settings-sub">Used in briefings and summaries</div></div>
+          <input class="settings-input" id="settingBrandName" value="Slip IQ" oninput="updateBrandName()">
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">AI Tone</div><div class="settings-sub">Personality style</div></div>
+          <select class="settings-input" id="settingTone" style="width:200px">
+            <option value="professional">Professional</option>
+            <option value="jarvis" selected>JARVIS-like</option>
+            <option value="casual">Casual</option>
+            <option value="concise">Concise & Direct</option>
+          </select>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Daily Briefing Time</div><div class="settings-sub">Morning briefing</div></div>
+          <input class="settings-input" type="time" id="settingBriefingTime" value="08:00">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Password & Access</div>
+        <div class="settings-item">
+          <div><div class="settings-label">Change Password</div><div class="settings-sub">Current: saved in browser storage</div></div>
+          <div style="display:flex;gap:8px">
+            <input class="settings-input" type="password" id="settingNewPw" placeholder="New password..." style="width:160px">
+            <button class="settings-input" onclick="savePasswordChange()" style="cursor:pointer;width:auto;padding:8px 14px;background:linear-gradient(135deg,#ff4fa3,#ae52f4);color:#fff;border:none;font-family:Syne,sans-serif;font-weight:700">SAVE</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Notifications & Alerts</div>
+        <div class="settings-item">
+          <div><div class="settings-label">Launch Day Alerts</div><div class="settings-sub">Countdown banner on screen</div></div>
+          <select class="settings-input" style="width:140px"><option>7 days before</option><option>14 days</option><option>30 days</option></select>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Weekly Summary</div><div class="settings-sub">Auto-generated by MARSAI</div></div>
+          <select class="settings-input" style="width:140px"><option>Monday</option><option>Sunday</option><option>Friday</option></select>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Performance Threshold</div><div class="settings-sub">Alert when signups drop below</div></div>
+          <input class="settings-input" type="number" value="5" style="width:140px">
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Revenue Alert</div><div class="settings-sub">Alert on MRR change of</div></div>
+          <input class="settings-input" type="number" value="10" style="width:140px" placeholder="%">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Calendar & Events</div>
+        <div class="settings-item">
+          <div><div class="settings-label">Default Event Duration</div><div class="settings-sub">For meetings and tasks</div></div>
+          <select class="settings-input" style="width:140px"><option>30 min</option><option>1 hour</option><option>2 hours</option></select>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Week Start</div></div>
+          <select class="settings-input" style="width:140px"><option>Monday</option><option>Sunday</option></select>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Export Calendar</div><div class="settings-sub">Download .ical</div></div>
+          <button class="settings-input" onclick="exportCalendar()" style="cursor:pointer;text-align:center;width:140px">Export .ical</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Data & Privacy</div>
+        <div class="settings-item">
+          <div><div class="settings-label">Admin Dashboard URL</div><div class="settings-sub">For effects analysis</div></div>
+          <input class="settings-input" id="settingAdminUrl" value="/admin_dash.html" placeholder="/admin_dash.html">
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Clear All Events</div><div class="settings-sub">Remove calendar data</div></div>
+          <button class="settings-input" onclick="clearAllEvents()" style="cursor:pointer;color:var(--red);border-color:var(--red);width:140px">CLEAR ALL</button>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Clear Journal</div><div class="settings-sub">Remove all entries</div></div>
+          <button class="settings-input" onclick="clearJournal()" style="cursor:pointer;color:var(--red);border-color:var(--red);width:140px">CLEAR ALL</button>
+        </div>
+        <div class="settings-item">
+          <div><div class="settings-label">Export All Data</div><div class="settings-sub">JSON backup</div></div>
+          <button class="settings-input" onclick="exportAllData()" style="cursor:pointer;width:140px">Export JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EVENT MODAL -->
+<div class="modal-overlay" id="addModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">Add Marketing Event</div>
+    <div class="form-row">
+      <label class="form-label">Event Type</label>
+      <div class="event-type-grid">
+        <button class="et-btn" data-type="todo" onclick="selectType('todo')">📝 To-Do</button>
+        <button class="et-btn" data-type="meeting" onclick="selectType('meeting')">📞 Meeting</button>
+        <button class="et-btn" data-type="task" onclick="selectType('task')">✅ Task</button>
+        <button class="et-btn" data-type="video" onclick="selectType('video')">🎬 Video</button>
+        <button class="et-btn" data-type="stunt" onclick="selectType('stunt')">⚡ Stunt</button>
+        <button class="et-btn" data-type="sale" onclick="selectType('sale')">💰 Sale</button>
+        <button class="et-btn" data-type="discount" onclick="selectType('discount')">🏷️ Discount</button>
+        <button class="et-btn active" data-type="launch" onclick="selectType('launch')">🚀 Launch</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="modalTitle" placeholder="e.g. Instagram video — biggest wins compilation">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Time (optional)</label>
+      <input class="form-input" type="time" id="modalTime">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="modalNotes" placeholder="Campaign details, links, strategy notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEvent()">Save Event →</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── PASSWORD LOCK ─────────────────────────────────────────────
+;(function() {
+  const stored = localStorage.getItem('mkt_pw') || 'slipiqmarketting26'
+  const session = sessionStorage.getItem('mkt_unlocked')
+  if (session === stored) return
+  const overlay = document.createElement('div')
+  overlay.id = 'pwOverlay'
+  overlay.style.cssText = 'position:fixed;inset:0;background:#080b10;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px'
+  overlay.innerHTML = `
+    <div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;letter-spacing:4px;color:#e8eeff">SLIP IQ</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:3px;color:#3d5070;margin-top:-10px">MARKETING COMMAND</div>
+    <div style="background:#111620;border:1px solid #1e2d42;border-radius:14px;padding:36px 40px;display:flex;flex-direction:column;gap:14px;width:340px;margin-top:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;color:#3d5070;text-transform:uppercase">Password Required</div>
+      <input id="pwInput" type="password" placeholder="Enter password..." style="background:#080b10;border:1px solid #1e2d42;color:#e8eeff;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:12px 14px;border-radius:8px;outline:none;width:100%" onkeydown="if(event.key==='Enter')window._checkPw()">
+      <div id="pwErr" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#ff3d5a;display:none;letter-spacing:1px">Incorrect password</div>
+      <button onclick="window._checkPw()" style="background:linear-gradient(135deg,#ff4fa3,#ae52f4);color:#fff;border:none;border-radius:8px;padding:12px;font-family:Syne,sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px">UNLOCK →</button>
+    </div>`
+  document.body.appendChild(overlay)
+  setTimeout(() => document.getElementById('pwInput')?.focus(), 100)
+  window._checkPw = function() {
+    const val = document.getElementById('pwInput').value
+    const correct = localStorage.getItem('mkt_pw') || 'slipiqmarketting26'
+    if (val === correct) {
+      sessionStorage.setItem('mkt_unlocked', correct)
+      document.getElementById('pwOverlay').remove()
+    } else {
+      document.getElementById('pwErr').style.display = 'block'
+      document.getElementById('pwInput').value = ''
+      document.getElementById('pwInput').focus()
+    }
+  }
+})()
+
+// ── STATE ─────────────────────────────────────────────────────
+let calYear = new Date().getFullYear()
+let calMonth = new Date().getMonth()
+let selectedDate = null
+let selectedEventType = 'launch'
+let events = JSON.parse(localStorage.getItem('mkt_events') || '{}')
+let journal = JSON.parse(localStorage.getItem('mkt_journal') || '[]')
+let currentJournalId = null
+let currentJournalImages = []
+let chatHistory = JSON.parse(localStorage.getItem('mkt_chathistory') || '[]')
+let aiName = localStorage.getItem('mkt_ainame') || 'MARSAI'
+let brandName = localStorage.getItem('mkt_brand') || 'Slip IQ'
+let nextLaunchDate = null
+let charts = {}
+let autoSaveTimer = null
+
+// ── AUTOSAVE ──────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('mkt_events', JSON.stringify(events))
+  localStorage.setItem('mkt_journal', JSON.stringify(journal))
+  localStorage.setItem('mkt_chathistory', JSON.stringify(chatHistory.slice(-40)))
+  localStorage.setItem('mkt_ainame', aiName)
+  localStorage.setItem('mkt_brand', brandName)
+}
+
+// Debounced autosave for text inputs (journal body etc)
+function debouncedSave() {
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(save, 800)
+}
+
+// GITHUB TOKEN — replace with window.GITHUB_TOKEN from config.js or hardcode for local dev
+const GITHUB_TOKEN = window.GITHUB_TOKEN || ''
+
+// ── INIT ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('topDate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+  document.getElementById('greetTime').textContent = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
+  updateAiName()
+  renderCalendar()
+  findNextLaunch()
+  renderJournalList()
+  generateWeeklySummary()
+  renderEffectsCharts()
+  updateEffectsStats()
+  setInterval(updateCountdown, 1000)
+  updateCountdown()
+
+  // Load settings
+  document.getElementById('settingAiName').value = aiName
+  document.getElementById('settingBrandName').value = brandName
+
+  // Autosave journal body on every keystroke (debounced)
+  document.getElementById('jeBody').addEventListener('input', () => {
+    const existing = journal.findIndex(j => j.id === currentJournalId)
+    if (existing >= 0) {
+      journal[existing].body = document.getElementById('jeBody').value
+      journal[existing].title = document.getElementById('jeTitle').value.trim() || 'Untitled entry'
+    }
+    debouncedSave()
+  })
+  document.getElementById('jeTitle').addEventListener('input', () => {
+    const existing = journal.findIndex(j => j.id === currentJournalId)
+    if (existing >= 0) journal[existing].title = document.getElementById('jeTitle').value.trim() || 'Untitled entry'
+    debouncedSave()
+    renderJournalList()
+  })
+
+  // Full save every 30s as safety net
+  setInterval(save, 30000)
+})
+
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'))
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'))
+  document.getElementById('tab-' + t).classList.add('active')
+  document.querySelectorAll('.nav-tab').forEach(el => { if(el.textContent.trim().toLowerCase() === t || el.getAttribute('onclick')?.includes(t)) el.classList.add('active') })
+  if (t === 'effects') renderEffectsCharts()
+}
+
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.style.borderColor = isErr ? 'var(--red)' : 'var(--green)'
+  t.style.color = isErr ? 'var(--red)' : 'var(--green)'
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 3000)
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────
+function updateAiName() {
+  aiName = document.getElementById('settingAiName').value || 'MARSAI'
+  save()
+  ;['aiName','marsaiDisplayName','chatAiName','greetAiName'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.textContent = aiName
+  })
+  const av = document.getElementById('marsaiAvatarLetter'); if(av) av.textContent = aiName[0].toUpperCase()
+  const gn = document.getElementById('greetAiName'); if(gn) gn.textContent = aiName
+}
+
+function updateBrandName() {
+  brandName = document.getElementById('settingBrandName').value || 'Slip IQ'
+  save()
+}
+
+function savePasswordChange() {
+  const newPw = document.getElementById('settingNewPw').value.trim()
+  if (!newPw || newPw.length < 6) { showToast('Password must be 6+ characters', true); return }
+  localStorage.setItem('mkt_pw', newPw)
+  sessionStorage.setItem('mkt_unlocked', newPw)
+  document.getElementById('settingNewPw').value = ''
+  showToast('Password updated!')
+}
+
+// ── CALENDAR ──────────────────────────────────────────────────
+const TYPE_META = {
+  todo:     { label: 'To-Do',    color: '#7a90b0', bg: 'rgba(122,144,176,0.1)', border: '#7a90b0', dot: 'dot-todo' },
+  meeting:  { label: 'Meeting',  color: 'var(--accent)', bg: 'rgba(0,229,255,0.08)', border: 'rgba(0,229,255,0.3)', dot: 'dot-meeting' },
+  task:     { label: 'Task',     color: 'var(--green)', bg: 'rgba(0,230,118,0.08)', border: 'rgba(0,230,118,0.3)', dot: 'dot-task' },
+  video:    { label: 'Video',    color: 'var(--purple)', bg: 'rgba(174,82,244,0.1)', border: 'rgba(174,82,244,0.3)', dot: 'dot-video' },
+  stunt:    { label: 'Stunt',    color: 'var(--orange)', bg: 'rgba(255,143,0,0.1)', border: 'rgba(255,143,0,0.3)', dot: 'dot-stunt' },
+  sale:     { label: 'Sale',     color: 'var(--pink)', bg: 'rgba(255,79,163,0.08)', border: 'rgba(255,79,163,0.25)', dot: 'dot-sale' },
+  discount: { label: 'Discount', color: 'var(--gold)', bg: 'rgba(245,197,66,0.1)', border: 'rgba(245,197,66,0.25)', dot: 'dot-discount' },
+  launch:   { label: '🚀 Launch', color: 'var(--red)', bg: 'rgba(255,61,90,0.1)', border: 'rgba(255,61,90,0.3)', dot: 'dot-launch' },
+}
+
+function renderCalendar() {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  document.getElementById('calMonthLabel').textContent = months[calMonth] + ' ' + calYear
+
+  const grid = document.getElementById('calGrid')
+  // Keep day-of-week headers (first 7 children)
+  const dows = []
+  for (let i = 0; i < 7; i++) dows.push(grid.children[i].cloneNode(true))
+  grid.innerHTML = ''
+  dows.forEach(d => grid.appendChild(d))
+
+  const firstDay = new Date(calYear, calMonth, 1)
+  let startDow = firstDay.getDay() // 0=sun
+  startDow = startDow === 0 ? 6 : startDow - 1 // mon=0
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+  const daysInPrev = new Date(calYear, calMonth, 0).getDate()
+  const today = new Date()
+
+  let cells = []
+  for (let i = startDow - 1; i >= 0; i--) cells.push({ day: daysInPrev - i, other: true })
+  for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, other: false })
+  while (cells.length % 7 !== 0) cells.push({ day: cells.length - daysInMonth - startDow + 1, other: true })
+
+  cells.forEach(c => {
+    const dateStr = c.other ? null : `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(c.day).padStart(2,'0')}`
+    const dayEvents = dateStr ? (events[dateStr] || []) : []
+    const hasLaunch = dayEvents.some(e => e.type === 'launch')
+    const isToday = !c.other && calYear === today.getFullYear() && calMonth === today.getMonth() && c.day === today.getDate()
+    const isSelected = dateStr === selectedDate
+
+    const el = document.createElement('div')
+    el.className = 'cal-day' + (c.other ? ' other-month' : '') + (isToday ? ' today' : '') + (isSelected ? ' selected' : '') + (hasLaunch ? ' has-launch' : '')
+    if (!c.other) el.onclick = () => selectDay(dateStr)
+
+    const numDiv = document.createElement('div')
+    numDiv.className = 'cal-day-num'
+    numDiv.textContent = c.day
+    el.appendChild(numDiv)
+
+    if (dayEvents.length) {
+      const dotsDiv = document.createElement('div')
+      dotsDiv.className = 'cal-dots'
+      dayEvents.slice(0, 4).forEach(ev => {
+        const d = document.createElement('div')
+        d.className = 'cal-dot ' + (TYPE_META[ev.type]?.dot || 'dot-todo')
+        dotsDiv.appendChild(d)
+      })
+      el.appendChild(dotsDiv)
+    }
+
+    grid.appendChild(el)
+  })
+
+  renderUpcoming()
+}
+
+function changeMonth(dir) {
+  calMonth += dir
+  if (calMonth > 11) { calMonth = 0; calYear++ }
+  if (calMonth < 0) { calMonth = 11; calYear-- }
+  renderCalendar()
+}
+
+function selectDay(dateStr) {
+  selectedDate = dateStr
+  renderCalendar()
+  renderEventPanel(dateStr)
+}
+
+function renderEventPanel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  document.getElementById('epDate').textContent = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' })
+  const evts = events[dateStr] || []
+  document.getElementById('epEventCount').textContent = evts.length + ' event' + (evts.length !== 1 ? 's' : '')
+
+  const ep = document.getElementById('epEvents')
+  if (!evts.length) { ep.innerHTML = '<div class="ep-empty">No events. Add one!</div>'; return }
+
+  ep.innerHTML = evts.map((ev, i) => {
+    const m = TYPE_META[ev.type] || TYPE_META.todo
+    return `<div class="ep-event">
+      <span class="ep-type-badge" style="background:${m.bg};color:${m.color};border:1px solid ${m.border}">${m.label}</span>
+      <div>
+        <div class="ep-event-title">${ev.title}${ev.time ? ' <span style="color:var(--text3);font-size:10px">@ ' + ev.time + '</span>' : ''}</div>
+        ${ev.notes ? `<div class="ep-event-notes">${ev.notes}</div>` : ''}
+      </div>
+      <button class="ep-del" onclick="deleteEvent('${dateStr}',${i})">✕</button>
+    </div>`
+  }).join('')
+}
+
+function renderUpcoming() {
+  const now = new Date(); now.setHours(0,0,0,0)
+  const upcoming = []
+  Object.keys(events).sort().forEach(dateStr => {
+    const d = new Date(dateStr + 'T12:00:00')
+    if (d >= now) {
+      events[dateStr].forEach(ev => upcoming.push({ dateStr, d, ev }))
+    }
+  })
+  const ul = document.getElementById('upcomingList')
+  if (!upcoming.length) { ul.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;padding:16px">No upcoming events</div>'; return }
+  ul.innerHTML = upcoming.slice(0,10).map(item => {
+    const m = TYPE_META[item.ev.type] || TYPE_META.todo
+    const diffDays = Math.ceil((item.d - now) / 86400000)
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(30,45,66,0.5)">
+      <span class="ep-type-badge" style="background:${m.bg};color:${m.color};border:1px solid ${m.border}">${m.label}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;color:var(--text)">${item.ev.title}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${item.d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' })}</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:${diffDays===0?'var(--red)':diffDays<7?'var(--gold)':'var(--text3)'}">${diffDays===0?'TODAY':diffDays===1?'TOMORROW':diffDays+'d away'}</div>
+    </div>`
+  }).join('')
+}
+
+// ── EVENT CRUD ────────────────────────────────────────────────
+function openAddModal() {
+  if (!selectedDate) { showToast('Select a day first', true); return }
+  document.getElementById('addModal').style.display = 'flex'
+  document.getElementById('modalTitle').value = ''
+  document.getElementById('modalNotes').value = ''
+  document.getElementById('modalTime').value = ''
+  selectType('launch')
+}
+
+function closeModal() { document.getElementById('addModal').style.display = 'none' }
+
+function selectType(type) {
+  selectedEventType = type
+  document.querySelectorAll('.et-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type))
+}
+
+function saveEvent() {
+  const title = document.getElementById('modalTitle').value.trim()
+  if (!title) { showToast('Enter a title', true); return }
+  if (!events[selectedDate]) events[selectedDate] = []
+  events[selectedDate].push({
+    type: selectedEventType,
+    title,
+    time: document.getElementById('modalTime').value || '',
+    notes: document.getElementById('modalNotes').value.trim(),
+    created: new Date().toISOString()
+  })
+  save()
+  closeModal()
+  renderCalendar()
+  renderEventPanel(selectedDate)
+  findNextLaunch()
+  updateEffectsStats()
+  showToast('Event saved!')
+}
+
+function deleteEvent(dateStr, idx) {
+  events[dateStr].splice(idx, 1)
+  if (!events[dateStr].length) delete events[dateStr]
+  save()
+  renderCalendar()
+  renderEventPanel(dateStr)
+  findNextLaunch()
+  updateEffectsStats()
+  showToast('Event removed')
+}
+
+// ── LAUNCH COUNTDOWN ──────────────────────────────────────────
+function findNextLaunch() {
+  const now = new Date(); now.setHours(0,0,0,0)
+  let upcoming = null
+  let upcomingName = ''
+  Object.keys(events).sort().forEach(dateStr => {
+    const d = new Date(dateStr + 'T00:00:00')
+    if (d >= now) {
+      const launch = events[dateStr].find(e => e.type === 'launch')
+      if (launch && (!upcoming || d < upcoming)) {
+        upcoming = d
+        upcomingName = launch.title
+      }
+    }
+  })
+  nextLaunchDate = upcoming
+  const banner = document.getElementById('launchBanner')
+  if (upcoming) {
+    banner.style.display = 'block'
+    document.getElementById('launchEventName').textContent = upcomingName
+    document.getElementById('launchDateLabel').textContent = upcoming.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+  } else {
+    banner.style.display = 'none'
+  }
+}
+
+function updateCountdown() {
+  if (!nextLaunchDate) return
+  const diff = nextLaunchDate.getTime() - Date.now()
+  if (diff < 0) { findNextLaunch(); return }
+  const d = Math.floor(diff / 86400000)
+  const h = Math.floor((diff % 86400000) / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  document.getElementById('cdDays').textContent = String(d).padStart(2,'0')
+  document.getElementById('cdHours').textContent = String(h).padStart(2,'0')
+  document.getElementById('cdMins').textContent = String(m).padStart(2,'0')
+  document.getElementById('cdSecs').textContent = String(s).padStart(2,'0')
+}
+
+// ── EFFECTS CHARTS ────────────────────────────────────────────
+function updateEffectsStats() {
+  const allEvts = Object.values(events).flat()
+  const stunts = allEvts.filter(e => e.type === 'stunt').length
+  const videos = allEvts.filter(e => e.type === 'video').length
+
+  document.getElementById('eff-stunts').textContent = stunts
+  document.getElementById('eff-videos').textContent = videos
+  document.getElementById('eff-best').textContent = '—'
+
+  const now = new Date(); now.setHours(0,0,0,0)
+  let soonest = null
+  Object.keys(events).forEach(dateStr => {
+    const d = new Date(dateStr + 'T00:00:00')
+    if (d >= now && (!soonest || d < soonest)) soonest = d
+  })
+  document.getElementById('eff-next').textContent = soonest ? Math.ceil((soonest - now) / 86400000) + 'd' : '—'
+
+  // Event impact log
+  const impactEl = document.getElementById('eventImpactTable')
+  const impactEvts = Object.entries(events).flatMap(([dateStr, evts]) =>
+    evts.filter(e => e.type === 'video' || e.type === 'stunt' || e.type === 'launch')
+        .map(e => ({ dateStr, ...e }))
+  ).sort((a,b) => a.dateStr.localeCompare(b.dateStr))
+
+  if (!impactEvts.length) {
+    impactEl.innerHTML = '<div style="text-align:center;padding:20px;font-family:var(--mono);font-size:10px;color:var(--text3)">No video/stunt/launch events yet — add them in the Calendar tab.</div>'
+    return
+  }
+  impactEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="font-family:var(--mono);font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">
+      <th style="text-align:left;padding:8px 12px">Date</th>
+      <th style="text-align:left;padding:8px 12px">Type</th>
+      <th style="text-align:left;padding:8px 12px">Event</th>
+      <th style="text-align:right;padding:8px 12px">Impact</th>
+    </tr></thead>
+    <tbody>${impactEvts.map(ev => {
+      const m = TYPE_META[ev.type]
+      const d = new Date(ev.dateStr + 'T12:00:00')
+      const isPast = d < new Date()
+      return `<tr style="border-bottom:1px solid rgba(30,45,66,0.5)">
+        <td style="padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text3)">${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</td>
+        <td style="padding:10px 12px"><span style="font-family:var(--mono);font-size:7px;padding:2px 8px;border-radius:3px;background:${m?.bg};color:${m?.color};border:1px solid ${m?.border}">${m?.label}</span></td>
+        <td style="padding:10px 12px;font-size:12px;color:var(--text2)">${ev.title}</td>
+        <td style="padding:10px 12px;text-align:right;font-family:var(--mono);font-size:10px;color:${isPast?'var(--text3)':'var(--accent)'}">${isPast?'Track manually':'Pending'}</td>
+      </tr>`
+    }).join('')}</tbody>
+  </table>`
+}
+
+function renderEffectsCharts() {
+  const weeks = []
+  const growthData = []
+  for (let i = 11; i >= 0; i--) {
+    const start = new Date(Date.now() - (i+1)*7*86400000)
+    const end   = new Date(Date.now() - i*7*86400000)
+    weeks.push('W-' + i)
+    growthData.push(Math.floor(Math.random() * 30 + 5)) // placeholder — replace with real Supabase data
+  }
+
+  const annotations = []
+  Object.entries(events).forEach(([dateStr, evts]) => {
+    evts.forEach(ev => {
+      if (ev.type === 'video' || ev.type === 'stunt' || ev.type === 'launch') {
+        const d = new Date(dateStr + 'T12:00:00')
+        const weekIdx = Math.floor((Date.now() - d.getTime()) / (7*86400000))
+        if (weekIdx >= 0 && weekIdx <= 11) annotations.push({ weekIdx: 11 - weekIdx, type: ev.type, title: ev.title })
+      }
+    })
+  })
+
+  // Plugin: vertical dashed lines
+  const verticalLinesPlugin = {
+    id: 'verticalLines',
+    afterDraw(chart) {
+      const ctx = chart.ctx
+      annotations.forEach(a => {
+        const meta = chart.getDatasetMeta(0)
+        if (!meta.data[a.weekIdx]) return
+        const x = meta.data[a.weekIdx].x
+        ctx.save()
+        ctx.beginPath()
+        ctx.setLineDash([4, 4])
+        ctx.strokeStyle = a.type === 'video' ? '#ae52f4' : a.type === 'stunt' ? '#ff8f00' : '#ff3d5a'
+        ctx.lineWidth = 1.5
+        ctx.moveTo(x, chart.chartArea.top)
+        ctx.lineTo(x, chart.chartArea.bottom)
+        ctx.stroke()
+        ctx.restore()
+      })
+    }
+  }
+
+  if (charts.growth) charts.growth.destroy()
+  const ctx1 = document.getElementById('effGrowthChart')
+  if (ctx1) charts.growth = new Chart(ctx1, {
+    type: 'line',
+    plugins: [verticalLinesPlugin],
+    data: { labels: weeks, datasets: [{ label: 'New Signups', data: growthData, borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.08)', borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#111620', borderColor: '#1e2d42', borderWidth: 1, titleColor: '#e8eeff', bodyColor: '#7a90b0', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 10 } } },
+      scales: { x: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } } }, y: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } }, beginAtZero: true } }
+    }
+  })
+
+  // Revenue chart (simulated)
+  const revenueData = growthData.map((_, i) => (100 + i * 15 + Math.random() * 20).toFixed(0))
+  if (charts.revenue) charts.revenue.destroy()
+  const ctx2 = document.getElementById('effRevenueChart')
+  if (ctx2) charts.revenue = new Chart(ctx2, {
+    type: 'line',
+    plugins: [verticalLinesPlugin],
+    data: { labels: weeks, datasets: [{ label: 'MRR', data: revenueData, borderColor: '#f5c542', backgroundColor: 'rgba(245,197,66,0.06)', borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#111620', borderColor: '#1e2d42', borderWidth: 1, titleColor: '#e8eeff', bodyColor: '#7a90b0', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 10 } } },
+      scales: { x: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } } }, y: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => '€' + v }, beginAtZero: true } }
+    }
+  })
+
+  // Plan dist donut
+  const plans = ['starter','basic','plus','pro','elite','platinum']
+  const planColors = { starter:'#40d0ff',basic:'#00e5ff',plus:'#ae52f4',pro:'#c77fff',elite:'#f5c542',platinum:'#ffdf44' }
+  if (charts.plan) charts.plan.destroy()
+  const ctx3 = document.getElementById('effPlanChart')
+  if (ctx3) charts.plan = new Chart(ctx3, {
+    type: 'doughnut',
+    data: {
+      labels: plans.map(p => p.toUpperCase()),
+      datasets: [{ data: [4,12,8,5,2,1], backgroundColor: plans.map(p => planColors[p] + 'cc'), borderColor: plans.map(p => planColors[p]), borderWidth: 1 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right', labels: { color: '#7a90b0', font: { family: 'IBM Plex Mono', size: 9 }, boxWidth: 10, padding: 8 } }, tooltip: { backgroundColor: '#111620', borderColor: '#1e2d42', borderWidth: 1, titleColor: '#e8eeff', bodyColor: '#7a90b0', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 10 } } }, scales: {} }
+  })
+
+  // DOW heatmap
+  const dows = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+  const dowData = [8,12,15,14,20,25,18]
+  if (charts.dow) charts.dow.destroy()
+  const ctx4 = document.getElementById('effDowChart')
+  if (ctx4) charts.dow = new Chart(ctx4, {
+    type: 'bar',
+    data: { labels: dows, datasets: [{ data: dowData, backgroundColor: dows.map((_,i) => `rgba(0,229,255,${0.1 + (dowData[i]/30)*0.4})`), borderColor: '#00e5ff', borderWidth: 1, borderRadius: 5 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#111620', borderColor: '#1e2d42', borderWidth: 1, titleColor: '#e8eeff', bodyColor: '#7a90b0', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 10 } } }, scales: { x: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } } }, y: { grid: { color: '#1e2d42' }, ticks: { color: '#3d5070', font: { family: 'IBM Plex Mono', size: 9 } }, beginAtZero: true } } }
+  })
+}
+
+// ── JOURNAL ───────────────────────────────────────────────────
+function renderJournalList() {
+  const jl = document.getElementById('journalList')
+  const ssJ = document.getElementById('ssJournal')
+  if (ssJ) ssJ.textContent = journal.length
+  if (!journal.length) { jl.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--text3);padding:20px;text-align:center">No entries yet</div>'; return }
+  jl.innerHTML = journal.map(e => `
+    <div class="jl-item ${currentJournalId === e.id ? 'active' : ''}" onclick="loadJournalEntry('${e.id}')">
+      <div class="jl-item-date">${new Date(e.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'})}</div>
+      <div class="jl-item-title">${e.title || 'Untitled entry'}</div>
+    </div>`).join('')
+}
+
+function newJournalEntry() {
+  currentJournalId = Date.now().toString()
+  currentJournalImages = []
+  document.getElementById('jeTitle').value = ''
+  document.getElementById('jeBody').value = ''
+  document.getElementById('jeImagePreviews').innerHTML = ''
+  document.getElementById('jeMeta').textContent = 'New entry — ' + new Date().toLocaleDateString('en-GB')
+}
+
+function loadJournalEntry(id) {
+  const e = journal.find(j => j.id === id)
+  if (!e) return
+  currentJournalId = id
+  currentJournalImages = e.images || []
+  document.getElementById('jeTitle').value = e.title || ''
+  document.getElementById('jeBody').value = e.body || ''
+  document.getElementById('jeMeta').textContent = new Date(e.date).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+  document.getElementById('jeImagePreviews').innerHTML = currentJournalImages.map(src => `<img class="je-img-thumb" src="${src}">`).join('')
+  renderJournalList()
+}
+
+function saveJournalEntry() {
+  const title = document.getElementById('jeTitle').value.trim() || 'Untitled entry'
+  const body = document.getElementById('jeBody').value
+  const existing = journal.findIndex(j => j.id === currentJournalId)
+  const entry = { id: currentJournalId || Date.now().toString(), title, body, date: new Date().toISOString(), images: currentJournalImages }
+  if (existing >= 0) journal[existing] = entry
+  else { journal.unshift(entry); currentJournalId = entry.id }
+  save()
+  renderJournalList()
+  showToast('Journal saved!')
+  updateMemoryPanel()
+}
+
+function handleImageUpload(e) {
+  Array.from(e.target.files).forEach(file => {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      currentJournalImages.push(ev.target.result)
+      document.getElementById('jeImagePreviews').innerHTML = currentJournalImages.map(src => `<img class="je-img-thumb" src="${src}">`).join('')
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+async function getAiJournalInsight() {
+  const body = document.getElementById('jeBody').value
+  if (!body.trim()) { showToast('Write something first', true); return }
+  showToast('Asking ' + aiName + '...')
+  const response = await callAI(`The user has written the following in their marketing journal for ${brandName}:\n\n"${body}"\n\nGive a brief, insightful marketing analysis of this. Point out any good ideas, potential issues, and one concrete action they should take. Be concise and JARVIS-like in tone.`)
+  if (response) {
+    document.getElementById('jeBody').value = body + '\n\n---\n🤖 ' + aiName + ' Analysis:\n' + response
+    showToast('Insight added!')
+  }
+}
+
+function updateMemoryPanel() {
+  const memList = document.getElementById('memoryList')
+  const memories = []
+  if (journal.length) memories.push(`${journal.length} journal entries stored`)
+  const allEvts = Object.values(events).flat()
+  if (allEvts.length) memories.push(`${allEvts.length} calendar events`)
+  const stunts = allEvts.filter(e => e.type === 'stunt').length
+  if (stunts) memories.push(`${stunts} marketing stunts planned`)
+  const videos = allEvts.filter(e => e.type === 'video').length
+  if (videos) memories.push(`${videos} videos scheduled`)
+  if (!memories.length) { memList.innerHTML = '<div class="mem-item">No memories yet</div>'; return }
+  memList.innerHTML = memories.map(m => `<div class="mem-item">📌 ${m}</div>`).join('')
+}
+
+// ── AI ASSISTANT ───────────────────────────────────────────────
+async function callAI(prompt, useHistory = false) {
+  try {
+    const messages = useHistory
+      ? [...chatHistory, { role: 'user', content: prompt }]
+      : [{ role: 'user', content: prompt }]
+
+    const res = await fetch('/marketing/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'system', content: getSystemPrompt() }, ...messages],
+        max_tokens: 600
+      })
+    })
+    const data = await res.json()
+    return data.content || data.error || 'No response.'
+  } catch (e) {
+    console.error(e)
+    return 'Connection error.'
+  }
+}
+
+function getSystemPrompt() {
+  const allEvts = Object.values(events).flat()
+  const stunts = allEvts.filter(e => e.type === 'stunt').map(e => e.title).join(', ') || 'none'
+  const videos = allEvts.filter(e => e.type === 'video').map(e => e.title).join(', ') || 'none'
+  const launches = allEvts.filter(e => e.type === 'launch').map(e => e.title).join(', ') || 'none'
+  const journalSummary = journal.slice(0, 5).map(j => `"${j.title}": ${j.body?.slice(0,200)}`).join('\n') || 'none'
+  const tone = document.getElementById('settingTone')?.value || 'jarvis'
+
+  const upcomingEvts = Object.entries(events).filter(([d]) => new Date(d) >= new Date()).flatMap(([d, evts]) => evts.map(e => `${d}: ${e.type} — ${e.title}`)).join('\n') || 'none'
+
+  return `You are ${aiName}, a ${tone === 'jarvis' ? 'JARVIS-like, precise, and slightly witty' : tone === 'professional' ? 'highly professional and analytical' : tone === 'casual' ? 'friendly and casual' : 'concise and direct'} AI marketing assistant for ${brandName}, an AI-powered sports prediction and parlay builder platform.
+
+You have access to:
+- Upcoming calendar events:\n${upcomingEvts}
+- Marketing stunts planned: ${stunts}
+- Videos scheduled: ${videos}
+- Launch events: ${launches}
+- Journal entries (recent):\n${journalSummary}
+
+Your capabilities include: analysing revenue trends, suggesting optimal posting schedules, identifying which stunts/videos drove signups, flagging churn risks, scheduling new events, writing journal entries, giving daily/weekly briefings, competitor analysis, A/B test suggestions, content gap analysis, and learning from past campaign performance.
+
+When you suggest scheduling something, ask: "Should I add this to the calendar for [date]?" and wait for confirmation. Always be actionable and specific. Keep responses under 200 words unless doing a full briefing. UK English.`
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput')
+  const text = input.value.trim()
+  if (!text) return
+  input.value = ''
+
+  // Add user message
+  chatHistory.push({ role: 'user', content: text })
+  appendMessage('user', text)
+
+  // Typing indicator
+  const typingId = 'typing-' + Date.now()
+  document.getElementById('chatMessages').insertAdjacentHTML('beforeend', `
+    <div class="msg marsai" id="${typingId}">
+      <div class="msg-avatar">🤖</div>
+      <div class="msg-bubble"><div class="typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>
+    </div>`)
+  scrollChat()
+
+  const reply = await callAI(text, true)
+  document.getElementById(typingId)?.remove()
+
+  chatHistory.push({ role: 'assistant', content: reply })
+  if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20)
+  save()
+
+  // Check if it's a suggestion (contains question mark + date reference)
+  const isSuggestion = reply.includes('Should I') || reply.includes('shall I') || reply.includes('Would you like')
+  appendMessage('marsai', reply, isSuggestion)
+  updateMemoryPanel()
+}
+
+function appendMessage(role, text, isSuggestion = false) {
+  const msgs = document.getElementById('chatMessages')
+  const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  let content = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
+
+  let sugHtml = ''
+  if (isSuggestion) {
+    sugHtml = `<div class="suggestion-card">
+      <div class="suggestion-text">Would you like me to proceed?</div>
+      <div class="suggestion-actions">
+        <button class="sug-btn sug-yes" onclick="suggestAction('yes', this)">✓ Yes, do it</button>
+        <button class="sug-btn sug-no" onclick="suggestAction('no', this)">✗ No thanks</button>
+        <button class="sug-btn sug-date" onclick="suggestAction('date', this)">📅 Change date</button>
+      </div>
+    </div>`
+  }
+
+  msgs.insertAdjacentHTML('beforeend', `
+    <div class="msg ${role}">
+      <div class="msg-avatar">${role === 'marsai' ? '🤖' : '👤'}</div>
+      <div>
+        <div class="msg-bubble">${content}${sugHtml}</div>
+        <div class="msg-time">${time}</div>
+      </div>
+    </div>`)
+  scrollChat()
+}
+
+async function suggestAction(action, btn) {
+  btn.closest('.suggestion-actions').querySelectorAll('.sug-btn').forEach(b => b.disabled = true)
+  if (action === 'yes') {
+    appendMessage('user', 'Yes, go ahead.')
+    // Ask AI to return structured JSON for the event to add
+    const reply = await callAI(
+      `The user confirmed your suggestion. Now extract the event details and respond ONLY with a JSON object like:
+{"add_event": true, "date": "YYYY-MM-DD", "type": "video|stunt|task|todo|meeting|sale|discount|launch", "title": "event title", "notes": "optional notes"}
+If no specific date was mentioned, use tomorrow's date: ${(() => { const t = new Date(); t.setDate(t.getDate()+1); return t.toISOString().slice(0,10) })()}.
+Respond ONLY with the JSON, nothing else.`, true)
+    // Try to parse and add to calendar
+    try {
+      const cleaned = reply.replace(/```json|```/g,'').trim()
+      const parsed = JSON.parse(cleaned)
+      if (parsed.add_event && parsed.date && parsed.title) {
+        if (!events[parsed.date]) events[parsed.date] = []
+        events[parsed.date].push({
+          type: parsed.type || 'task',
+          title: parsed.title,
+          time: '',
+          notes: parsed.notes || '',
+          created: new Date().toISOString()
+        })
+        save()
+        renderCalendar()
+        findNextLaunch()
+        updateEffectsStats()
+        updateMemoryPanel()
+        appendMessage('marsai', `✅ Done — I've added **"${parsed.title}"** to your calendar on **${new Date(parsed.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}**. You can see it in the Calendar tab.`)
+        showToast('Event added to calendar!')
+      } else {
+        appendMessage('marsai', 'I\'ve noted that down, but couldn\'t extract a specific event to add. Could you tell me the exact date and event name?')
+      }
+    } catch(e) {
+      // Fallback: just confirm
+      appendMessage('marsai', reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>'))
+    }
+    chatHistory.push({ role: 'user', content: 'Yes, go ahead.' }, { role: 'assistant', content: 'Event added to calendar.' })
+  } else if (action === 'no') {
+    appendMessage('user', 'No thanks.')
+    appendMessage('marsai', 'No problem. Let me know if you change your mind or need anything else.')
+  } else {
+    const date = prompt('Enter a date (YYYY-MM-DD):')
+    if (date) {
+      appendMessage('user', `Use ${date} instead.`)
+      const reply = await callAI(
+        `The user wants to schedule on ${date} instead. Respond ONLY with JSON:
+{"add_event": true, "date": "${date}", "type": "video|stunt|task|todo|meeting|sale|discount|launch", "title": "event title", "notes": "optional notes"}`, true)
+      try {
+        const parsed = JSON.parse(reply.replace(/```json|```/g,'').trim())
+        if (parsed.add_event && parsed.date && parsed.title) {
+          if (!events[parsed.date]) events[parsed.date] = []
+          events[parsed.date].push({ type: parsed.type || 'task', title: parsed.title, time: '', notes: parsed.notes || '', created: new Date().toISOString() })
+          save(); renderCalendar(); findNextLaunch(); updateEffectsStats(); updateMemoryPanel()
+          appendMessage('marsai', `✅ Added **"${parsed.title}"** to **${date}** in your calendar.`)
+          showToast('Event added!')
+        }
+      } catch(e) {
+        appendMessage('marsai', `Got it — I'll note that for ${date}.`)
+      }
+    }
+  }
+}
+
+function quickPrompt(text) {
+  document.getElementById('chatInput').value = text
+  sendMessage()
+}
+
+function clearChat() {
+  chatHistory = []
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="msg marsai">
+      <div class="msg-avatar">🤖</div>
+      <div>
+        <div class="msg-bubble">Chat cleared. Ready for new instructions, ${brandName}.</div>
+        <div class="msg-time">${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    </div>`
+}
+
+function scrollChat() {
+  const c = document.getElementById('chatMessages')
+  c.scrollTop = c.scrollHeight
+}
+
+// ── WEEKLY SUMMARY ────────────────────────────────────────────
+async function generateWeeklySummary() {
+  document.getElementById('summaryText').textContent = 'Generating your weekly intelligence briefing...'
+  const weekStr = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })
+  document.getElementById('summaryWeek').textContent = 'Week of ' + weekStr
+
+  const allEvts = Object.values(events).flat()
+  document.getElementById('ssStunts').textContent = allEvts.filter(e => e.type==='stunt').length
+  document.getElementById('ssVideos').textContent = allEvts.filter(e => e.type==='video').length
+  document.getElementById('ssJournal').textContent = journal.length
+  document.getElementById('ssTasks').textContent = allEvts.filter(e => e.type==='task' || e.type==='todo').length
+
+  const summary = await callAI(`Generate a concise weekly marketing intelligence briefing for ${brandName}. Cover: what marketing actions are coming up, what to prioritise this week, any risks or opportunities you see, and one bold suggestion. Be JARVIS-like. Use markdown bold for key points.`)
+  document.getElementById('summaryText').innerHTML = summary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
+}
+
+// ── MISC ──────────────────────────────────────────────────────
+function clearAllEvents() {
+  if (!confirm('Clear all calendar events? This cannot be undone.')) return
+  events = {}
+  save()
+  renderCalendar()
+  findNextLaunch()
+  showToast('All events cleared')
+}
+
+function clearJournal() {
+  if (!confirm('Clear all journal entries? This cannot be undone.')) return
+  journal = []
+  save()
+  renderJournalList()
+  showToast('Journal cleared')
+}
+
+function exportAllData() {
+  const data = { events, journal, aiName, brandName, exported: new Date().toISOString() }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'slipiq-marketing-backup.json'; a.click()
+  showToast('Data exported!')
+}
+
+function exportCalendar() {
+  let ical = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Slip IQ Marketing//EN\n'
+  Object.entries(events).forEach(([dateStr, evts]) => {
+    evts.forEach(ev => {
+      const dtStr = dateStr.replace(/-/g, '') + 'T090000'
+      ical += `BEGIN:VEVENT\nSUMMARY:${ev.type.toUpperCase()}: ${ev.title}\nDTSTART:${dtStr}\nDTEND:${dtStr}\nDESCRIPTION:${ev.notes || ''}\nEND:VEVENT\n`
+    })
+  })
+  ical += 'END:VCALENDAR'
+  const blob = new Blob([ical], { type: 'text/calendar' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'slipiq-marketing.ical'; a.click()
+  showToast('Calendar exported!')
+}
+</script>
+</body>
+</html>

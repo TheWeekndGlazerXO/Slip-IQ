@@ -4772,7 +4772,21 @@ app.post('/squad/fetch/:teamName', async (req, res) => {
   }
 })
 
-
+app.post('/marketing/ai', async (req, res) => {
+  if (!aiClient) return res.json({ error: 'AI not configured' })
+  try {
+    const { messages, max_tokens } = req.body
+    const resp = await aiClient.chat.completions.create({
+      model: AI_MODEL,
+      max_tokens: max_tokens || 600,
+      messages: messages || []
+    })
+    const content = resp.choices?.[0]?.message?.content || ''
+    res.json({ content })
+  } catch(e) {
+    res.json({ error: e.message?.slice(0, 80) })
+  }
+})
 app.get('/team/profile/:teamName', async (req, res) => {
   function buildTeamDescriptors(teamName, tElo, w) {
     const descriptors = [], strengths = [], weaknesses = []

@@ -2,10 +2,11 @@
   "appId": "com.slipiq.app",
   "appName": "Slip IQ",
   "webDir": "public",
-  "server": {
-    "url": "https://slipiq.net/home.html",
-    "cleartext": false
-  },
+"server": {
+  "hostname": "slipiq.net",
+  "androidScheme": "https",
+  "cleartext": false
+},
   "ios": {
     "contentInset": "automatic",
     "backgroundColor": "#04080f",

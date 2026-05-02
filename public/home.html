@@ -1189,26 +1189,26 @@ function card(m, cfg) {
   html += '<div class="mc-probs' + (hasDraw ? '' : ' two-col') + '">';
 
   var mid = JSON.stringify(m.id);
-  var _hOdds = m.homeOdds || parseFloat((100/Math.max(1,m.homeProb||50)*1.06).toFixed(2));
-  var _dOdds = m.drawOdds || parseFloat((100/Math.max(1,m.drawProb||25)*1.06).toFixed(2));
-  var _aOdds = m.awayOdds || parseFloat((100/Math.max(1,m.awayProb||50)*1.06).toFixed(2));
+  var _hOdds = (m.homeOdds && m.homeOdds > 1.01) ? m.homeOdds : parseFloat((100/Math.max(1,m.homeProb||50)*1.06).toFixed(2));
+  var _dOdds = (m.drawOdds && m.drawOdds > 1.01) ? m.drawOdds : parseFloat((100/Math.max(1,m.drawProb||25)*1.06).toFixed(2));
+  var _aOdds = (m.awayOdds && m.awayOdds > 1.01) ? m.awayOdds : parseFloat((100/Math.max(1,m.awayProb||50)*1.06).toFixed(2));
   html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'home\',\'' + esc((m.home || '') + ' Win') + '\',' + _hOdds + ',' + (m.homeProb || 50) + ')">';
   html += '<div class="prob-outcome">' + sn(m.home) + '</div>';
   html += '<div class="prob-pct ' + hc + '">' + (m.homeProb || '—') + '%</div>';
-  html += '<div class="prob-odds">' + (m.homeOdds || '—') + '</div></div>';
+  html += '<div class="prob-odds">' + _hOdds + '</div></div>';
 
   if (hasDraw) {
     html += '<div class="prob-cell' + (dSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'draw\',\'Draw\',' + m.drawOdds + ',' + m.drawProb + ')">';
     html += '<div class="prob-outcome">Draw</div>';
     html += '<div class="prob-pct ' + dc + '">' + m.drawProb + '%</div>';
-    html += '<div class="prob-odds">' + m.drawOdds + '</div></div>';
+    html += '<div class="prob-odds">' + _dOdds + '</div></div>';
   }
 
   html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'away\',\'' + esc((m.away || '') + ' Win') + '\',' + _aOdds + ',' + (m.awayProb || 50) + ')">';
   
   html += '<div class="prob-outcome">' + sn(m.away) + '</div>';
   html += '<div class="prob-pct ' + ac + '">' + (m.awayProb || '—') + '%</div>';
-  html += '<div class="prob-odds">' + (m.awayOdds || '—') + '</div></div>';
+  html += '<div class="prob-odds">' + _aOdds + '</div></div>';
 
   html += '</div>';
 

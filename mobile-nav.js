@@ -127,23 +127,19 @@
     nav.setAttribute('aria-label', 'Main navigation');
   
     NAV_ITEMS.forEach(function (item) {
-      var btn = document.createElement('a');
+      var btn = document.createElement('button');
       btn.className = 'slipiq-mobile-nav-item' + (isActive(item) ? ' active' : '');
-      btn.href = item.href;
-  
-      // Special case: Parlays on home page — scroll/activate via JS
-      if (item.match === '__parlays__') {
-        btn.href = '#';
-        btn.addEventListener('click', function (e) {
-          e.preventDefault();
-          // If we're on home.html and the parlayOverlay function exists, open it
+      btn.type = 'button';
+
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        // Parlays special case
+        if (item.match === '__parlays__') {
           if (typeof openParlayOverlay === 'function') {
             openParlayOverlay();
           } else if (typeof showPage === 'function') {
-            // Home page multi-tab: switch to parlays tab
             var parlaysNav = document.getElementById('nav-parlays');
             showPage('parlays', parlaysNav);
-            // Update mobile nav active state
             document.querySelectorAll('.slipiq-mobile-nav-item').forEach(function (b) {
               b.classList.remove('active');
             });
@@ -151,8 +147,11 @@
           } else {
             window.location.href = 'home.html';
           }
-        });
-      }
+          return;
+        }
+        // All other nav items — use window.location.href so Capacitor stays in-app
+        window.location.href = item.href;
+      });
   
       btn.innerHTML =
         '<span class="nav-icon-emoji" aria-hidden="true">' + item.icon + '</span>' +
