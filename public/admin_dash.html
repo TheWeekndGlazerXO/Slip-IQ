@@ -1267,6 +1267,68 @@ body::after {
       </div>
     </div>
 
+    <!-- ── BULK PARLAY BUILDER ────────────────────────────── -->
+    <div class="section-hd">Bulk Parlay Builder</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:28px">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:16px">Generate multiple optimal parlays at once using the same AI engine as the home page</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:16px">
+        <div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:1.5px;margin-bottom:5px">COUNT</div>
+          <select id="bpCount" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:10px">
+            <option value="5">5 parlays</option>
+            <option value="10" selected>10 parlays</option>
+            <option value="20">20 parlays</option>
+            <option value="50">50 parlays</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:1.5px;margin-bottom:5px">LEGS</div>
+          <select id="bpLegs" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:10px">
+            <option value="2">2 legs</option>
+            <option value="3" selected>3 legs</option>
+            <option value="4">4 legs</option>
+            <option value="5">5 legs</option>
+            <option value="6">6 legs</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:1.5px;margin-bottom:5px">MIN CONFIDENCE</div>
+          <select id="bpConf" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:10px">
+            <option value="55">55%+</option>
+            <option value="60" selected>60%+</option>
+            <option value="65">65%+</option>
+            <option value="70">70%+</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:1.5px;margin-bottom:5px">SPORT</div>
+          <select id="bpSport" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:10px">
+            <option value="football" selected>Football</option>
+            <option value="basketball">Basketball</option>
+            <option value="american_football">NFL</option>
+            <option value="baseball">MLB</option>
+            <option value="hockey">NHL</option>
+          </select>
+        </div>
+        <button onclick="runBulkParlay()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:8px 18px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap">⚡ GENERATE</button>
+      </div>
+      <div id="bpStatus" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
+      <div id="bpResults" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px"></div>
+    </div>
+
+    <!-- ── LEAGUE CONTROL ──────────────────────────────────── -->
+    <div class="section-hd">League Visibility Control</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:28px">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:16px">Toggle which leagues appear in the user-facing home page. Changes take effect immediately.</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <input id="lcSearch" type="text" placeholder="Search leagues..." oninput="filterLeagueControl()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:10px">
+        <button onclick="saveLeagueControl()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">SAVE CHANGES</button>
+        <button onclick="loadLeagueControl()" style="background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-family:var(--mono);font-size:9px;cursor:pointer">↺ RELOAD</button>
+      </div>
+      <div id="lcStatus" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
+      <div id="lcGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;max-height:520px;overflow-y:auto"></div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /dashboard -->
 
@@ -1780,6 +1842,124 @@ function filterUsers() {
   renderUsersTable(filtered.slice(0, 100))
   set('userCount', filtered.length + ' users')
 }
+
+// ── BULK PARLAY BUILDER ─────────────────────────────────────────────────────
+async function runBulkParlay() {
+  const count = parseInt(document.getElementById('bpCount').value) || 10
+  const legs  = parseInt(document.getElementById('bpLegs').value)  || 3
+  const conf  = parseInt(document.getElementById('bpConf').value)  || 60
+  const sport = document.getElementById('bpSport').value || 'football'
+  const status = document.getElementById('bpStatus')
+  const results = document.getElementById('bpResults')
+
+  status.textContent = `⏳ Generating ${count} parlays...`
+  results.innerHTML = ''
+
+  const parlays = []
+  const batchSize = 5
+  const batches = Math.ceil(count / batchSize)
+
+  for (let b = 0; b < batches; b++) {
+    const n = Math.min(batchSize, count - b * batchSize)
+    const seeds = Array.from({length: n}, (_, i) => (b * batchSize + i) * 17 + Date.now() % 1000)
+    const reqs = seeds.map(seed =>
+      fetch(`/parlay/auto?legs=${legs}&minConf=${conf}&sport=${sport}&seed=${seed}&adminKey=${ADMIN_KEY}`)
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+    )
+    const batch = (await Promise.all(reqs)).filter(Boolean)
+    parlays.push(...batch)
+    status.textContent = `⏳ Generated ${parlays.length}/${count}...`
+  }
+
+  status.textContent = `✅ ${parlays.length} parlays generated`
+
+  results.innerHTML = parlays.map((p, i) => {
+    if (!p || !p.legs) return ''
+    const odds = p.combinedOdds ? parseFloat(p.combinedOdds).toFixed(2) : '—'
+    const prob = p.combinedProb ? Math.round(p.combinedProb) + '%' : '—'
+    const score = p.score ? parseFloat(p.score).toFixed(1) : '—'
+    const legs = (p.legs || []).map(l =>
+      `<div style="font-family:var(--mono);font-size:9px;color:var(--text2);padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text)">${l.pick||l.outcome||'?'}</span>
+        <span style="color:var(--text3);float:right">@${l.odds||'?'} · ${l.prob||'?'}%</span>
+      </div>`
+    ).join('')
+    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--text3)">PARLAY #${i+1}</div>
+        <div style="display:flex;gap:10px">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--gold);font-weight:700">@${odds}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--accent)">${prob}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Score: ${score}</span>
+        </div>
+      </div>
+      ${legs}
+    </div>`
+  }).join('')
+}
+
+// ── LEAGUE CONTROL ─────────────────────────────────────────────────────────
+var _allLeagues = []
+const ADMIN_KEY = window.NEXUS_CONFIG?.ADMIN_KEY || 'marsai'
+
+async function loadLeagueControl() {
+  const status = document.getElementById('lcStatus')
+  const grid   = document.getElementById('lcGrid')
+  status.textContent = '⏳ Loading leagues...'
+  try {
+    const r = await fetch(`/admin/leagues?adminKey=${ADMIN_KEY}`)
+    const d = await r.json()
+    _allLeagues = d.leagues || []
+    status.textContent = `✅ ${_allLeagues.length} leagues loaded`
+    renderLeagueControl(_allLeagues)
+  } catch(e) {
+    status.textContent = '❌ Failed to load leagues: ' + e.message
+  }
+}
+
+function renderLeagueControl(leagues) {
+  const grid = document.getElementById('lcGrid')
+  grid.innerHTML = leagues.map(lg => `
+    <label style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 13px;cursor:pointer">
+      <input type="checkbox" data-id="${lg.id}" ${lg.enabled ? 'checked' : ''}
+        style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">
+      <div style="min-width:0">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lg.name||'Unknown'}</div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:2px">ID: ${lg.id} · ${lg.sport||'—'}</div>
+      </div>
+    </label>`
+  ).join('')
+}
+
+function filterLeagueControl() {
+  const q = document.getElementById('lcSearch').value.toLowerCase()
+  renderLeagueControl(q ? _allLeagues.filter(l => (l.name||'').toLowerCase().includes(q) || String(l.id).includes(q)) : _allLeagues)
+}
+
+async function saveLeagueControl() {
+  const status = document.getElementById('lcStatus')
+  const checked = Array.from(document.querySelectorAll('#lcGrid input[type=checkbox]'))
+  const enabled = checked.filter(c => c.checked).map(c => parseInt(c.dataset.id))
+  const disabled = checked.filter(c => !c.checked).map(c => parseInt(c.dataset.id))
+  status.textContent = '⏳ Saving...'
+  try {
+    const r = await fetch('/admin/leagues', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ adminKey: ADMIN_KEY, enabled, disabled })
+    })
+    const d = await r.json()
+    status.textContent = d.ok ? `✅ Saved — ${enabled.length} leagues enabled` : ('❌ ' + (d.error||'Save failed'))
+  } catch(e) {
+    status.textContent = '❌ ' + e.message
+  }
+}
+
+// Load league control when admin unlocks
+const _origLoadAllData = typeof loadAllData === 'function' ? loadAllData : null
+setTimeout(() => {
+  if (document.getElementById('lcGrid')) loadLeagueControl()
+}, 1500)
 </script>
 <script src="/mobile-nav.js"></script>
 </body>

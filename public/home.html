@@ -116,6 +116,12 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .match-card{background:var(--panel);border:1px solid var(--border2);border-radius:9px;overflow:hidden;transition:all .18s;position:relative}
 .match-card:hover{border-color:rgba(0,200,248,.4);box-shadow:0 4px 18px rgba(0,200,248,.08);transform:translateY(-1px)}
 .match-card.in-parlay{border-color:var(--accent);box-shadow:0 0 14px rgba(0,200,248,.2)}
+.match-card.wc-match{border-color:rgba(255,215,0,.55);box-shadow:0 0 12px rgba(255,215,0,.15)}
+.match-card.wc-match:hover{border-color:rgba(255,215,0,.85);box-shadow:0 4px 20px rgba(255,215,0,.25)}
+.match-card.wc-match .mc-header{background:linear-gradient(90deg,rgba(255,215,0,.08),rgba(255,165,0,.04))}
+.score-pred{display:flex;align-items:center;justify-content:center;gap:6px;padding:3px 0;font-family:'JetBrains Mono';font-size:9px;color:var(--text3)}
+.score-pred-val{font-family:'Bebas Neue';font-size:16px;color:var(--gold);line-height:1}
+.wc-crown{font-size:9px;margin-right:2px}
 .mc-header{display:flex;align-items:center;gap:7px;padding:5px 11px;border-bottom:1px solid var(--border);cursor:pointer;background:rgba(0,0,0,.15)}
 .mc-league{font-family:'JetBrains Mono';font-size:8px;letter-spacing:1px;color:var(--text3);flex:1}
 .mc-date{font-family:'JetBrains Mono';font-size:8px;color:var(--text3)}
@@ -780,8 +786,8 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
     <div class="modal-head">
       <div class="modal-title" id="modalTitle">Match Analysis</div>
       <div class="modal-sub" id="modalSub"></div>
+      <div class="modal-close" onclick="closeModal()" style="position:absolute;top:13px;right:14px;font-size:22px;line-height:1;cursor:pointer;color:var(--text3);z-index:10;padding:4px 8px;border-radius:5px;background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.25);color:var(--red)">✕ BACK</div>
     </div>
-    <div class="modal-close" onclick="closeModal()">✕</div>
     <div class="modal-tabs" id="modalTabs"></div>
     <div class="modal-scroll" id="modalScroll"><div id="modalBody"></div></div>
   </div>
@@ -986,6 +992,21 @@ function toggleParlayPanel() {
 async function loadMatches() { await loadCurrentSport(); }
 async function reloadMatches() { await loadCurrentSport(); }
 
+// ─── LIVE SCORE AUTO-REFRESH ─────────────────────────────────────────────────
+var _liveRefreshInterval = null;
+function startLiveRefresh() {
+  if (_liveRefreshInterval) return;
+  _liveRefreshInterval = setInterval(async function() {
+    var hasLive = allMatches && allMatches.some(function(m){ return m.isLive; });
+    if (hasLive || currentView === 'live') {
+      await loadCurrentSport();
+    }
+  }, 30000); // refresh every 30s when live games are present
+}
+function stopLiveRefresh() {
+  if (_liveRefreshInterval) { clearInterval(_liveRefreshInterval); _liveRefreshInterval = null; }
+}
+
 // ─── GUARDED ACTION (credit/plan check before sensitive actions) ──────────────
 async function guardedAction(action, fn) {
   try {
@@ -1107,6 +1128,21 @@ function renderPage() {
 function changePage(dir) { currentPage += dir; renderPage(); }
 
 // ─── CARD RENDERER ───────────────────────────────────────────────────────────
+function isWCMatch(m) {
+  var l = (m.league || '').toLowerCase();
+  return l.includes('world cup') || l.includes('fifa world') || l.includes('wc 2026') || l.includes('wc2026');
+}
+
+function poissonScorePred(m) {
+  // Poisson-based expected score from ELO differential + xG when available
+  var eloDiff = (m.homeElo || 1500) - (m.awayElo || 1500);
+  var baseHome = m.homeXg ? parseFloat(m.homeXg) : 1.35 * Math.exp(eloDiff / 700);
+  var baseAway = m.awayXg ? parseFloat(m.awayXg) : 1.15 * Math.exp(-eloDiff / 700);
+  baseHome = Math.max(0.3, Math.min(4.5, baseHome));
+  baseAway = Math.max(0.3, Math.min(4.5, baseAway));
+  return { home: Math.round(baseHome * 10) / 10, away: Math.round(baseAway * 10) / 10 };
+}
+
 function card(m, cfg) {
   if (!cfg) cfg = SPORT_CONFIG[currentSport] || SPORT_CONFIG.football;
   var maxP = Math.max(m.homeProb || 0, m.drawProb || 0, m.awayProb || 0);
@@ -1118,6 +1154,7 @@ function card(m, cfg) {
   var cc = confidence >= 70 ? "var(--green)" : confidence >= 60 ? "var(--orange)" : "var(--red)";
   var flag = m.flag || flagFor(m.league || "");
   var isTop = (LEAGUE_IMPORTANCE[m.league] || 99) <= 7;
+  var wcMatch = isWCMatch(m);
 
   var dateStr;
   if (m.isLive) {
@@ -1130,10 +1167,10 @@ function card(m, cfg) {
   var dc = m.drawProb === maxP ? "ph" : "pm";
   var ac = m.awayProb === maxP ? "ph" : (m.awayProb || 0) > 27 ? "pm" : "pl";
 
-  var html = '<div class="match-card' + (inP ? ' in-parlay' : '') + '" id="mc-' + m.id + '">';
+  var html = '<div class="match-card' + (inP ? ' in-parlay' : '') + (wcMatch ? ' wc-match' : '') + '" id="mc-' + m.id + '">';
 
   html += '<div class="mc-header" onclick="openAnalysis(\'' + m.id + '\')">';
-  html += '<span class="mc-league" style="' + (isTop ? 'color:var(--accent)' : '') + '">' + flag + ' ' + (m.league || '') + '</span>';
+  html += '<span class="mc-league" style="' + (wcMatch ? 'color:var(--gold);font-weight:700' : isTop ? 'color:var(--accent)' : '') + '">' + (wcMatch ? '<span class="wc-crown">🏆</span>' : '') + flag + ' ' + (m.league || '') + '</span>';
   if (m.surface) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--teal);padding:1px 5px;background:rgba(0,229,200,.1);border-radius:3px">' + m.surface + '</span>';
   if (m.weightClass) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--gold);padding:1px 5px;background:rgba(255,215,0,.1);border-radius:3px">' + m.weightClass + '</span>';
   if (m.division) html += '<span style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--purple);padding:1px 5px;background:rgba(168,85,247,.1);border-radius:3px">' + m.division + '</span>';
@@ -1170,6 +1207,10 @@ function card(m, cfg) {
     html += '<div style="font-family:\'Bebas Neue\';font-size:19px;color:var(--text)">' + m.score + '</div>';
   } else {
     html += '<div class="vs-text">VS</div>';
+    if (currentSport === 'football' && (m.homeElo || m.awayElo)) {
+      var sp = poissonScorePred(m);
+      html += '<div class="score-pred"><span class="score-pred-val">' + sp.home.toFixed(1) + '</span><span style="font-size:7px;color:var(--text3)">PRED</span><span class="score-pred-val">' + sp.away.toFixed(1) + '</span></div>';
+    }
   }
   html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:1px">' + fmtTime(m.date) + '</div>';
   html += '</div>';
@@ -1248,8 +1289,7 @@ async function openAnalysis(matchId) {
   renderMarketsPane(m);
   renderH2HPane(m);
 
-  // FIX: wrap AI call with guardedAction so lock modal fires if credits/plan fail
-  guardedAction('match_analysis', function() { return loadMatchAI(m); });
+  loadMatchAI(m);
 }
 
 function switchMTab(i) {
@@ -1277,12 +1317,14 @@ function renderOverviewPane(m) {
   }).join("");
 
   var extraStats = '';
-  if (m.homeXg && currentSport === 'football') {
+  if (currentSport === 'football') {
+    var sp2 = poissonScorePred(m);
     extraStats = '<div class="factor-grid" style="margin-top:8px">' +
-      '<div class="factor-item"><div class="factor-name">HOME xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.homeXg + '</div></div>' +
-      '<div class="factor-item"><div class="factor-name">AWAY xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.awayXg + '</div></div>' +
-      '<div class="factor-item"><div class="factor-name">BTTS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + (m.bttsProb||0) + '%</div></div>' +
-      '<div class="factor-item"><div class="factor-name">OVER 2.5</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + (m.over25Prob||0) + '%</div></div>' +
+      '<div class="factor-item"><div class="factor-name">PRED SCORE</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + sp2.home.toFixed(1) + ' – ' + sp2.away.toFixed(1) + '</div></div>' +
+      (m.homeXg ? '<div class="factor-item"><div class="factor-name">HOME xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.homeXg + '</div></div>' : '') +
+      (m.awayXg ? '<div class="factor-item"><div class="factor-name">AWAY xG</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--accent)">' + m.awayXg + '</div></div>' : '') +
+      (m.bttsProb ? '<div class="factor-item"><div class="factor-name">BTTS</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + m.bttsProb + '%</div></div>' : '') +
+      (m.over25Prob ? '<div class="factor-item"><div class="factor-name">OVER 2.5</div><div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--gold)">' + m.over25Prob + '%</div></div>' : '') +
       '</div>';
   }
   if (currentSport === 'basketball' && m.homeXg) {
@@ -1749,13 +1791,35 @@ function closePM() { document.getElementById("pmOverlay").classList.remove("open
 
 // ─── PARLAY ───────────────────────────────────────────────────────────────────
 function toggleParlay(matchId, pick, label, odds, prob) {
-  var idx = parlaySelections.findIndex(function(s){ return s.matchId === matchId; });
-  var m = allMatches.find(function(x){ return x.id === matchId; }) || globalMatchCache[String(matchId)];
-  if (!m) return;
-  var entry = { matchId: matchId, pick: pick, label: label, odds: odds, prob: prob, matchName: (m.home||'?') + " vs " + (m.away||'?'), league: m.league, confidence: m.confidence||prob, hasRealOdds: m.hasRealOdds };
-  if (idx > -1) { if (parlaySelections[idx].pick === pick) parlaySelections.splice(idx, 1); else parlaySelections[idx] = entry; }
-  else parlaySelections.push(entry);
-  renderParlay(); renderPage();
+  try {
+    var idx = -1;
+    for (var i = 0; i < parlaySelections.length; i++) {
+      if (String(parlaySelections[i].matchId) === String(matchId)) { idx = i; break; }
+    }
+    var m = null;
+    for (var j = 0; j < allMatches.length; j++) {
+      if (String(allMatches[j].id) === String(matchId)) { m = allMatches[j]; break; }
+    }
+    if (!m) m = globalMatchCache[String(matchId)];
+    if (!m) m = { id: matchId, home: String(label||''), away: '', league: '', sport: currentSport };
+    var entry = {
+      matchId: matchId, pick: pick, label: label,
+      odds: odds, prob: prob,
+      matchName: (m.home||'?') + ' vs ' + (m.away||'?'),
+      league: m.league || '', confidence: m.confidence || prob,
+      hasRealOdds: m.hasRealOdds || false
+    };
+    if (idx > -1) {
+      if (parlaySelections[idx].pick === pick) parlaySelections.splice(idx, 1);
+      else parlaySelections[idx] = entry;
+    } else {
+      parlaySelections.push(entry);
+    }
+    renderParlay();
+    renderPage();
+  } catch(e) {
+    console.log('toggleParlay error:', e);
+  }
 }
 
 function removeParlay(mid) {
@@ -1764,15 +1828,14 @@ function removeParlay(mid) {
 }
 
 function getEnabledMarkets() {
-  var mkts = []
-  if (document.getElementById("mkt-h2h")?.checked)  mkts.push("h2h")
-  if (document.getElementById("mkt-btts")?.checked) mkts.push("btts")
-  if (document.getElementById("mkt-ou25")?.checked) mkts.push("ou_2.5")
-  if (document.getElementById("mkt-ou15")?.checked) mkts.push("ou_1.5")
-  if (document.getElementById("mkt-ou35")?.checked) mkts.push("ou_3.5")
-  if (document.getElementById("mkt-ou45")?.checked) mkts.push("ou_4.5")
-  if (document.getElementById("mkt-dc")?.checked)   mkts.push("dc")
-  return mkts.length ? mkts : ["h2h","ou_2.5"]
+  var mkts = [];
+  var ids = ["mkt-h2h","mkt-btts","mkt-ou25","mkt-ou15","mkt-ou35","mkt-ou45","mkt-dc"];
+  var vals = ["h2h","btts","ou_2.5","ou_1.5","ou_3.5","ou_4.5","dc"];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el && el.checked) mkts.push(vals[i]);
+  }
+  return mkts.length ? mkts : ["h2h","ou_2.5"];
 }
 function renderParlay() {
   var count = parlaySelections.length;
@@ -2591,6 +2654,7 @@ async function init() {
   }
 
   await loadCurrentSport();
+  startLiveRefresh();
   injectMobileNav();
   loadNewsTicker();
   loadUserCredits();
