@@ -464,6 +464,146 @@ const LEAGUE_NAMES = {
   1322:'MLS', 2545:'MLS Next Pro',
 }
 
+// ── WC 2026 OPTA SUPERCOMPUTER PROBABILITIES ─────────────────────────────────
+// Source: Opta Analyst 25,000-simulation pre-tournament model (June 1, 2026)
+// Used to calibrate win probabilities for WC 2026 fixtures
+const WC_OPTA_MATCH_PROBS = {
+  // Group stage matchups — key is normalised "Home|Away"
+  // Jun 16
+  'iran|new zealand':           { h:53, d:26, a:21 },
+  'france|senegal':             { h:65, d:20, a:15 },
+  // Jun 17
+  'iraq|norway':                { h:10, d:14, a:76 },
+  'argentina|algeria':          { h:68, d:19, a:13 },
+  'austria|jordan':             { h:70, d:17, a:13 },
+  'portugal|dr congo':          { h:55, d:22, a:23 },
+  'portugal|congo':             { h:55, d:22, a:23 },
+  'england|croatia':            { h:56, d:23, a:21 },
+  // Jun 18
+  'ghana|panama':               { h:30, d:25, a:45 },
+  'uzbekistan|colombia':        { h:18, d:20, a:62 },
+  'czech republic|south africa':{ h:55, d:23, a:22 },
+  'czechia|south africa':       { h:55, d:23, a:22 },
+  'switzerland|bosnia-herzegovina':{ h:61, d:21, a:18 },
+  'switzerland|bosnia':         { h:61, d:21, a:18 },
+  // Jun 19
+  'canada|qatar':               { h:73, d:17, a:11 },
+  'mexico|south korea':         { h:51, d:27, a:23 },
+  'usa|australia':              { h:59, d:22, a:19 },
+  // Jun 20
+  'scotland|morocco':           { h:21, d:25, a:55 },
+  // Jun 21
+  'ecuador|curacao':            { h:86, d:9,  a:5  },
+  'tunisia|japan':              { h:25, d:25, a:61 },
+  'spain|saudi arabia':         { h:83, d:11, a:6  },
+  'belgium|iran':               { h:68, d:19, a:14 },
+  // Jun 22
+  'uruguay|cape verde':         { h:74, d:16, a:10 },
+  'new zealand|egypt':          { h:14, d:17, a:69 },
+  'argentina|austria':          { h:66, d:18, a:16 },
+  'france|iraq':                { h:78, d:14, a:8  },
+}
+
+// Opta tournament win probabilities (%) — used for context/display
+const WC_OPTA_WIN_PCT = {
+  'Spain':16.1,'France':13.0,'England':11.2,'Argentina':10.4,
+  'Portugal':7.0,'Brazil':6.6,'Germany':5.1,'Netherlands':3.6,
+  'Norway':3.5,'Belgium':2.4,'Colombia':2.1,'Morocco':1.9,
+  'Croatia':1.6,'Ecuador':1.4,'Japan':1.3,'Switzerland':1.2,
+  'USA':1.2,'Uruguay':1.2,'Senegal':1.0,'Mexico':1.0,
+  'South Korea':0.8,'Turkey':0.7,'Ivory Coast':0.6,'Egypt':0.4,
+  'Australia':0.3,'Scotland':0.2,'Ghana':0.2,'DR Congo':0.2,
+  'Cape Verde':0.15,'Canada':0.5,'Austria':0.5,'Iran':0.3,
+  'Iraq':0.1,'Qatar':0.1,'Uzbekistan':0.1,'Jordan':0.1,
+  'Curacao':0,'Tunisia':0.1,'Saudi Arabia':0.1,'Paraguay':0.2,
+  'Haiti':0.01,'New Zealand':0.05,'Panama':0.1,
+  'South Africa':0.1,'Algeria':0.2,'Bosnia-Herzegovina':0.1,
+}
+
+// WC 2026 actual match stats per team — updated with tournament results
+// xG, goals, shots, SoT from Opta/StatsBomb data
+const WC_LIVE_TEAM_STATS = {
+  'Germany':      { xg:4.22, goals:7, shots:26, sot:12, xgA:0.41, goalsA:0, played:1 },
+  'Curacao':      { xg:0.41, goals:1, shots:8,  sot:2,  xgA:4.22, goalsA:7, played:1 },
+  'Switzerland':  { xg:3.20, goals:1, shots:26, sot:7,  xgA:0.83, goalsA:1, played:1 },
+  'Czech Republic':{ xg:0.83, goals:1, shots:7, sot:4,  xgA:3.20, goalsA:1, played:1 },
+  'South Korea':  { xg:2.30, goals:2, shots:15, sot:6,  xgA:1.52, goalsA:1, played:1 },
+  'Ivory Coast':  { xg:1.52, goals:1, shots:15, sot:4,  xgA:2.30, goalsA:2, played:1 },
+  'Mexico':       { xg:1.46, goals:2, shots:16, sot:4,  xgA:0.07, goalsA:0, played:1 },
+  'South Africa': { xg:0.07, goals:0, shots:3,  sot:2,  xgA:1.46, goalsA:2, played:1 },
+  'USA':          { xg:1.42, goals:4, shots:16, sot:6,  xgA:0.54, goalsA:1, played:1 },
+  'Paraguay':     { xg:0.54, goals:1, shots:9,  sot:1,  xgA:1.42, goalsA:4, played:1 },
+  'Sweden':       { xg:1.37, goals:5, shots:13, sot:7,  xgA:0.29, goalsA:1, played:1 },
+  'Tunisia':      { xg:0.29, goals:1, shots:6,  sot:2,  xgA:1.37, goalsA:5, played:1 },
+  'Morocco':      { xg:1.37, goals:1, shots:14, sot:3,  xgA:1.05, goalsA:1, played:1 },
+  'Scotland':     { xg:1.05, goals:1, shots:9,  sot:2,  xgA:1.37, goalsA:1, played:1 },
+  'Turkey':       { xg:1.36, goals:0, shots:30, sot:8,  xgA:0.78, goalsA:2, played:1 },
+  'Netherlands':  { xg:0.78, goals:2, shots:10, sot:6,  xgA:1.36, goalsA:0, played:1 },
+  'Brazil':       { xg:1.26, goals:1, shots:12, sot:5,  xgA:0, goalsA:0, played:1 },
+  'Canada':       { xg:1.23, goals:1, shots:13, sot:4,  xgA:0.60, goalsA:1, played:1 },
+  'Qatar':        { xg:0.60, goals:1, shots:6,  sot:3,  xgA:1.23, goalsA:1, played:1 },
+  'Australia':    { xg:1.18, goals:2, shots:9,  sot:4,  xgA:1.36, goalsA:0, played:1 },
+  'Ecuador':      { xg:1.01, goals:0, shots:12, sot:1,  xgA:0.96, goalsA:1, played:1 },
+  'Bosnia-Herzegovina':{ xg:0.96, goals:1, shots:8, sot:3, xgA:1.01, goalsA:0, played:1 },
+  'Japan':        { xg:0.59, goals:2, shots:10, sot:3,  xgA:0.78, goalsA:2, played:1 },
+  'Czechia':      { xg:0.83, goals:1, shots:7,  sot:4,  xgA:3.20, goalsA:1, played:1 },
+  'Haiti':        { xg:1.05, goals:0, shots:15, sot:2,  xgA:0, goalsA:0, played:1 },
+}
+
+// Normalise team name for Opta lookup
+function _wcKey(h, a) {
+  const n = s => s.toLowerCase().replace(/côte/g,'ivory').replace(/cote /g,'ivory ').replace(/d'ivoire/g,'coast').replace(/türkiye/g,'turkey').replace(/curacao/g,'curacao').replace(/curaçao/g,'curacao').replace(/south korea/g,'south korea').replace(/korea rep/g,'south korea').replace(/dr congo/g,'dr congo').replace(/d\.r\. congo/g,'dr congo').replace(/cape verde|cabo verde/g,'cape verde').replace(/czechia|czech republic/g,'czech republic').replace(/bosnia.*/g,'bosnia-herzegovina').trim()
+  return `${n(h)}|${n(a)}`
+}
+
+// Get Opta benchmark probs for a WC fixture (null if not found)
+function getWCOptaProbs(home, away) {
+  const key = _wcKey(home, away)
+  if (WC_OPTA_MATCH_PROBS[key]) return WC_OPTA_MATCH_PROBS[key]
+  // Try reverse
+  const rev = _wcKey(away, home)
+  const r = WC_OPTA_MATCH_PROBS[rev]
+  if (r) return { h: r.a, d: r.d, a: r.h }
+  return null
+}
+
+// Get live tournament xG stats for a team (from played WC matches)
+function getWCLiveStats(teamName) {
+  const n = teamName.toLowerCase().replace(/türkiye/g,'turkey').replace(/curaçao/g,'curacao').replace(/côte d'ivoire|ivory coast/gi,'ivory coast')
+  for (const [k, v] of Object.entries(WC_LIVE_TEAM_STATS)) {
+    if (k.toLowerCase() === n || n.includes(k.toLowerCase()) || k.toLowerCase().includes(n)) return v
+  }
+  return null
+}
+
+// Build players to watch for a WC fixture
+function buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo) {
+  const picks = []
+  const scorePlayer = (p, teamElo) => {
+    const e = p.elo || 1600
+    const isKey = p.is_key || p.isKey || e >= 1850
+    const atk = p.attack || 0
+    const pos = p.position || p.pos || ''
+    const isAtk = ['ST','LW','RW','CAM','CF'].includes(pos)
+    return e * 0.4 + (isKey ? 200 : 0) + (isAtk ? 100 : 0) + atk * 2
+  }
+  const getTop = (lineup, team, teamElo) => {
+    if (!lineup?.length) {
+      const sq = WC2026_SQUADS[team]
+      if (!sq) return []
+      return sq.players.sort((a,b)=>(b.elo||0)-(a.elo||0)).slice(0,3).map(p=>({...p,team,position:p.pos}))
+    }
+    return lineup
+      .filter(p => !p._squadUnavailable)
+      .sort((a,b) => scorePlayer(b,teamElo) - scorePlayer(a,teamElo))
+      .slice(0,3)
+      .map(p => ({ name:p.name||p.player_name, position:p.position||p.pos, elo:p.elo, team, club:p.club }))
+  }
+  const hTop = getTop(homeLineup, home, hElo)
+  const aTop = getTop(awayLineup, away, aElo)
+  return [...hTop.map(p=>({...p,team:home})), ...aTop.map(p=>({...p,team:away}))]
+}
+
 // ── PLAN DEFINITIONS ──────────────────────────────────────
 const PLAN_CREDITS = {
   free: 25, starter: 55, basic: 55, plus: 115,
@@ -2339,7 +2479,13 @@ function getElo(name, league, approxPos) {
   const ce = getClubElo(name)
   if (ce && ce > 1000) return Math.round(ce + bonus)
   if (ELO_BASE[name]) return Math.round(ELO_BASE[name] + bonus)
+  // National team ELOs (FIFA rankings based — prevents 1500 fallback for WC teams)
+  if (NATIONAL_TEAM_ELO[name]) return Math.round(NATIONAL_TEAM_ELO[name] + bonus)
   const lo = name.toLowerCase()
+  for (const k of Object.keys(NATIONAL_TEAM_ELO)) {
+    const kl = k.toLowerCase()
+    if (lo === kl || lo.startsWith(kl.slice(0,5)) || kl.startsWith(lo.slice(0,5))) return Math.round(NATIONAL_TEAM_ELO[k] + bonus)
+  }
   for (const k of Object.keys(ELO_BASE)) {
     const kl = k.toLowerCase()
     if (lo.slice(0, 5) && (lo.startsWith(kl.slice(0, 5)) || kl.startsWith(lo.slice(0, 5)))) return Math.round(ELO_BASE[k] + bonus)
@@ -4703,20 +4849,36 @@ async function buildPrediction(smFix, oddsMap) {
     }
     const hInjuryFactor = keyPlayerOut(hSidelined, squadDB.get(home) || [])
     const aInjuryFactor = keyPlayerOut(aSidelined, squadDB.get(away) || [])
-    // Use real SM xG if available (your paid add-on), otherwise calculate
+    // For WC matches, blend live tournament xG stats into xG calculation
+    const isWC = rawLeague && (rawLeague.toLowerCase().includes('world cup') || rawLeague.toLowerCase().includes('fifa world') || smFix.league_id === 23)
+    const hLiveStats = isWC ? getWCLiveStats(home) : null
+    const aLiveStats = isWC ? getWCLiveStats(away) : null
+    // Use real SM xG if available, then WC live xG, then calculated
     const hxg = parseFloat((
       smHomeXg ? smHomeXg * hFatigue.fatigueFactor * hInjuryFactor
+      : hLiveStats?.xg ? hLiveStats.xg * hFatigue.fatigueFactor * hInjuryFactor
       : calcXG(hElo, aElo, hForm, true, null, home) * hFatigue.fatigueFactor * hInjuryFactor
     ).toFixed(2))
     const axg = parseFloat((
       smAwayXg ? smAwayXg * aFatigue.fatigueFactor * aInjuryFactor
+      : aLiveStats?.xg ? aLiveStats.xg * aFatigue.fatigueFactor * aInjuryFactor
       : calcXG(aElo, hElo, aForm, false, null, away) * aFatigue.fatigueFactor * aInjuryFactor
     ).toFixed(2))
 
-    
-
     const markets = buildAllMarkets(hxg, axg, smOdds, smPred, realOddsEntry)
     let { homeProb, drawProb, awayProb } = markets
+
+    // For WC matches: overlay Opta supercomputer benchmarks (60% weight) unless SM prediction data exists
+    if (isWC && !smPred?.FULLTIME_RESULT_PROBABILITY?.home) {
+      const opta = getWCOptaProbs(home, away)
+      if (opta) {
+        const w = 0.60 // Opta weight
+        homeProb = Math.round(homeProb * (1 - w) + opta.h * w)
+        awayProb = Math.round(awayProb * (1 - w) + opta.a * w)
+        drawProb = Math.max(1, 100 - homeProb - awayProb)
+      }
+    }
+
     // Blend Polymarket sentiment (15% weight when available)
     try {
       const poly = await fetchPolymarketSentiment(home, away)
@@ -4855,6 +5017,13 @@ if (isPriorityLeague) {
       awaySidelined: aSidelined,
       homeInjuryImpact: Math.round((1 - hInjuryFactor) * 100),
       awayInjuryImpact: Math.round((1 - aInjuryFactor) * 100),
+      // WC-specific enrichment
+      isWC,
+      homeWinPct: isWC ? (WC_OPTA_WIN_PCT[home] || null) : null,
+      awayWinPct: isWC ? (WC_OPTA_WIN_PCT[away] || null) : null,
+      homeLiveStats: hLiveStats || null,
+      awayLiveStats: aLiveStats || null,
+      playersToWatch: buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo),
     }
     if (!result.isLive && !result.isFinished) savePredictionToDb(result).catch(() => {})
     return result
@@ -7481,6 +7650,39 @@ app.post('/admin/user/plan', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   res.json({ ok: true })
 })
+// ── WC 2026 LIVE SCORES (ESPN fast-poll endpoint) ─────────────────────────────
+app.get('/wc/scores', async (req, res) => {
+  try {
+    const r = await httpExt('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard', { limit: 200 })
+    const events = r.data?.events || []
+    const matches = events.map(ev => {
+      const comp = ev.competitions?.[0]
+      if (!comp) return null
+      const homeC = (comp.competitors || []).find(c => c.homeAway === 'home')
+      const awayC = (comp.competitors || []).find(c => c.homeAway === 'away')
+      if (!homeC || !awayC) return null
+      const status = comp.status?.type
+      const isLive = status?.name === 'STATUS_IN_PROGRESS'
+      const isFinal = status?.completed
+      const minute = comp.status?.displayClock || null
+      return {
+        id: ev.id,
+        home: homeC.team?.displayName || homeC.team?.abbreviation || '',
+        away: awayC.team?.displayName || awayC.team?.abbreviation || '',
+        homeScore: homeC.score != null ? parseInt(homeC.score) : null,
+        awayScore: awayC.score != null ? parseInt(awayC.score) : null,
+        isLive, isFinal, minute,
+        status: status?.description || '',
+        date: ev.date,
+        round: ev.season?.slug || 'group',
+      }
+    }).filter(Boolean)
+    res.json({ matches, ts: Date.now() })
+  } catch(e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── ADMIN LEAGUE CONTROL ─────────────────────────────────────────────────────
 // In-memory store of admin-overridden league enable/disable state
 // Persisted to Supabase app_config table when available
