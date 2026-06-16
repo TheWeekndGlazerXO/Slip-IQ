@@ -1075,7 +1075,7 @@ async function refreshWCScores() {
       allMatches.forEach(function(m) {
         var mk = ((m.home||'') + '|' + (m.away||'')).toLowerCase();
         if (mk === key || mk === (ms.away + '|' + ms.home).toLowerCase()) {
-          if (ms.homeScore !== null) { m.homeScore = ms.homeScore; m.awayScore = ms.awayScore; m.isLive = ms.isLive; m.isFinished = ms.isFinal; updated = true; }
+          if ((ms.isLive || ms.isFinal) && ms.homeScore !== null) { m.homeScore = ms.homeScore; m.awayScore = ms.awayScore; m.isLive = ms.isLive; m.isFinished = ms.isFinal; updated = true; }
         }
       });
     });
@@ -1315,7 +1315,7 @@ function card(m, cfg) {
   html += '<div class="mc-vs">';
   var wcKey = ((m.home||'') + '|' + (m.away||'')).toLowerCase();
   var wcLive = _wcScoreCache[wcKey] || _wcScoreCache[((m.away||'') + '|' + (m.home||'')).toLowerCase()];
-  var showScore = m.isLive && m.score ? m.score : (wcLive && wcLive.homeScore !== null ? wcLive.homeScore + ' – ' + wcLive.awayScore : null);
+  var showScore = m.isLive && m.score ? m.score : (wcLive && (wcLive.isLive || wcLive.isFinal) && wcLive.homeScore !== null ? wcLive.homeScore + ' – ' + wcLive.awayScore : null);
   var isFinished = m.isFinished || (wcLive && wcLive.isFinal);
   var isLiveNow = m.isLive || (wcLive && wcLive.isLive);
   if (showScore) {
