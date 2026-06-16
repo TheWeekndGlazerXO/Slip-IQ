@@ -359,7 +359,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .ptw-pos{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);width:20px;flex-shrink:0}
 .ptw-name{font-size:11px;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ptw-elo{font-family:'Bebas Neue';font-size:14px;color:var(--accent);flex-shrink:0}
-.multi-parlay-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.multi-parlay-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .multi-parlay-modal.open{opacity:1;pointer-events:all}
 .mp-modal-box{background:var(--panel);border:1px solid var(--border2);border-radius:12px;width:min(740px,96vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
 .mp-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -2311,12 +2311,20 @@ var sportFetches = otherSports.map(function(sport) {
       return;
     }
 
+    // Ensure every match has odds — synthesise from probabilities if missing
+    var candidatesWithOdds = allCandidates.map(function(m) {
+      var hOdds = parseFloat(m.homeOdds) || parseFloat((1/Math.max(0.01,(m.homeProb||50)/100)*1.08).toFixed(2));
+      var aOdds = parseFloat(m.awayOdds) || parseFloat((1/Math.max(0.01,(m.awayProb||30)/100)*1.08).toFixed(2));
+      var dOdds = m.drawOdds ? parseFloat(m.drawOdds) : (m.drawProb ? parseFloat((1/Math.max(0.01,m.drawProb/100)*1.08).toFixed(2)) : null);
+      return Object.assign({}, m, { homeOdds: hOdds, awayOdds: aOdds, drawOdds: dOdds });
+    });
+
     var res = await fetch(API + "/parlay/auto", {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
         userId: USER_ID,
-        predictions: allCandidates,
+        predictions: candidatesWithOdds,
         targetOdds: targetOdds,
         riskLevel: riskLevel,
         minLegs: minLegs,
@@ -2341,7 +2349,6 @@ var sportFetches = otherSports.map(function(sport) {
     }
 
     parlaySelections = data.parlay || [];
-    // Merge any new matches into global cache
     parlaySelections.forEach(function(leg){
       if (leg.matchId && !globalMatchCache[String(leg.matchId)]) {
         globalMatchCache[String(leg.matchId)] = { id: leg.matchId, home: leg.matchName && leg.matchName.split(' vs ')[0], away: leg.matchName && leg.matchName.split(' vs ')[1], league: leg.league, sport: leg.sport };
@@ -2349,6 +2356,7 @@ var sportFetches = otherSports.map(function(sport) {
     });
     renderParlay();
     renderPage();
+    openParlayOverlay();
     showToast("⚡ " + parlaySelections.length + " legs built @ " + (data.combinedOdds||'?') + "x · Score: " + (data.score||'?') + "/100");
   } catch(err) {
     showToast("⚠️ Auto-build failed: " + err.message);
@@ -2358,7 +2366,8 @@ var sportFetches = otherSports.map(function(sport) {
   }
 }
 function closeMultiParlay() {
-  document.getElementById('multiParlayModal').classList.remove('open');
+  var m = document.getElementById('multiParlayModal');
+  if (m) { m.classList.remove('open'); m.style.opacity = '0'; m.style.pointerEvents = 'none'; }
 }
 
 async function buildMultipleParlays() {
@@ -2372,6 +2381,8 @@ async function buildMultipleParlays() {
   var body  = document.getElementById('mpModalBody');
   var sub   = document.getElementById('mpModalSubtitle');
   modal.classList.add('open');
+  modal.style.opacity = '1';
+  modal.style.pointerEvents = 'all';
   body.innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">BUILDING ' + count + ' PARLAYS (' + strategy.toUpperCase() + ')...</div></div>';
   sub.textContent = '';
 
@@ -2400,7 +2411,13 @@ async function buildMultipleParlays() {
       var conf = m.confidence || m.homeProb || 50;
       if (conf < minConf) return false;
       return true;
-    }).map(function(m){ return Object.assign({}, m, { sport: currentSport }); });
+    }).map(function(m){
+      // Synthesise odds from probabilities when real odds are missing
+      var hOdds = parseFloat(m.homeOdds) || parseFloat((1/Math.max(0.01,(m.homeProb||50)/100)*1.08).toFixed(2));
+      var aOdds = parseFloat(m.awayOdds) || parseFloat((1/Math.max(0.01,(m.awayProb||30)/100)*1.08).toFixed(2));
+      var dOdds = m.drawOdds ? parseFloat(m.drawOdds) : (m.drawProb ? parseFloat((1/Math.max(0.01,m.drawProb/100)*1.08).toFixed(2)) : null);
+      return Object.assign({}, m, { sport: currentSport, homeOdds: hOdds, awayOdds: aOdds, drawOdds: dOdds });
+    });
 
     if (candidates.length < minLegs) {
       body.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Not enough matches pass the filters.<br>Lower Min Confidence or extend the timeframe.</div></div>';
@@ -2482,6 +2499,7 @@ function useMultiParlay(legs) {
     renderParlay();
     renderPage();
     closeMultiParlay();
+    openParlayOverlay();
     showParlayToast(parlaySelections.length + '-leg parlay loaded', false);
   } catch(e) {
     console.error('useMultiParlay error:', e);
