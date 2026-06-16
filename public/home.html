@@ -722,6 +722,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       <div class="pp-hdr" style="position:relative">
         <div class="pp-title">PARLAY BUILDER</div>
         <div class="pp-meta">Click outcome to add · <span id="pLegs">0</span> legs</div>
+        <div id="parlayLegsBadge" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-family:'Bebas Neue';font-size:16px;padding:2px 10px;border-radius:12px;letter-spacing:1px;pointer-events:none"><span id="parlayFabCount">0</span> LEGS</div>
         <button onclick="toggleParlayPanel()" id="parlayCollapseBtn" title="Collapse panel" style="position:absolute;top:8px;right:8px;background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);color:var(--accent);font-family:'JetBrains Mono';font-size:10px;padding:3px 7px;border-radius:4px;cursor:pointer;line-height:1">◀</button>
       </div>
       <div class="score-ring-wrap">
@@ -1205,14 +1206,31 @@ function changePage(dir) { currentPage += dir; renderPage(); }
 // ─── CARD RENDERER ───────────────────────────────────────────────────────────
 function isWCMatch(m) {
   var l = (m.league || '').toLowerCase();
-  return l.includes('world cup') || l.includes('fifa world') || l.includes('wc 2026') || l.includes('wc2026');
+  return m.isWC || l.includes('world cup') || l.includes('fifa world') || l.includes('wc 2026') || l.includes('wc2026');
 }
 
 function poissonScorePred(m) {
-  // Poisson-based expected score from ELO differential + xG when available
   var eloDiff = (m.homeElo || 1500) - (m.awayElo || 1500);
-  var baseHome = m.homeXg ? parseFloat(m.homeXg) : 1.35 * Math.exp(eloDiff / 700);
-  var baseAway = m.awayXg ? parseFloat(m.awayXg) : 1.15 * Math.exp(-eloDiff / 700);
+  var baseHome, baseAway;
+
+  // Priority 1: server avg-goals formula (homeAvgGoals + awayAvgConceded) / 2
+  var hAS = parseFloat(m.homeAvgGoalsScored || 0);
+  var hAC = parseFloat(m.homeAvgGoalsConceded || 0);
+  var aAS = parseFloat(m.awayAvgGoalsScored || 0);
+  var aAC = parseFloat(m.awayAvgGoalsConceded || 0);
+  if (hAS > 0 && aAC > 0 && aAS > 0 && hAC > 0) {
+    baseHome = (hAS + aAC) / 2;
+    baseAway = (aAS + hAC) / 2;
+  } else if (m.homeXg && m.awayXg) {
+    // Priority 2: server xG (already blends real stats + ELO)
+    baseHome = parseFloat(m.homeXg);
+    baseAway = parseFloat(m.awayXg);
+  } else {
+    // Priority 3: ELO-based Poisson fallback
+    var eloTier = eloDiff > 200 ? 0.8 : eloDiff > 100 ? 0.9 : eloDiff > 0 ? 1.0 : eloDiff > -100 ? 1.1 : 1.25;
+    baseHome = 1.35 * Math.exp(eloDiff / 700);
+    baseAway = 1.15 * Math.exp(-eloDiff / 700) * eloTier;
+  }
   baseHome = Math.max(0.3, Math.min(4.5, baseHome));
   baseAway = Math.max(0.3, Math.min(4.5, baseAway));
   return { home: Math.round(baseHome * 10) / 10, away: Math.round(baseAway * 10) / 10 };
@@ -1221,10 +1239,11 @@ function poissonScorePred(m) {
 function card(m, cfg) {
   if (!cfg) cfg = SPORT_CONFIG[currentSport] || SPORT_CONFIG.football;
   var maxP = Math.max(m.homeProb || 0, m.drawProb || 0, m.awayProb || 0);
-  var inP = parlaySelections.some(function(s){ return s.matchId === m.id; });
-  var hSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "home"; });
-  var dSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "draw"; });
-  var aSel = parlaySelections.some(function(s){ return s.matchId === m.id && s.pick === "away"; });
+  var _mid = String(m.id);
+  var inP  = parlaySelections.some(function(s){ return String(s.matchId) === _mid; });
+  var hSel = parlaySelections.some(function(s){ return String(s.matchId) === _mid && s.pick === "home"; });
+  var dSel = parlaySelections.some(function(s){ return String(s.matchId) === _mid && s.pick === "draw"; });
+  var aSel = parlaySelections.some(function(s){ return String(s.matchId) === _mid && s.pick === "away"; });
   var confidence = m.confidence || maxP || 50;
   var cc = confidence >= 70 ? "var(--green)" : confidence >= 60 ? "var(--orange)" : "var(--red)";
   var flag = m.flag || flagFor(m.league || "");
@@ -1337,6 +1356,28 @@ function card(m, cfg) {
   html += '</div>';
 
   if (m.hasRealOdds) html += '<div class="real-odds-tag">● REAL ODDS · ' + (m.bookmaker || 'Bookmaker') + (m.polymarket ? ' · 🔮 POLYMARKET' : '') + '</div>';
+
+  // Players to watch strip — top 2 per team from ELO-sorted lineup/squads
+  if (m.playersToWatch && currentSport === 'football') {
+    var ptw = m.playersToWatch;
+    var homePlayers = (ptw.home || []).slice(0,2);
+    var awayPlayers = (ptw.away || []).slice(0,2);
+    if (homePlayers.length || awayPlayers.length) {
+      var ptwRow = function(players) {
+        return players.map(function(p){
+          return '<div style="display:flex;align-items:center;gap:3px;padding:1px 0">' +
+            '<span style="font-family:\'JetBrains Mono\';font-size:6px;color:var(--text3);width:16px;flex-shrink:0">' + (p.pos||'').slice(0,3) + '</span>' +
+            '<span style="font-size:9px;color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.name||'') + '</span>' +
+            '<span style="font-family:\'Bebas Neue\';font-size:11px;color:var(--accent)">' + (p.elo||'') + '</span>' +
+          '</div>';
+        }).join('');
+      };
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:5px 8px 2px;border-top:1px solid var(--border)">';
+      html += '<div>' + ptwRow(homePlayers) + '</div>';
+      html += '<div style="text-align:right">' + ptwRow(awayPlayers) + '</div>';
+      html += '</div>';
+    }
+  }
 
   var extras = [];
   if (m.koProb) extras.push('KO: ' + m.koProb + '%');
@@ -1936,7 +1977,7 @@ function toggleParlay(matchId, pick, label, odds, prob) {
     if (!m) m = globalMatchCache[String(matchId)];
     if (!m) m = { id: matchId, home: String(label||''), away: '', league: '', sport: currentSport };
     var entry = {
-      matchId: matchId, pick: pick, label: label,
+      matchId: String(matchId), pick: pick, label: label,
       odds: odds, prob: prob,
       matchName: (m.home||'?') + ' vs ' + (m.away||'?'),
       league: m.league || '', confidence: m.confidence || prob,
@@ -1974,23 +2015,29 @@ function getEnabledMarkets() {
 }
 function renderParlay() {
   var count = parlaySelections.length;
-  document.getElementById("pLegs").textContent = count;
+  var el;
+  if ((el = document.getElementById("pLegs")))      el.textContent = count;
+  if ((el = document.getElementById("parlayFabCount"))) el.textContent = count;
+  var badge = document.getElementById("parlayLegsBadge");
+  if (badge) badge.style.display = count > 0 ? 'block' : 'none';
 
-  // Update the preview button
   var btn = document.getElementById("parlayPreviewBtn");
-  var co = count ? parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1) : 0;
-  document.getElementById("ppbLegsCount").textContent = count + (count === 1 ? " LEG" : " LEGS");
-  document.getElementById("ppbOdds").textContent = count ? co.toFixed(2) + "x" : "—";
+  var co = count ? parlaySelections.reduce(function(p,s){ return p*(s.odds||1); }, 1) : 0;
+  if ((el = document.getElementById("ppbLegsCount"))) el.textContent = count + (count === 1 ? " LEG" : " LEGS");
+  if ((el = document.getElementById("ppbOdds")))      el.textContent = count ? co.toFixed(2) + "x" : "—";
 
-  // Pulse the button when legs are added
-  if (count > 0) {
-    btn.style.borderColor = "var(--accent)";
-    btn.style.background = "rgba(0,200,248,.12)";
-    btn.querySelector('.ppb-label').textContent = "TAP TO VIEW & MANAGE PARLAY";
-  } else {
-    btn.style.borderColor = "rgba(0,200,248,.3)";
-    btn.style.background = "rgba(0,200,248,.08)";
-    btn.querySelector('.ppb-label').textContent = "AUTO-BUILD OR CLICK ANY OUTCOME";
+  if (btn) {
+    if (count > 0) {
+      btn.style.borderColor = "var(--accent)";
+      btn.style.background = "rgba(0,200,248,.12)";
+      var lbl = btn.querySelector('.ppb-label');
+      if (lbl) lbl.textContent = "TAP TO VIEW & MANAGE PARLAY";
+    } else {
+      btn.style.borderColor = "rgba(0,200,248,.3)";
+      btn.style.background = "rgba(0,200,248,.08)";
+      var lbl2 = btn.querySelector('.ppb-label');
+      if (lbl2) lbl2.textContent = "AUTO-BUILD OR CLICK ANY OUTCOME";
+    }
   }
 
   if (!count) {

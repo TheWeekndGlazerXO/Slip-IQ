@@ -397,7 +397,7 @@ const SQUAD_PRIORITY_LEAGUES = new Set([
 // Whitelist — ONLY these leagues will show on the matches page
 const ALLOWED_LEAGUE_IDS_WHITELIST = new Set([
   // ── UEFA COMPETITIONS ──────────────────────────────────
-  2,    // UEFA Champions League
+  // 2 removed — Champions League disabled per user request
   5,    // UEFA Europa League
   24,   // UEFA Conference League
   // ── ENGLAND ────────────────────────────────────────────
@@ -460,7 +460,7 @@ const LEAGUE_NAMES = {
   501:'Scottish Premiership', 519:'Scottish Prem (alt)',
   363:'Belgian First Div A', 271:'Superliga (DEN)', 474:'Superliga alt',
   989:'Super League Greece',
-  23:'FIFA World Cup', 20:'UEFA Euro', 155:'Copa America',
+  23:'WC 2026', 20:'UEFA Euro', 155:'Copa America',
   1322:'MLS', 2545:'MLS Next Pro',
 }
 
@@ -4161,39 +4161,57 @@ function buildFactors(hElo, aElo, hForm, aForm, hxg, axg, smPred, hW, aW, extras
   const hfs = formScore(hForm) * 100, afs = formScore(aForm) * 100, ed = hElo - aElo
   const smH = smPred?.FULLTIME_RESULT_PROBABILITY?.home, smA = smPred?.FULLTIME_RESULT_PROBABILITY?.away
   const n   = v => Math.min(99, Math.max(1, Math.round(v)))
-  const hPoss = Math.round((hW?.avgPossession||0.5)*100), aPoss = Math.round((aW?.avgPossession||0.5)*100)
-  const hCS   = Math.round((hW?.cleanSheetRate||0.3)*100), aCS = Math.round((aW?.cleanSheetRate||0.3)*100)
-  const hSoT  = Math.round((hW?.shotsOnTargetRatio||0.5)*100), aSoT = Math.round((aW?.shotsOnTargetRatio||0.5)*100)
-  const hSP   = Math.round((hW?.goalsFromSetPiece||0.3)*100), aSP = Math.round((aW?.goalsFromSetPiece||0.3)*100)
-  const hYC   = Math.round((1-(hW?.yellowCardRisk||0.5))*100), aYC = Math.round((1-(aW?.yellowCardRisk||0.5))*100)
   const hMom  = formMomentum(hForm), aMom = formMomentum(aForm)
   const hMomScore = n(50 + hMom * 100), aMomScore = n(50 + aMom * 100)
-  const hInjScore = n(100 - (extras?.homeInjuryImpact || 0) * 2)
-  const aInjScore = n(100 - (extras?.awayInjuryImpact || 0) * 2)
-  const hFatScore = n(100 - ((1 - (extras?.hFatigueF || 1.0)) * 200))
-  const aFatScore = n(100 - ((1 - (extras?.aFatigueF || 1.0)) * 200))
   const hRank = extras?.homeRank, aRank = extras?.awayRank
+
+  // Only show stats-based factors when we have real data (gamesWithStats > 0)
+  const hHasStats = (hW?.gamesWithStats || 0) > 0
+  const aHasStats = (aW?.gamesWithStats || 0) > 0
+  const hasStats  = hHasStats || aHasStats
+
   const factors = [
-    { name:"ELO RATING",         homeScore:n(hElo/20),    awayScore:n(aElo/20),    color:"#00d4ff" },
-    { name:"RECENT FORM",        homeScore:n(hfs),        awayScore:n(afs),        color:"#00ff88" },
-    { name:"xG ATTACK",          homeScore:n(hxg*35),     awayScore:n(axg*35),     color:"#ff3b5c" },
-    { name:"DEFENSIVE SHAPE",    homeScore:n(50+ed/40),   awayScore:n(50-ed/40),   color:"#ffd700" },
-    { name:"HOME ADVANTAGE",     homeScore:65,            awayScore:35,            color:"#ff8c42" },
-    { name:"SM AI PREDICTION",   homeScore:smH?n(parseFloat(smH)):n(50+ed/30), awayScore:smA?n(parseFloat(smA)):n(50-ed/30), color:"#cc88ff" },
-    { name:"POSSESSION",         homeScore:n(hPoss),      awayScore:n(aPoss),      color:"#44ddaa" },
-    { name:"SHOTS ON TARGET",    homeScore:n(hSoT),       awayScore:n(aSoT),       color:"#ffaa44" },
-    { name:"CLEAN SHEET RATE",   homeScore:n(hCS),        awayScore:n(aCS),        color:"#4488ff" },
-    { name:"SET PIECES",         homeScore:n(hSP),        awayScore:n(aSP),        color:"#ff6688" },
-    { name:"DISCIPLINE",         homeScore:n(hYC),        awayScore:n(aYC),        color:"#88ff88" },
-    { name:"MOMENTUM",           homeScore:hMomScore,     awayScore:aMomScore,     color:"#a855f7" },
-    { name:"SQUAD FITNESS",      homeScore:hInjScore,     awayScore:aInjScore,     color:"#f59e0b" },
-    { name:"FATIGUE",            homeScore:hFatScore,     awayScore:aFatScore,     color:"#06b6d4" },
-    { name:"GOALS SCORED AVG",   homeScore:n((hW?.avgGoalsScored||1.3)*30), awayScore:n((aW?.avgGoalsScored||1.1)*30), color:"#ec4899" },
-    { name:"GOALS CONCEDED AVG", homeScore:n(99-(hW?.avgGoalsConceded||1.2)*30), awayScore:n(99-(aW?.avgGoalsConceded||1.2)*30), color:"#14b8a6" },
+    { name:"ELO RATING",      homeScore:n(hElo/20),   awayScore:n(aElo/20),   color:"#00d4ff" },
+    { name:"RECENT FORM",     homeScore:n(hfs),        awayScore:n(afs),        color:"#00ff88" },
+    { name:"xG ATTACK",       homeScore:n(hxg*35),     awayScore:n(axg*35),     color:"#ff3b5c" },
+    { name:"DEFENSIVE SHAPE", homeScore:n(50+ed/40),   awayScore:n(50-ed/40),   color:"#ffd700" },
+    { name:"MOMENTUM",        homeScore:hMomScore,     awayScore:aMomScore,     color:"#a855f7" },
+    { name:"SM PREDICTION",   homeScore:smH?n(parseFloat(smH)):n(50+ed/30), awayScore:smA?n(parseFloat(smA)):n(50-ed/30), color:"#cc88ff" },
   ]
-  if (hRank && aRank) {
-    factors.push({ name:"TEAM RANKING", homeScore:n(100-hRank/5), awayScore:n(100-aRank/5), color:"#f97316" })
+
+  // Real stats-based factors — only added when actual game data is available
+  if (hasStats) {
+    if (hHasStats && aHasStats) {
+      const hPoss = Math.round((hW.avgPossession||0.5)*100), aPoss = Math.round((aW.avgPossession||0.5)*100)
+      if (Math.abs(hPoss - aPoss) > 3) // only show if meaningfully different
+        factors.push({ name:"POSSESSION",      homeScore:n(hPoss), awayScore:n(aPoss), color:"#44ddaa" })
+      const hSoT = Math.round((hW.shotsOnTargetRatio||0.5)*100), aSoT = Math.round((aW.shotsOnTargetRatio||0.5)*100)
+      if (Math.abs(hSoT - aSoT) > 3)
+        factors.push({ name:"SHOTS ON TARGET", homeScore:n(hSoT),  awayScore:n(aSoT),  color:"#ffaa44" })
+      const hCS = Math.round((hW.cleanSheetRate||0.3)*100), aCS = Math.round((aW.cleanSheetRate||0.3)*100)
+      if (Math.abs(hCS - aCS) > 2)
+        factors.push({ name:"CLEAN SHEET RATE", homeScore:n(hCS), awayScore:n(aCS),    color:"#4488ff" })
+    }
+    const hGS = hW?.avgGoalsScored, aGS = aW?.avgGoalsScored
+    if (hGS && aGS)
+      factors.push({ name:"GOALS SCORED AVG", homeScore:n(hGS*30), awayScore:n(aGS*30), color:"#ec4899" })
+    const hGC = hW?.avgGoalsConceded, aGC = aW?.avgGoalsConceded
+    if (hGC && aGC)
+      factors.push({ name:"GOALS CONCEDED AVG", homeScore:n(99-hGC*30), awayScore:n(99-aGC*30), color:"#14b8a6" })
   }
+
+  // Injury/fatigue — only show if actually impacted
+  const hInjImpact = extras?.homeInjuryImpact || 0
+  const aInjImpact = extras?.awayInjuryImpact || 0
+  if (hInjImpact > 5 || aInjImpact > 5)
+    factors.push({ name:"SQUAD FITNESS", homeScore:n(100-hInjImpact*2), awayScore:n(100-aInjImpact*2), color:"#f59e0b" })
+  const hFat = extras?.hFatigueF || 1.0, aFat = extras?.aFatigueF || 1.0
+  if (hFat < 0.95 || aFat < 0.95)
+    factors.push({ name:"FATIGUE", homeScore:n(100-(1-hFat)*200), awayScore:n(100-(1-aFat)*200), color:"#06b6d4" })
+
+  if (hRank && aRank)
+    factors.push({ name:"TEAM RANKING", homeScore:n(100-hRank/5), awayScore:n(100-aRank/5), color:"#f97316" })
+
   return factors
 }
 function detectMismatches(homeLineup, awayLineup, homeName, awayName) {
@@ -4850,7 +4868,7 @@ async function buildPrediction(smFix, oddsMap) {
     const hInjuryFactor = keyPlayerOut(hSidelined, squadDB.get(home) || [])
     const aInjuryFactor = keyPlayerOut(aSidelined, squadDB.get(away) || [])
     // For WC matches, blend live tournament xG stats into xG calculation
-    const isWC = rawLeague && (rawLeague.toLowerCase().includes('world cup') || rawLeague.toLowerCase().includes('fifa world') || smFix.league_id === 23)
+    const isWC = smFix.league_id === 23 || (rawLeague && (rawLeague.toLowerCase().includes('world cup') || rawLeague.toLowerCase().includes('fifa world') || rawLeague.toLowerCase().includes('wc 2026') || rawLeague.toLowerCase().includes('wc2026')))
     const hLiveStats = isWC ? getWCLiveStats(home) : null
     const aLiveStats = isWC ? getWCLiveStats(away) : null
     // Use real SM xG if available, then WC live xG, then calculated
@@ -5024,6 +5042,11 @@ if (isPriorityLeague) {
       homeLiveStats: hLiveStats || null,
       awayLiveStats: aLiveStats || null,
       playersToWatch: buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo),
+      // Real avg goals for frontend scoreline formula
+      homeAvgGoalsScored:   hW?.avgGoalsScored   || null,
+      homeAvgGoalsConceded: hW?.avgGoalsConceded || null,
+      awayAvgGoalsScored:   aW?.avgGoalsScored   || null,
+      awayAvgGoalsConceded: aW?.avgGoalsConceded || null,
     }
     if (!result.isLive && !result.isFinished) savePredictionToDb(result).catch(() => {})
     return result
@@ -5256,9 +5279,11 @@ async function warmPredictionsCache() {
 
     const smAll = new Map()
     for (const f of [...smList, ...liveList]) smAll.set(f.id, f)
-      const TOP_LEAGUE_IDS_WARM = new Set([2, 5, 24, 8, 9, 7, 462, 564, 507, 384, 481, 82, 327, 301, 390, 456, 78, 519, 1, 61])
+    const TOP_LEAGUE_IDS_WARM = new Set([5, 24, 8, 9, 7, 462, 564, 507, 384, 481, 82, 327, 301, 390, 456, 78, 519, 1, 61, 23])
+    const DISABLED_LEAGUES = new Set(['Champions League'])
     const smFixFiltered = [...smAll.values()]
       .filter(f => isAllowedFixture(f))
+      .filter(f => !DISABLED_LEAGUES.has(normLeague(f.league?.name || f.league || '')))
       .sort((a, b) => {
         const aTop = TOP_LEAGUE_IDS_WARM.has(a.league_id || a.league?.id) ? 0 : 1
         const bTop = TOP_LEAGUE_IDS_WARM.has(b.league_id || b.league?.id) ? 0 : 1
@@ -5295,11 +5320,13 @@ async function warmPredictionsCache() {
     } catch(e) { console.log('⚠️ ESPN supplement:', e.message?.slice(0,50)) }
 
 // Merge: SM first (has richer data), ESPN fills gaps — but always include ESPN top leagues
-const espnTopLeagues = new Set(['Champions League','Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','World Cup'])
-const espnPriority = espnSupp.filter(p => espnTopLeagues.has(p.league))
-const espnOther    = espnSupp.filter(p => !espnTopLeagues.has(p.league))
+const espnTopLeagues = new Set(['Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','WC 2026','World Cup'])
+const HIDDEN_LEAGUES = new Set(['Champions League']) // disabled per user request
+const espnFiltered = espnSupp.filter(p => !HIDDEN_LEAGUES.has(p.league))
+const espnPriority = espnFiltered.filter(p => espnTopLeagues.has(p.league))
+const espnOther    = espnFiltered.filter(p => !espnTopLeagues.has(p.league))
 const results = [...espnPriority, ...smResults, ...espnOther]
-console.log(`✅ Cache warmed: ${results.length} predictions (SM:${smResults.length} ESPN:${espnSupp.length})`)
+console.log(`✅ Cache warmed: ${results.length} predictions (SM:${smResults.length} ESPN:${espnFiltered.length})`)
 return results
   } catch(e) {
     console.log('⚠️  Cache warm failed:', e.message)
@@ -5540,7 +5567,7 @@ const BRACKET_MAP = {
   dfb_pokal:     { espn:'ger.dfb_pokal',        smId:327, name:'DFB Pokal',                 hasGroups:false },
   copa_del_rey:  { espn:'esp.copa_del_rey',     smId:507, name:'Copa del Rey',              hasGroups:false },
   coppa_italia:  { espn:'ita.coppa_italia',     smId:481, name:'Coppa Italia',              hasGroups:false },
-  world_cup:     { espn:'fifa.world',           smId:23,  name:'FIFA World Cup 2026',       hasGroups:true  },
+  world_cup:     { espn:'fifa.world',           smId:23,  name:'WC 2026',       hasGroups:true  },
   euros:         { espn:'uefa.euro',            smId:20,  name:'UEFA Euro 2028',            hasGroups:true  },
   copa_america:  { espn:'conmebol.america',     smId:155, name:'Copa America',              hasGroups:true  },
   afcon:         { espn:'caf.nations',          smId:null,name:'Africa Cup of Nations',     hasGroups:true  },
@@ -5706,15 +5733,18 @@ app.get("/predictions", async (req, res) => {
   try {
     const days = Math.min(parseInt(req.query.days || "14"), 14)
     const leagueTier = parseInt(req.query.tier || "0") // 0 = all, 1/2/3 = tiers
-    // Serve instantly from warm cache
+    // Serve instantly from warm cache (stale-while-revalidate pattern)
     const warm = cache.get('predictions_warm')
-    if (warm && Date.now() - warm.ts < 3600000) {
-      if (Date.now() - warm.ts > 1800000) warmPredictionsCache().catch(() => {})
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+    if (warm && warm.data && warm.data.length > 0) {
+      if (Date.now() - warm.ts > 1800000) warmPredictionsCache().catch(() => {}) // bg refresh
       return res.json(warm.data.sort((a, b) => {
         const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
         return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
       }))
     }
+    // No warm cache — start background warm and return empty so UI can show spinner
+    if (!warm) warmPredictionsCache().catch(() => {})
 
 
     console.log(`\n📊 /predictions (${days}d tier=${leagueTier})`)
@@ -5772,11 +5802,12 @@ app.get("/predictions", async (req, res) => {
       console.log(`✅ ESPN live supplement: ${espnLive.length} additional games`)
     } catch(e) { console.log('⚠️ ESPN live:', e.message?.slice(0,50)) }
 
-    const espnTopLeagues = new Set(['Champions League','Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','World Cup'])
-    const espnPriority = espnLive.filter(p => espnTopLeagues.has(p.league))
-    const espnOther    = espnLive.filter(p => !espnTopLeagues.has(p.league))
+    const espnTopLeagues2 = new Set(['Europa League','Conference League','Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Eredivisie','Brasileirão','WC 2026','World Cup'])
+    const espnFiltered2 = espnLive.filter(p => p.league !== 'Champions League')
+    const espnPriority = espnFiltered2.filter(p => espnTopLeagues2.has(p.league))
+    const espnOther    = espnFiltered2.filter(p => !espnTopLeagues2.has(p.league))
     const results = [...espnPriority, ...smResults, ...espnOther]
-    console.log(`✅ ${results.length} total predictions ready (SM:${smResults.length} ESPN:${espnLive.length})`)
+    console.log(`✅ ${results.length} total predictions ready (SM:${smResults.length} ESPN:${espnFiltered2.length})`)
     res.json(results.sort((a, b) => {
       const rd = (LEAGUE_RANK[a.league] || 99) - (LEAGUE_RANK[b.league] || 99)
       return rd !== 0 ? rd : new Date(a.date) - new Date(b.date)
@@ -6758,7 +6789,7 @@ app.get('/standings/mma', async (req, res) => {
 // ── 2025/26 HARDCODED TOURNAMENT BRACKETS ─────────────────────────────────────
 const HARDCODED_BRACKETS = {
   world_cup: {
-    name: 'FIFA World Cup 2026',
+    name: 'WC 2026',
     hasGroups: true,
     groups: [
       { name: 'Group A', table: [
