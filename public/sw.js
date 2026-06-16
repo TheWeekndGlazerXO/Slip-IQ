@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slipiq-v1';
+const CACHE_NAME = 'slipiq-v3';
 const STATIC_ASSETS = [
   '/home.html', '/leagues.html', '/mobile.css', '/mobile-nav.js',
   '/config.js',
@@ -11,6 +11,7 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
+  // Delete ALL old caches so stale 404s for mobile-nav.js etc. are cleared
   e.waitUntil(caches.keys().then(keys =>
     Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
   ));
@@ -19,23 +20,31 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Cache-first for static assets
+  // Cache-first for static assets — only cache successful (2xx) responses
   if (e.request.method === 'GET' && (
     url.pathname.endsWith('.css') || url.pathname.endsWith('.js') ||
     url.pathname.endsWith('.html') || url.hostname.includes('fonts.googleapis')
   )) {
-    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-      return res;
-    })));
+    e.respondWith(caches.match(e.request).then(r => {
+      if (r) return r;
+      return fetch(e.request).then(res => {
+        // Only cache successful responses — never cache 404/error pages
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        }
+        return res;
+      });
+    }));
     return;
   }
   // Network-first with cache fallback for API calls
   if (url.pathname.startsWith('/predictions') || url.pathname.startsWith('/standings')) {
     e.respondWith(fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      }
       return res;
     }).catch(() => caches.match(e.request)));
   }

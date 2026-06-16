@@ -2053,14 +2053,8 @@ function toggleParlay(matchId, pick, label, odds, prob) {
     renderParlay();
     renderPage();
     if (!removed) {
-      // On mobile, auto-open the overlay so the user can see the parlay
-      if (window.innerWidth <= 768) {
-        openParlayOverlay();
-      } else {
-        // On desktop, expand the panel if collapsed
-        var panel = document.getElementById('parlayPanel');
-        if (panel && panel.style.width === '36px') toggleParlayPanel();
-      }
+      // Always open the overlay so user immediately sees their parlay — on any screen size
+      openParlayOverlay();
     }
     showParlayToast(removed ? 'Removed from parlay' : (label || pick) + ' added · ' + odds + 'x', removed);
   } catch(e) {
