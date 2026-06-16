@@ -802,6 +802,8 @@ async function analyzeManagerAI(mjson){
 
 // ─── BRACKET VIEWER ───────────────────────────────────────────────────────────
 var currentBracketSlug='ucl';
+var _bracketAutoRefresh = null;
+
 async function loadBracket(slug, btn){
   currentBracketSlug=slug;
   document.querySelectorAll('.cup-btn').forEach(function(b){b.classList.remove('active');});
@@ -815,6 +817,18 @@ async function loadBracket(slug, btn){
     el.innerHTML=renderBracket(data);
   }catch(e){
     el.innerHTML='<div style="text-align:center;padding:40px;font-family:\'JetBrains Mono\';font-size:10px;color:var(--text3)">⚠️ Bracket data unavailable right now.<br><br>ESPN/Sportmonks may not have live data for this competition.<br><br>Error: '+e.message+'</div>';
+  }
+  // Auto-refresh WC standings every 5 minutes while on this tab
+  if (_bracketAutoRefresh) clearInterval(_bracketAutoRefresh);
+  if (slug === 'world_cup') {
+    _bracketAutoRefresh = setInterval(function() {
+      if (currentTab === 'cups' && currentBracketSlug === 'world_cup') {
+        loadBracket('world_cup', document.querySelector('.cup-btn.active'));
+      } else {
+        clearInterval(_bracketAutoRefresh);
+        _bracketAutoRefresh = null;
+      }
+    }, 5 * 60 * 1000);
   }
 }
 

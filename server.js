@@ -7198,13 +7198,14 @@ app.get('/bracket/:slug', async (req, res) => {
               if (!hcTeam) continue
               const stats = {}
               ;(entry.stats || []).forEach(s => { stats[s.abbreviation||s.name||''] = s.value ?? parseFloat(s.displayValue) ?? 0 })
-              hcTeam.p   = parseInt(stats['GP']||stats['gamesPlayed']||hcTeam.p||0)
-              hcTeam.w   = parseInt(stats['W']||stats['wins']||hcTeam.w||0)
-              hcTeam.d   = parseInt(stats['T']||stats['D']||stats['draws']||hcTeam.d||0)
-              hcTeam.l   = parseInt(stats['L']||stats['losses']||hcTeam.l||0)
-              hcTeam.gf  = parseInt(stats['GF']||stats['goalsFor']||hcTeam.gf||0)
-              hcTeam.ga  = parseInt(stats['GA']||stats['goalsAgainst']||hcTeam.ga||0)
-              hcTeam.pts = parseInt(stats['PTS']||stats['points']||hcTeam.pts||0)
+              hcTeam.p   = parseInt(stats['GP']  || hcTeam.p  || 0)
+              hcTeam.w   = parseInt(stats['W']   || hcTeam.w  || 0)
+              hcTeam.d   = parseInt(stats['D']   || hcTeam.d  || 0)
+              hcTeam.l   = parseInt(stats['L']   || hcTeam.l  || 0)
+              hcTeam.gf  = parseInt(stats['F']   || hcTeam.gf || 0)
+              hcTeam.ga  = parseInt(stats['A']   || hcTeam.ga || 0)
+              hcTeam.gd  = parseInt(stats['GD']  || (hcTeam.gf - hcTeam.ga) || 0)
+              hcTeam.pts = parseInt(stats['P']   || hcTeam.pts || 0)
             }
             // Sort group table by pts desc, then GD desc
             hcGroup.table.sort((a,b) => (b.pts-a.pts)||((b.gf-b.ga)-(a.gf-a.ga))||(b.gf-a.gf))
