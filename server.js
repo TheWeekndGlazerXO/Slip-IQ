@@ -331,7 +331,10 @@ app.get('/', (req, res) => {
   res.redirect(301, '/home.html')
 })
 
-app.use(cors())
+const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
+  ? ['https://slip-iq.onrender.com', 'https://slipiq.net', 'capacitor://localhost', 'ionic://localhost']
+  : true
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 app.use("/webhook/stripe", express.raw({ type: "application/json" }))
 app.use(express.json({ limit: "15mb" }))
 app.use(express.static(path.join(__dirname, "public")))
@@ -363,10 +366,13 @@ function rateLimit(maxPerMin) {
 
 // Apply rate limits
 // Stricter rate limits for auth endpoints — replace existing ones:
-app.use('/user/ensure', rateLimit(30));   // 30 per min per IP
-app.use('/credits/use', rateLimit(30));
-app.use('/analyze',     rateLimit(20));
-app.use('/parlay/auto', rateLimit(10));
+app.use('/user/ensure',   rateLimit(30));
+app.use('/credits/use',   rateLimit(30));
+app.use('/analyze',       rateLimit(20));
+app.use('/parlay/auto',   rateLimit(10));
+app.use('/parlays/save',  rateLimit(20));
+app.use('/predictions',   rateLimit(60));
+app.use('/admin',         rateLimit(30));
 // ── ENV ───────────────────────────────────────────────────
 const SM_KEY   = process.env.SPORTMONKS_API_KEY
 const ODDS_KEY = process.env.ODDS_API_KEY
@@ -506,7 +512,7 @@ const WC_OPTA_MATCH_PROBS = {
 
 // Opta tournament win probabilities (%) — used for context/display
 const WC_OPTA_WIN_PCT = {
-  'Spain':16.1,'France':13.0,'England':11.2,'Argentina':10.4,
+  'France':17.5,'Spain':14.0,'England':11.2,'Argentina':10.4,
   'Portugal':7.0,'Brazil':6.6,'Germany':5.1,'Netherlands':3.6,
   'Norway':3.5,'Belgium':2.4,'Colombia':2.1,'Morocco':1.9,
   'Croatia':1.6,'Ecuador':1.4,'Japan':1.3,'Switzerland':1.2,
@@ -1252,7 +1258,7 @@ const PLAYER_ELO_OVERRIDE = {
 // Based on FIFA rankings June 2026 + recent tournament results
 const NATIONAL_TEAM_ELO = {
   // CONCACAF
-  "USA": 1790, "Mexico": 1800, "Canada": 1765, "Panama": 1645,
+  "USA": 1950, "Mexico": 1800, "Canada": 1765, "Panama": 1645,
   "Haiti": 1595, "Curacao": 1565,
   // UEFA
   "France": 1960, "England": 1925, "Germany": 1915, "Spain": 1945,
@@ -1265,7 +1271,7 @@ const NATIONAL_TEAM_ELO = {
   "Ecuador": 1738, "Paraguay": 1688,
   // CAF
   "Morocco": 1825, "Senegal": 1778, "Egypt": 1738, "Ghana": 1708,
-  "Ivory Coast": 1758, "Algeria": 1728, "South Africa": 1648,
+  "Ivory Coast": 1758, "Algeria": 1728, "South Africa": 1590,
   "Tunisia": 1668, "DR Congo": 1638, "Cape Verde": 1598,
   // AFC
   "Japan": 1808, "South Korea": 1778, "Australia": 1728, "Iran": 1715,
@@ -4897,6 +4903,16 @@ async function buildPrediction(smFix, oddsMap) {
       }
     }
 
+    // WC 2026 host nation home advantage (USA/Canada/Mexico get crowd boost)
+    if (isWC) {
+      const WC_HOSTS = new Set(['USA','United States','Canada','Mexico'])
+      if (WC_HOSTS.has(home)) {
+        homeProb = Math.min(95, homeProb + 4)
+        awayProb = Math.max(1, awayProb - 3)
+        drawProb = Math.max(1, 100 - homeProb - awayProb)
+      }
+    }
+
     // Blend Polymarket sentiment (15% weight when available)
     try {
       const poly = await fetchPolymarketSentiment(home, away)
@@ -6412,19 +6428,44 @@ if (combinedOdds > hardCap && selected.length > minLegs) {
 })
 
 // ── PARLAYS ───────────────────────────────────────────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 app.post("/parlays/save", async (req, res) => {
   if (!sb) return res.status(503).json({ error: "Supabase not configured" })
   const { user_id, legs, combined_odds, confidence_score } = req.body
   if (!user_id || !legs?.length) return res.status(400).json({ error: "Missing fields" })
-  const { data, error } = await sb.from("saved_parlays").insert({ user_id, legs: JSON.stringify(legs), combined_odds, confidence_score, status: "pending", created_at: new Date().toISOString() }).select().single()
-  if (error) return res.json({ ok: true, local_only: true, data: { id: Date.now(), legs, combined_odds, confidence_score } })
-  res.json({ ok: true, data })
+  if (!UUID_RE.test(user_id)) {
+    // Guest user — can't persist to Supabase (UUID required); return local_only
+    return res.json({ ok: true, local_only: true, data: { id: Date.now(), legs, combined_odds, confidence_score } })
+  }
+  try {
+    const { data, error } = await sb.from("saved_parlays").insert({
+      user_id, legs: JSON.stringify(legs), combined_odds, confidence_score,
+      status: "pending", created_at: new Date().toISOString()
+    }).select().single()
+    if (error) throw error
+    res.json({ ok: true, data })
+  } catch(e) {
+    console.error('Parlay save error:', e.message)
+    res.json({ ok: true, local_only: true, data: { id: Date.now(), legs, combined_odds, confidence_score } })
+  }
 })
 
 app.get("/parlays/:userId", async (req, res) => {
   if (!sb) return res.json([])
-  const { data } = await sb.from("saved_parlays").select("*").eq("user_id", req.params.userId).order("created_at", { ascending: false }).limit(100)
-  res.json(data ? data.map(p => ({ ...p, legs: typeof p.legs === "string" ? JSON.parse(p.legs) : p.legs })) : [])
+  if (!UUID_RE.test(req.params.userId)) return res.json([])
+  try {
+    const { data, error } = await sb.from("saved_parlays").select("*")
+      .eq("user_id", req.params.userId).order("created_at", { ascending: false }).limit(100)
+    if (error) throw error
+    res.json(data ? data.map(p => {
+      let legs = p.legs
+      try { if (typeof legs === "string") legs = JSON.parse(legs) } catch(e) { legs = [] }
+      return { ...p, legs }
+    }) : [])
+  } catch(e) {
+    console.error('Parlay load error:', e.message)
+    res.json([])
+  }
 })
 
 // ── USER & CREDITS ────────────────────────────────────────
@@ -7671,6 +7712,8 @@ app.post('/admin/user/plan', async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'No Supabase' })
   const { userId, plan } = req.body
   if (!userId || !plan) return res.status(400).json({ error: 'Missing fields' })
+  const VALID_PLANS = ['free','starter','basic','plus','pro','elite','platinum']
+  if (!UUID_RE.test(userId) || !VALID_PLANS.includes(plan)) return res.status(400).json({ error: 'Invalid userId or plan' })
   const { error } = await sb.from('users').update({
     plan, plan_status: 'active',
     monthly_credits: PLAN_CREDITS[plan] || 25,

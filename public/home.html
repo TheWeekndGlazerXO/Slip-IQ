@@ -2470,8 +2470,9 @@ function switchView(el, view) {
 async function loadSavedParlays() {
   document.getElementById("parlaysList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>';
   var parlays = [];
-  try { var res = await fetch(API + "/parlays/" + USER_ID); parlays = await res.json(); } catch(e) {}
-  var local = JSON.parse(localStorage.getItem("slipiq_parlays")||"[]");
+  try { var res = await fetch(API + "/parlays/" + USER_ID); var _p = await res.json(); if (Array.isArray(_p)) parlays = _p; } catch(e) {}
+  var local = [];
+  try { local = JSON.parse(localStorage.getItem("slipiq_parlays")||"[]"); if (!Array.isArray(local)) local = []; } catch(e) { local = []; }
   var serverIds = new Set(parlays.map(function(p){ return String(p.id); }));
   local.forEach(function(lp){ if (!serverIds.has(String(lp.id))) parlays.push(lp); });
   parlays.sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
@@ -2479,7 +2480,7 @@ async function loadSavedParlays() {
   document.getElementById("parlaysSubtitle").textContent = parlays.length + " saved parlays";
   if (!parlays.length) { document.getElementById("parlaysList").innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No saved parlays yet.</div></div>'; return; }
   document.getElementById("parlaysList").innerHTML = parlays.map(function(p,i){
-    var legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];
+    var legs; try { legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[]; } catch(e){ legs=[]; } if(!Array.isArray(legs)) legs=[];
     var co = p.combined_odds || legs.reduce(function(x,l){ return x*(l.odds||1); },1).toFixed(2);
     var sc = p.confidence_score||0;
     var statusCls = "status-"+(p.status||"pending");
@@ -2500,7 +2501,7 @@ async function loadSavedParlays() {
 async function openSavedParlay(idx) {
   var p = savedParlays[idx]; if (!p) return;
   document.querySelectorAll(".parlay-row").forEach(function(el,i){ el.classList.toggle("active", i===idx); });
-  var legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[];
+  var legs; try { legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[]; } catch(e){ legs=[]; } if(!Array.isArray(legs)) legs=[];
   var co = p.combined_odds || legs.reduce(function(x,l){ return x*(l.odds||1); },1);
   var sc = p.confidence_score||0;
   var ip = (legs.reduce(function(x,l){ return x*((l.prob||50)/100); },1)*100).toFixed(1);
