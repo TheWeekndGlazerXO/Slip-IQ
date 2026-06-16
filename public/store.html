@@ -136,11 +136,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <!-- ── SUBSCRIPTION PLANS ── -->
   <div class="section-title">SUBSCRIPTION PLANS</div>
 
-  <!-- NOTE: Starter / Basic / Pro / Elite Stripe checkout links are NOT yet set.
-       Replace the href="#todo-plan-X" anchors below with your Stripe Payment Link
-       once created in your Stripe dashboard under Payment Links. -->
-  <div class="notice">
-    ⚠️ Subscription plan payment links are pending — add them in the href attributes below once created in Stripe.
+  <div id="upgradeNotice" style="display:none;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-family:'JetBrains Mono';font-size:11px;color:#00ff88">
+    ✅ Your plan has been upgraded! It may take a few seconds to activate.
   </div>
 
   <div class="plans-grid">
@@ -175,8 +172,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <li><span class="x">—</span>Other sports</li>
         <li><span class="x">—</span>Value bet alerts</li>
       </ul>
-      <!-- TODO: replace href with your Starter Stripe Payment Link -->
-      <a href="#todo-plan-starter" class="plan-btn" id="btn-starter">UPGRADE →</a>
+      <button class="plan-btn" id="btn-starter" onclick="startCheckout('starter')">UPGRADE →</button>
     </div>
 
     <!-- BASIC — add Stripe link when ready -->
@@ -193,8 +189,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <li><span class="check">✓</span>1v1 matchup analysis</li>
         <li><span class="x">—</span>NBA/NHL/Tennis</li>
       </ul>
-      <!-- TODO: replace href with your Basic Stripe Payment Link -->
-      <a href="#todo-plan-basic" class="plan-btn" id="btn-basic">UPGRADE →</a>
+      <button class="plan-btn" id="btn-basic" onclick="startCheckout('basic')">UPGRADE →</button>
     </div>
 
     <!-- PRO — add Stripe link when ready -->
@@ -212,8 +207,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <li><span class="check">✓</span>SM value bets</li>
         <li><span class="check">✓</span>Priority support</li>
       </ul>
-      <!-- TODO: replace href with your Pro Stripe Payment Link -->
-      <a href="#todo-plan-pro" class="plan-btn primary" id="btn-pro">GET PRO →</a>
+      <button class="plan-btn primary" id="btn-pro" onclick="startCheckout('pro')">GET PRO →</button>
     </div>
 
     <!-- ELITE — add Stripe link when ready -->
@@ -231,8 +225,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <li><span class="check">✓</span>Custom league filters</li>
         <li><span class="check">✓</span>Dedicated support</li>
       </ul>
-      <!-- TODO: replace href with your Elite Stripe Payment Link -->
-      <a href="#todo-plan-elite" class="plan-btn gold-btn" id="btn-elite">GET ELITE →</a>
+      <button class="plan-btn gold-btn" id="btn-elite" onclick="startCheckout('elite')">GET ELITE →</button>
     </div>
   </div>
 
@@ -369,7 +362,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 const SUPABASE_URL      = window.SUPABASE_URL      || 'YOUR_SUPABASE_URL'
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
 const ADMIN_EMAIL       = 'zioncmulangala@gmail.com'
-const PLAN_PRICES = { free:'€0', starter:'€2.99', basic:'€4.99', pro:'€14.99', elite:'€49.99' }
+const PLAN_PRICES = { free:'£0', starter:'£4.99', basic:'£9.99', plus:'£19.99', pro:'£39.99', elite:'£79.99', platinum:'£149.99' }
 
 const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -462,7 +455,53 @@ async function submitAuth() {
   } finally { btn.disabled=false; btn.textContent=authMode==='login'?'Sign In':'Create Account' }
 }
 
-window.addEventListener('DOMContentLoaded', init)
+window.addEventListener('DOMContentLoaded', () => {
+  init()
+  // Show success banner if redirected back from Stripe
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('upgraded')) {
+    const notice = document.getElementById('upgradeNotice')
+    if (notice) {
+      notice.textContent = `✅ Payment successful! Your ${params.get('upgraded').toUpperCase()} plan is now active.`
+      notice.style.display = 'block'
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+  if (params.get('cancelled')) {
+    const notice = document.getElementById('upgradeNotice')
+    if (notice) {
+      notice.style.background = 'rgba(255,59,92,.08)'
+      notice.style.borderColor = 'rgba(255,59,92,.3)'
+      notice.style.color = '#ff3b5c'
+      notice.textContent = '⚠️ Payment was cancelled — no charge was made.'
+      notice.style.display = 'block'
+    }
+  }
+})
+
+async function startCheckout(plan) {
+  if (!currentUser) { openAuth('login'); return }
+  const btn = document.getElementById('btn-' + plan)
+  const orig = btn ? btn.textContent : ''
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...' }
+  try {
+    const r = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, userId: currentUser.id, email: currentUser.email })
+    })
+    const d = await r.json()
+    if (d.url) {
+      window.location.href = d.url
+    } else {
+      alert('Checkout error: ' + (d.error || 'Unknown error'))
+      if (btn) { btn.disabled = false; btn.textContent = orig }
+    }
+  } catch(e) {
+    alert('Could not start checkout: ' + e.message)
+    if (btn) { btn.disabled = false; btn.textContent = orig }
+  }
+}
 </script>
 <script src="/mobile-nav.js"></script>
 </body>

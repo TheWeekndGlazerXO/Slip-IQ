@@ -7590,6 +7590,50 @@ app.get("/config.js", (req, res) => {
   res.send(`window.SUPABASE_URL=${JSON.stringify(process.env.SUPABASE_URL||"")};window.SUPABASE_ANON_KEY=${JSON.stringify(process.env.SUPABASE_ANON_KEY||"")};window.APP_URL=${JSON.stringify(process.env.APP_URL||"")};`)
 })
 
+// ── STRIPE CHECKOUT SESSION ───────────────────────────────
+const STRIPE_PLAN_PRICES_GBP = {
+  starter:  499,  // £4.99
+  basic:    999,  // £9.99
+  plus:    1999,  // £19.99
+  pro:     3999,  // £39.99
+  elite:   7999,  // £79.99
+  platinum:14999, // £149.99
+}
+
+app.post('/api/checkout', async (req, res) => {
+  if (!STRIPE_SECRET_KEY) return res.status(503).json({ error: 'Stripe not configured' })
+  const { plan, userId, email } = req.body || {}
+  if (!plan || !STRIPE_PLAN_PRICES_GBP[plan]) return res.status(400).json({ error: 'Invalid plan' })
+  try {
+    const stripe = require('stripe')(STRIPE_SECRET_KEY)
+    const APP_URL = process.env.APP_URL || 'http://localhost:3000'
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      customer_email: email || undefined,
+      line_items: [{
+        price_data: {
+          currency: 'gbp',
+          unit_amount: STRIPE_PLAN_PRICES_GBP[plan],
+          recurring: { interval: 'month' },
+          product_data: {
+            name: `Slip IQ — ${plan.charAt(0).toUpperCase()+plan.slice(1)} Plan`,
+            description: `${PLAN_CREDITS[plan] || 25} credits/month · Billed monthly · Cancel anytime`,
+          },
+        },
+        quantity: 1,
+      }],
+      metadata: { plan, userId: userId || '', email: email || '' },
+      success_url: `${APP_URL}/store.html?upgraded=${plan}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${APP_URL}/store.html?cancelled=1`,
+    })
+    res.json({ url: session.url })
+  } catch(e) {
+    console.error('Stripe checkout error:', e.message)
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── STRIPE WEBHOOK ────────────────────────────────────────
 app.post("/webhook/stripe", async (req, res) => {
   if (!STRIPE_WEBHOOK_SECRET) return res.status(400).json({ error: "Webhook secret not configured" })
@@ -7607,9 +7651,16 @@ app.post("/webhook/stripe", async (req, res) => {
       if (meta.plan && sb) {
         const newPlan = meta.plan
         const newCredits = PLAN_CREDITS[newPlan] || 25
-        // Find subscription by email
-        const { data: existing } = await sb.from('users')
-          .select('id').eq('email', email).single().catch(() => ({data:null}))
+        // Look up user by userId (most reliable), fallback to email
+        let existing = null
+        if (meta.userId && UUID_RE.test(meta.userId)) {
+          const r = await sb.from('users').select('id').eq('id', meta.userId).single().catch(() => ({data:null}))
+          existing = r.data
+        }
+        if (!existing && email) {
+          const r = await sb.from('users').select('id').eq('email', email).single().catch(() => ({data:null}))
+          existing = r.data
+        }
         if (existing) {
           await sb.from('users').update({
             plan: newPlan, plan_status: 'active',

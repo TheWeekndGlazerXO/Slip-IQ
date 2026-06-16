@@ -772,7 +772,10 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
         </div>
       </div>
       <div class="pp-legs" id="parlayLegs">
-        <button class="parlay-preview-btn" onclick="openParlayOverlay()" id="parlayPreviewBtn">
+        <div id="parlayLegsList" style="padding:0 2px;max-height:160px;overflow-y:auto">
+          <div style="text-align:center;padding:10px 0;font-family:'JetBrains Mono';font-size:8px;color:var(--text3)">Click any outcome to add a leg</div>
+        </div>
+        <button class="parlay-preview-btn" onclick="openParlayOverlay()" id="parlayPreviewBtn" style="margin-top:6px">
           <div class="ppb-left">
             <div class="ppb-legs-count" id="ppbLegsCount">0 LEGS</div>
             <div class="ppb-label">AUTO-BUILD OR CLICK ANY OUTCOME</div>
@@ -786,14 +789,55 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
       </div>
       <div class="pp-actions">
         <button class="btn-auto" id="autoBtn" onclick="autoParlay()">⚡ AUTO-BUILD OPTIMAL PARLAY</button>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
-          <select id="multiParlayCount" style="flex:0 0 60px;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:4px 5px;outline:none">
-            <option value="2">2×</option>
-            <option value="3" selected>3×</option>
-            <option value="4">4×</option>
-            <option value="5">5×</option>
-          </select>
-          <button style="flex:1;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);color:var(--gold);font-family:'JetBrains Mono';font-size:9px;padding:7px 8px;border-radius:5px;cursor:pointer;letter-spacing:1px" onclick="buildMultipleParlays()">🎰 BUILD MULTIPLE PARLAYS</button>
+        <div style="margin-top:9px">
+          <div style="font-family:'JetBrains Mono';font-size:7px;color:var(--text3);letter-spacing:1px;margin-bottom:5px">MULTI PARLAY BUILDER</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
+            <div>
+              <div style="font-family:'JetBrains Mono';font-size:7px;color:var(--text3);margin-bottom:2px">PARLAYS</div>
+              <select id="multiParlayCount" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-family:'JetBrains Mono';font-size:7px;color:var(--text3);margin-bottom:2px">STRATEGY</div>
+              <select id="multiParlayStrategy" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
+                <option value="balanced">Balanced</option>
+                <option value="value">Value Bets</option>
+                <option value="safe">Safe (high prob)</option>
+                <option value="longshot">Longshots</option>
+                <option value="diversified">Diversified</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
+            <div>
+              <div style="font-family:'JetBrains Mono';font-size:7px;color:var(--text3);margin-bottom:2px">MIN CONF %</div>
+              <input type="number" id="multiMinConf" min="40" max="90" value="55" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
+            </div>
+            <div>
+              <div style="font-family:'JetBrains Mono';font-size:7px;color:var(--text3);margin-bottom:2px">RISK LEVEL</div>
+              <select id="multiRiskLevel" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:4px;font-family:'JetBrains Mono';font-size:9px;padding:3px 5px;outline:none">
+                <option value="any">Any</option>
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:5px;margin-bottom:5px">
+            <label style="display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono';font-size:8px;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="multiValueOnly" style="accent-color:var(--gold)"> Value bets only
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono';font-size:8px;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="multiNoSamePick" checked style="accent-color:var(--accent)"> No same pick
+            </label>
+          </div>
+          <button style="width:100%;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);color:var(--gold);font-family:'JetBrains Mono';font-size:9px;padding:7px 8px;border-radius:5px;cursor:pointer;letter-spacing:1px" onclick="buildMultipleParlays()">🎰 BUILD MULTIPLE PARLAYS</button>
         </div>
       </div>
     </div>
@@ -2042,12 +2086,36 @@ function renderParlay() {
   if ((el = document.getElementById("ppbLegsCount"))) el.textContent = count + (count === 1 ? " LEG" : " LEGS");
   if ((el = document.getElementById("ppbOdds")))      el.textContent = count ? co.toFixed(2) + "x" : "—";
 
+  // Render inline leg list in panel
+  var legsList = document.getElementById("parlayLegsList");
+  if (legsList) {
+    if (count === 0) {
+      legsList.innerHTML = '<div style="text-align:center;padding:10px 0;font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any outcome to add a leg</div>';
+    } else {
+      legsList.innerHTML = parlaySelections.map(function(s, i) {
+        var matchShort = s.matchName ? s.matchName.replace(' vs ', ' v ') : s.label;
+        var parts = matchShort.split(' v ');
+        var shortName = parts.length === 2
+          ? parts[0].split(' ').pop() + ' v ' + parts[1].split(' ').pop()
+          : matchShort;
+        return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(14,32,64,.5)">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + shortName + '</div>' +
+            '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--accent);font-weight:700;margin-top:1px">' + (s.label || s.pick) + '</div>' +
+          '</div>' +
+          '<div style="font-family:\'Bebas Neue\';font-size:15px;color:var(--gold);flex-shrink:0">' + parseFloat(s.odds||1).toFixed(2) + 'x</div>' +
+          '<button onclick="removeParlay(\'' + s.matchId + '\')" style="background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.25);color:var(--red);width:18px;height:18px;border-radius:3px;font-size:10px;cursor:pointer;flex-shrink:0;line-height:1;padding:0">✕</button>' +
+        '</div>';
+      }).join('');
+    }
+  }
+
   if (btn) {
     if (count > 0) {
       btn.style.borderColor = "var(--accent)";
       btn.style.background = "rgba(0,200,248,.12)";
       var lbl = btn.querySelector('.ppb-label');
-      if (lbl) lbl.textContent = "TAP TO VIEW & MANAGE PARLAY";
+      if (lbl) lbl.textContent = count + " LEG" + (count===1?'':'S') + " · TAP TO MANAGE";
     } else {
       btn.style.borderColor = "rgba(0,200,248,.3)";
       btn.style.background = "rgba(0,200,248,.08)";
@@ -2269,12 +2337,17 @@ function closeMultiParlay() {
 }
 
 async function buildMultipleParlays() {
-  var count = parseInt((document.getElementById('multiParlayCount') || {}).value || '3');
+  var count    = parseInt((document.getElementById('multiParlayCount')    || {}).value || '3');
+  var strategy = (document.getElementById('multiParlayStrategy')          || {}).value || 'balanced';
+  var minConf  = parseInt((document.getElementById('multiMinConf')        || {}).value || '55');
+  var riskPref = (document.getElementById('multiRiskLevel')               || {}).value || 'medium';
+  var valueOnly= (document.getElementById('multiValueOnly')               || {}).checked;
+  var noSame   = (document.getElementById('multiNoSamePick')              || {}).checked;
   var modal = document.getElementById('multiParlayModal');
   var body  = document.getElementById('mpModalBody');
   var sub   = document.getElementById('mpModalSubtitle');
   modal.classList.add('open');
-  body.innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">BUILDING ' + count + ' PARLAYS...</div></div>';
+  body.innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">BUILDING ' + count + ' PARLAYS (' + strategy.toUpperCase() + ')...</div></div>';
   sub.textContent = '';
 
   try {
@@ -2288,16 +2361,32 @@ async function buildMultipleParlays() {
     var maxLegs = parseInt(document.getElementById("legMax").value) || 6;
     var markets = getEnabledMarkets();
     var now = Date.now(), maxMs = timeframe * 86400000;
+
+    // Strategy filters
+    var strategyOddsMultipliers = { safe:[0.5,0.8], balanced:[0.8,1.2], value:[1.0,1.8], longshot:[1.5,3.0], diversified:[0.7,2.0] };
+    var oddsRange = strategyOddsMultipliers[strategy] || [0.8,1.2];
+
     var candidates = allMatches.filter(function(m){
       if (m.isLive || m.isFinished) return false;
       if (!m.date) return true;
       var t = new Date(m.date).getTime();
-      return t >= now - 3600000 && t <= now + maxMs;
+      if (t < now - 3600000 || t > now + maxMs) return false;
+      if (valueOnly && !m.isValue) return false;
+      var conf = m.confidence || m.homeProb || 50;
+      if (conf < minConf) return false;
+      return true;
     }).map(function(m){ return Object.assign({}, m, { sport: currentSport }); });
+
+    if (candidates.length < minLegs) {
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Not enough matches pass the filters.<br>Lower Min Confidence or extend the timeframe.</div></div>';
+      return;
+    }
 
     // Build N parlays in parallel with different seeds
     var promises = [];
     for (var i = 0; i < count; i++) {
+      var oddsTarget = targetOdds * (oddsRange[0] + (oddsRange[1]-oddsRange[0]) * (i / Math.max(1,count-1)));
+      var riskMap = { low:2, medium:5, high:8, any: Math.min(9, riskLevel+i) };
       promises.push(
         fetch(API + "/parlay/auto", {
           method: "POST",
@@ -2305,13 +2394,15 @@ async function buildMultipleParlays() {
           body: JSON.stringify({
             userId: USER_ID,
             predictions: candidates,
-            targetOdds: targetOdds * (0.8 + i * 0.3),
-            riskLevel: Math.min(9, riskLevel + i),
+            targetOdds: Math.max(1.5, oddsTarget),
+            riskLevel: riskMap[riskPref] || 5,
             minLegs: minLegs,
             maxLegs: maxLegs,
             timeframeDays: timeframe,
             preferredMarkets: markets,
             enabledSports: enabledSports,
+            strategy: strategy,
+            noSamePickDifferentLegs: noSame,
             seed: i
           })
         }).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
