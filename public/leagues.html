@@ -299,7 +299,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
     <!-- CUP BRACKETS -->
     <div class="tab-panel" id="panel-cups">
       <div class="filter-bar" style="flex-wrap:wrap;gap:5px">
-        <button class="cup-btn active" onclick="loadBracket('ucl',this)">🌟 UCL</button>
+        <button class="cup-btn active" onclick="loadBracket('world_cup',this)">🌍 World Cup 2026</button>
+        <button class="cup-btn" onclick="loadBracket('ucl',this)">🌟 UCL</button>
         <button class="cup-btn" onclick="loadBracket('uel',this)">🟠 Europa</button>
         <button class="cup-btn" onclick="loadBracket('uecl',this)">🟢 Conference</button>
         <button class="cup-btn" onclick="loadBracket('fa_cup',this)">🏴󠁧󠁢󠁥󠁮󠁧󠁿 FA Cup</button>
@@ -307,7 +308,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;dis
         <button class="cup-btn" onclick="loadBracket('dfb_pokal',this)">🇩🇪 DFB Pokal</button>
         <button class="cup-btn" onclick="loadBracket('copa_del_rey',this)">🇪🇸 Copa del Rey</button>
         <button class="cup-btn" onclick="loadBracket('coppa_italia',this)">🇮🇹 Coppa Italia</button>
-        <button class="cup-btn" onclick="loadBracket('world_cup',this)">🌍 World Cup 2026</button>
         <button class="cup-btn" onclick="loadBracket('euros',this)">🏆 Euros</button>
         <button class="cup-btn" onclick="loadBracket('copa_america',this)">🌎 Copa América</button>
       </div>
@@ -377,7 +377,7 @@ function loadCurrentTab(){
   else if(currentTab==='elo')     loadElo();
   else if(currentTab==='teams')   loadTeams();
   else if(currentTab==='managers')loadManagerRankings();
-  else if(currentTab==='cups')    loadBracket('ucl', document.querySelector('.cup-btn'));
+  else if(currentTab==='cups')    loadBracket('world_cup', document.querySelector('.cup-btn'));
 }
 function refreshCurrent(){ loadCurrentTab(); }
 
@@ -818,7 +818,129 @@ async function loadBracket(slug, btn){
   }
 }
 
+function renderWCBracket(data) {
+  var favs = Object.entries(data.winProbabilities || {})
+    .filter(function(e){ return e[0] !== 'Others' && e[1] > 0; })
+    .sort(function(a,b){ return b[1]-a[1]; })
+    .slice(0,10);
+
+  var html = '<div style="background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(0,200,248,.06));border:1px solid rgba(255,215,0,.25);border-radius:12px;padding:16px 18px;margin-bottom:14px">';
+  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">';
+  html += '<div><div style="font-family:\'Bebas Neue\';font-size:32px;letter-spacing:4px;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">FIFA WORLD CUP 2026</div>';
+  html += '<div style="font-family:\'JetBrains Mono\';font-size:9px;color:var(--text3);letter-spacing:2px;margin-top:3px">48 TEAMS · 16 GROUPS · 🇺🇸 USA · 🇨🇦 CANADA · 🇲🇽 MEXICO · JUN–JUL 2026</div></div>';
+  html += '<button onclick="predictTournamentWinner(\'WC 2026\',\'world_cup\')" style="background:var(--grad);color:#000;font-family:\'JetBrains Mono\';font-size:9px;font-weight:700;padding:6px 14px;border-radius:5px;border:none;cursor:pointer;flex-shrink:0">⚡ AI PREDICT WINNER</button>';
+  html += '</div></div>';
+
+  html += '<div id="tournamentAIOut" style="margin-bottom:10px"></div>';
+
+  // Favourites strip
+  if (favs.length) {
+    html += '<div style="margin-bottom:14px"><div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:8px">▸ TOURNAMENT FAVOURITES</div>';
+    html += '<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:4px">';
+    favs.forEach(function(e, i) {
+      var col = i<2 ? 'var(--gold)' : i<4 ? 'var(--accent)' : 'var(--text2)';
+      var bg  = i<2 ? 'rgba(255,215,0,.1)' : i<4 ? 'rgba(0,200,248,.08)' : 'rgba(255,255,255,.04)';
+      var border = i<2 ? 'rgba(255,215,0,.3)' : i<4 ? 'rgba(0,200,248,.25)' : 'rgba(255,255,255,.08)';
+      html += '<div style="background:'+bg+';border:1px solid '+border+';border-radius:8px;padding:8px 12px;min-width:90px;flex-shrink:0;text-align:center">';
+      html += '<div style="font-family:\'Bebas Neue\';font-size:18px;color:'+col+';line-height:1">'+e[1]+'%</div>';
+      html += '<div style="font-size:10px;font-weight:600;color:var(--text);margin:2px 0">'+e[0]+'</div>';
+      html += '<div style="width:100%;height:2px;background:var(--border);border-radius:1px;overflow:hidden"><div style="width:'+Math.round(e[1]/20*100)+'%;height:100%;background:'+col+'"></div></div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  // Group stage
+  if (data.groups && data.groups.length) {
+    html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:10px">▸ GROUP STAGE — TOP 2 QUALIFY · BEST 8 THIRD-PLACE TEAMS ALSO ADVANCE</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:16px">';
+    data.groups.forEach(function(g) {
+      var letter = (g.name || '').replace('Group ','');
+      html += '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:10px;overflow:hidden">';
+      html += '<div style="background:rgba(255,215,0,.05);border-bottom:1px solid rgba(255,215,0,.15);padding:8px 12px;display:flex;align-items:center;justify-content:space-between">';
+      html += '<div style="font-family:\'Bebas Neue\';font-size:20px;letter-spacing:2px;color:var(--gold)">GROUP '+letter+'</div>';
+      html += '<div style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3)">'+g.table.map(function(t){return t.name.split(' ').pop();}).join(' · ')+'</div>';
+      html += '</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:10px">';
+      html += '<thead><tr style="border-bottom:1px solid var(--border)">';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px 8px;text-align:left">#</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px 4px;text-align:left">TEAM</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px;text-align:center">P</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px;text-align:center">W</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px;text-align:center">D</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px;text-align:center">L</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--text3);padding:4px;text-align:center">GD</th>';
+      html += '<th style="font-family:\'JetBrains Mono\';font-size:7px;color:var(--gold);padding:4px 8px;text-align:center">PTS</th>';
+      html += '</tr></thead><tbody>';
+      (g.table || []).forEach(function(t, i) {
+        var qualified = i < 2;
+        var third = i === 2;
+        var out = i === 3;
+        var borderCol = qualified ? 'var(--accent)' : third ? 'var(--orange)' : 'transparent';
+        var nameCol = qualified ? 'var(--text)' : third ? 'var(--text2)' : 'var(--text3)';
+        var gd = (t.gf||0)-(t.ga||0);
+        var gdStr = (gd>0?'+':'')+gd;
+        var gdCol = gd>0?'var(--green)':gd<0?'var(--red)':'var(--text3)';
+        var winPct = (data.winProbabilities||{})[t.name];
+        html += '<tr style="border-bottom:1px solid rgba(14,32,64,.4);border-left:3px solid '+borderCol+'">';
+        html += '<td style="padding:5px 8px;font-family:\'JetBrains Mono\';font-size:9px;color:'+(qualified?'var(--accent)':third?'var(--orange)':'var(--text3)')+'">'+((i+1))+'</td>';
+        html += '<td style="padding:5px 4px;font-weight:'+(qualified?'700':'400')+';color:'+nameCol+'">'+t.name+(winPct?'<span style="font-family:\'JetBrains Mono\';font-size:6px;color:var(--gold);margin-left:4px">'+winPct+'%</span>':'')+'</td>';
+        html += '<td style="padding:5px 4px;text-align:center;color:var(--text2)">'+(t.p||0)+'</td>';
+        html += '<td style="padding:5px 4px;text-align:center;color:var(--green)">'+(t.w||0)+'</td>';
+        html += '<td style="padding:5px 4px;text-align:center;color:var(--text3)">'+(t.d||0)+'</td>';
+        html += '<td style="padding:5px 4px;text-align:center;color:var(--red)">'+(t.l||0)+'</td>';
+        html += '<td style="padding:5px 4px;text-align:center;color:'+gdCol+'">'+gdStr+'</td>';
+        html += '<td style="padding:5px 8px;text-align:center;font-family:\'Bebas Neue\';font-size:16px;color:var(--gold)">'+(t.pts||0)+'</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      html += '<div style="display:flex;gap:6px;padding:5px 8px;border-top:1px solid var(--border);background:rgba(0,0,0,.15)">';
+      html += '<div style="display:flex;align-items:center;gap:3px;font-family:\'JetBrains Mono\';font-size:7px;color:var(--accent)"><div style="width:8px;height:8px;border-radius:1px;background:rgba(0,200,248,.4)"></div>Qualify</div>';
+      html += '<div style="display:flex;align-items:center;gap:3px;font-family:\'JetBrains Mono\';font-size:7px;color:var(--orange)"><div style="width:8px;height:8px;border-radius:1px;background:rgba(255,140,66,.4)"></div>Possible 3rd</div>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Knockout rounds (reuse existing bracket logic)
+  var roundKeys = Object.keys(data.rounds || {});
+  var hasRealMatches = roundKeys.some(function(rk){
+    return (data.rounds[rk]||[]).some(function(m){ return !m.home.startsWith('TBD'); });
+  });
+  if (roundKeys.length) {
+    html += '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);letter-spacing:2px;margin:12px 0 8px">▸ KNOCKOUT BRACKET'+(hasRealMatches?' — LIVE':' — UPCOMING')+'</div>';
+    var ROUND_ORDER=['Round of 32','Round of 16','Quarter-Finals','Semi-Finals','Final','3rd Place'];
+    roundKeys.sort(function(a,b){
+      var ia=ROUND_ORDER.findIndex(function(r){return a.toLowerCase().includes(r.toLowerCase());}),
+          ib=ROUND_ORDER.findIndex(function(r){return b.toLowerCase().includes(r.toLowerCase());});
+      if(ia>=0&&ib>=0) return ia-ib; if(ia>=0) return -1; if(ib>=0) return 1;
+      return a.localeCompare(b);
+    });
+    html += '<div class="bracket-wrap"><div class="bracket-rounds">';
+    roundKeys.forEach(function(rnd){
+      var matches=data.rounds[rnd]||[];
+      html+='<div class="bracket-round"><div class="bracket-round-hdr">'+rnd.toUpperCase()+'</div><div class="bracket-matches">';
+      matches.forEach(function(m){
+        var hWin=m.isFinished&&m.homeScore!=null&&m.awayScore!=null&&m.homeScore>m.awayScore;
+        var aWin=m.isFinished&&m.homeScore!=null&&m.awayScore!=null&&m.awayScore>m.homeScore;
+        var dateStr=m.date?new Date(m.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';
+        html+='<div class="bracket-match'+(m.isFinished?' finished':'')+(m.isLive?' live':'')+'" onclick="bracketMatchAI(\''+esc(m.home)+'\',\''+esc(m.away)+'\',\''+esc(rnd)+'\')">';
+        html+='<div class="bm-team"><span class="bm-name">'+(m.home||'?')+'</span>'+(m.homeScore!=null?'<span class="bm-score'+(hWin?' winner':aWin?' loser':'')+'">'+m.homeScore+'</span>':'')+' </div>';
+        html+='<div class="bm-team"><span class="bm-name">'+(m.away||'?')+'</span>'+(m.awayScore!=null?'<span class="bm-score'+(aWin?' winner':hWin?' loser':'')+'">'+m.awayScore+'</span>':'')+' </div>';
+        if(m.agg) html+='<div class="bm-meta">'+m.agg+'</div>';
+        if(!m.isFinished) html+='<div class="bm-meta">'+dateStr+(m.isLive?' 🔴 LIVE':'')+'</div>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+    });
+    html += '</div></div>';
+  }
+
+  return html;
+}
+
 function renderBracket(data){
+  if (data.isWC || (data.name && data.name.includes('WC'))) return renderWCBracket(data);
   var html='<div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'+
     '<div><div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:2px;color:var(--text)">'+data.name+'</div>'+
     '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3)">Click any match for AI prediction</div></div>'+
@@ -1436,6 +1558,7 @@ function openPlaystyleOverlay(name) {
 
 // ─── 2-SIDED BRACKET RENDERER ─────────────────────────────────────────────────
 function renderBracket(data) {
+  if (data.isWC || (data.name && data.name.includes('WC'))) return renderWCBracket(data);
   var ROUND_ORDER = ['Knockout Round Play-offs','Knockout Playoffs','Play-off Round','Round of 64','Round of 32','Round of 16','Last 16','R16','Quarter-Finals','Quarterfinals','Quarterfinal','Quarter Finals','QF','Semi-Finals','Semifinals','Semifinal','Semi Finals','SF','Final','Grand Final'];
 
   var rounds = data.rounds || {};

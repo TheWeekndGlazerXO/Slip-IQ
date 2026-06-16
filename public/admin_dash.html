@@ -1329,6 +1329,26 @@ body::after {
       <div id="lcGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;max-height:520px;overflow-y:auto"></div>
     </div>
 
+    <!-- ── USER ISSUES ────────────────────────────────────── -->
+    <div class="section-hd">User Issue Reports</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:48px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;flex:1;min-width:160px">Bug reports and feedback submitted by users via the app.</div>
+        <select id="issueFilter" onchange="filterIssues()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:var(--mono);font-size:9px;cursor:pointer">
+          <option value="all">All Issues</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <button onclick="loadIssues()" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-family:var(--mono);font-size:9px;cursor:pointer">↺ RELOAD</button>
+      </div>
+      <div id="issueStatus" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
+      <div id="issuesContainer" style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:20px;text-align:center">Loading issues...</div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /dashboard -->
 
@@ -1960,6 +1980,163 @@ const _origLoadAllData = typeof loadAllData === 'function' ? loadAllData : null
 setTimeout(() => {
   if (document.getElementById('lcGrid')) loadLeagueControl()
 }, 1500)
+
+// ── ISSUES ─────────────────────────────────────────────────────────────────
+let _allIssues = []
+
+const ISSUE_STATUS_COLORS = {
+  open:        { bg: '#ff3d5a22', border: '#ff3d5a66', text: '#ff3d5a', label: 'OPEN' },
+  in_progress: { bg: '#ff8f0022', border: '#ff8f0066', text: '#ff8f00', label: 'IN PROGRESS' },
+  resolved:    { bg: '#00e67622', border: '#00e67666', text: '#00e676', label: 'RESOLVED' },
+  closed:      { bg: '#3d507022', border: '#3d507066', text: '#7a90b0', label: 'CLOSED' },
+}
+
+const ISSUE_TYPE_ICONS = {
+  bug: '🐛', prediction: '📊', ui: '🎨', parlay: '🎰', data: '📦', other: '💬'
+}
+
+async function loadIssues() {
+  const status    = document.getElementById('issueStatus')
+  const container = document.getElementById('issuesContainer')
+  status.textContent = '⏳ Loading...'
+  try {
+    const r = await fetch(`/admin/issues?adminKey=${ADMIN_KEY}`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const d = await r.json()
+    _allIssues = d.issues || []
+    status.textContent = `${_allIssues.length} issue${_allIssues.length !== 1 ? 's' : ''} total`
+    filterIssues()
+  } catch(e) {
+    status.textContent = '❌ ' + e.message
+    container.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:20px;text-align:center">Failed to load issues</div>`
+  }
+}
+
+function filterIssues() {
+  const filter = document.getElementById('issueFilter').value
+  const issues = filter === 'all' ? _allIssues : _allIssues.filter(i => i.status === filter)
+  renderIssues(issues)
+}
+
+function renderIssues(issues) {
+  const container = document.getElementById('issuesContainer')
+  if (!issues.length) {
+    container.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:28px;text-align:center;border:1px dashed var(--border);border-radius:8px">No issues found</div>`
+    return
+  }
+  container.innerHTML = issues.map(issue => {
+    const sc = ISSUE_STATUS_COLORS[issue.status] || ISSUE_STATUS_COLORS.open
+    const icon = ISSUE_TYPE_ICONS[issue.type] || '💬'
+    const date = issue.created_at ? new Date(issue.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
+    const resolvedAt = issue.resolved_at ? new Date(issue.resolved_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : null
+    return `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px 18px;transition:border-color 0.2s" id="issue-${issue.id}">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="font-size:18px;line-height:1;flex-shrink:0;margin-top:2px">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:${sc.bg};border:1px solid ${sc.border};color:${sc.text}">${sc.label}</span>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${issue.type || 'other'}</span>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-left:auto">#${issue.id} · ${date}</span>
+          </div>
+          <div style="font-family:var(--sans);font-size:12px;color:var(--text);line-height:1.55;margin-bottom:${issue.admin_notes ? '8px' : '0'};word-break:break-word">${escHtml(issue.description || '')}</div>
+          ${issue.page ? `<div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:4px">Page: ${escHtml(issue.page)}</div>` : ''}
+          ${issue.user_id ? `<div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:2px">User: ${escHtml(issue.user_id.substring(0,8))}…</div>` : ''}
+          ${issue.admin_notes ? `<div style="background:var(--surface2);border-left:2px solid var(--accent);border-radius:0 6px 6px 0;padding:8px 12px;margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--accent)">📝 ${escHtml(issue.admin_notes)}</div>` : ''}
+          ${resolvedAt ? `<div style="font-family:var(--mono);font-size:8px;color:var(--green);margin-top:6px">✓ Resolved ${resolvedAt}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end">
+          <select onchange="updateIssueStatus(${issue.id}, this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-family:var(--mono);font-size:8px;cursor:pointer;min-width:100px">
+            <option value="open"        ${issue.status==='open'        ? 'selected':''}>Open</option>
+            <option value="in_progress" ${issue.status==='in_progress' ? 'selected':''}>In Progress</option>
+            <option value="resolved"    ${issue.status==='resolved'    ? 'selected':''}>Resolved</option>
+            <option value="closed"      ${issue.status==='closed'      ? 'selected':''}>Closed</option>
+          </select>
+          <button onclick="openNotesEditor(${issue.id})" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;color:var(--text2);font-family:var(--mono);font-size:8px;cursor:pointer;white-space:nowrap">Add Note</button>
+        </div>
+      </div>
+      <div id="notes-editor-${issue.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <textarea id="notes-input-${issue.id}" placeholder="Admin notes..." rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:10px;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end">
+          <button onclick="closeNotesEditor(${issue.id})" style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;color:var(--text3);font-family:var(--mono);font-size:8px;cursor:pointer">Cancel</button>
+          <button onclick="saveIssueNotes(${issue.id})" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:4px 12px;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">SAVE</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function openNotesEditor(id) {
+  const el = document.getElementById(`notes-editor-${id}`)
+  const issue = _allIssues.find(i => i.id === id)
+  if (el) {
+    el.style.display = 'block'
+    const inp = document.getElementById(`notes-input-${id}`)
+    if (inp && issue?.admin_notes) inp.value = issue.admin_notes
+  }
+}
+
+function closeNotesEditor(id) {
+  const el = document.getElementById(`notes-editor-${id}`)
+  if (el) el.style.display = 'none'
+}
+
+async function updateIssueStatus(id, status) {
+  try {
+    const r = await fetch(`/admin/issues/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: ADMIN_KEY, status })
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const issue = _allIssues.find(i => i.id === id)
+    if (issue) {
+      issue.status = status
+      if (status === 'resolved') issue.resolved_at = new Date().toISOString()
+    }
+    showToast(`Issue #${id} → ${status}`)
+    filterIssues()
+  } catch(e) {
+    showToast('Failed to update: ' + e.message, true)
+  }
+}
+
+async function saveIssueNotes(id) {
+  const inp = document.getElementById(`notes-input-${id}`)
+  const notes = inp ? inp.value.trim() : ''
+  try {
+    const r = await fetch(`/admin/issues/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: ADMIN_KEY, admin_notes: notes })
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const issue = _allIssues.find(i => i.id === id)
+    if (issue) issue.admin_notes = notes
+    closeNotesEditor(id)
+    showToast(`Notes saved for #${id}`)
+    filterIssues()
+  } catch(e) {
+    showToast('Failed to save: ' + e.message, true)
+  }
+}
+
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast')
+  if (!t) return
+  t.textContent = msg
+  t.style.color = isErr ? 'var(--red)' : 'var(--green)'
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+setTimeout(() => {
+  if (document.getElementById('issuesContainer')) loadIssues()
+}, 2000)
 </script>
 <script src="/mobile-nav.js"></script>
 </body>

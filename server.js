@@ -7010,18 +7010,20 @@ const HARDCODED_BRACKETS = {
       ],
     },
     winProbabilities: {
-      'France':      16,
-      'Brazil':      14,
-      'Argentina':   13,
-      'England':     11,
-      'Germany':     10,
-      'Spain':        9,
-      'Portugal':     7,
-      'Netherlands':  6,
-      'Belgium':      5,
-      'USA':          3,
-      'Colombia':     2,
-      'Others':       4,
+      'France':      17.5,
+      'Spain':       14.0,
+      'England':     11.2,
+      'Argentina':   10.4,
+      'Portugal':     7.0,
+      'Brazil':       6.6,
+      'Germany':      5.1,
+      'Netherlands':  3.6,
+      'Norway':       3.5,
+      'Belgium':      2.4,
+      'Colombia':     2.1,
+      'Morocco':      1.9,
+      'USA':          1.2,
+      'Others':       9.0,
     }
   },
   ucl: {
@@ -7172,6 +7174,44 @@ app.get('/bracket/:slug', async (req, res) => {
   if (HARDCODED_BRACKETS[slug]) {
     var hc = JSON.parse(JSON.stringify(HARDCODED_BRACKETS[slug])) // deep copy
     try {
+      // For WC: fetch live ESPN standings and update group tables
+      if (slug === 'world_cup') {
+        const standingsR = await httpExt(
+          'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?limit=200'
+        ).catch(() => null)
+        if (standingsR?.data) {
+          const sData = standingsR.data
+          // ESPN returns standings inside children[] (one per group) or standings.groups
+          const children = sData.standings?.groups || sData.children || []
+          for (const child of children) {
+            const gName = child.name || child.abbreviation || ''
+            // match e.g. "Group A" -> our group
+            const hcGroup = hc.groups.find(g => g.name.replace('Group ','') === gName.replace('Group ','').trim())
+            if (!hcGroup) continue
+            const entries = child.standings?.entries || child.entries || []
+            for (const entry of entries) {
+              const teamName = entry.team?.displayName || entry.team?.name || ''
+              const hcTeam = hcGroup.table.find(t => {
+                const a = t.name.toLowerCase(), b = teamName.toLowerCase()
+                return a === b || a.startsWith(b.slice(0,5)) || b.startsWith(a.slice(0,5))
+              })
+              if (!hcTeam) continue
+              const stats = {}
+              ;(entry.stats || []).forEach(s => { stats[s.abbreviation||s.name||''] = s.value ?? parseFloat(s.displayValue) ?? 0 })
+              hcTeam.p   = parseInt(stats['GP']||stats['gamesPlayed']||hcTeam.p||0)
+              hcTeam.w   = parseInt(stats['W']||stats['wins']||hcTeam.w||0)
+              hcTeam.d   = parseInt(stats['T']||stats['D']||stats['draws']||hcTeam.d||0)
+              hcTeam.l   = parseInt(stats['L']||stats['losses']||hcTeam.l||0)
+              hcTeam.gf  = parseInt(stats['GF']||stats['goalsFor']||hcTeam.gf||0)
+              hcTeam.ga  = parseInt(stats['GA']||stats['goalsAgainst']||hcTeam.ga||0)
+              hcTeam.pts = parseInt(stats['PTS']||stats['points']||hcTeam.pts||0)
+            }
+            // Sort group table by pts desc, then GD desc
+            hcGroup.table.sort((a,b) => (b.pts-a.pts)||((b.gf-b.ga)-(a.gf-a.ga))||(b.gf-a.gf))
+          }
+        }
+        hc.isWC = true
+      }
       var liveSlug = BRACKET_MAP[slug] ? BRACKET_MAP[slug].espn : null
       if (liveSlug) {
         var liveR = await httpExt(
@@ -7864,6 +7904,45 @@ app.post('/admin/leagues', async (req, res) => {
 })
 
 // ── PARLAY RESULT RECORDING ───────────────────────────────────────────────────
+// ── USER ISSUE REPORTS ─────────────────────────────────────────────────────────
+app.post('/api/issues', async (req, res) => {
+  const { user_id, type, description, page } = req.body
+  if (!description || description.trim().length < 5) return res.status(400).json({ error: 'Description too short' })
+  if (sb) {
+    try {
+      await sb.from('user_issues').insert({
+        user_id: user_id || 'guest',
+        type: type || 'other',
+        description: description.trim().slice(0, 2000),
+        page: page || '/',
+        status: 'open',
+        created_at: new Date().toISOString()
+      })
+    } catch(e) { console.error('Issue save:', e.message) }
+  }
+  console.log(`📣 Issue reported [${type}]: ${description.slice(0,80)}`)
+  res.json({ ok: true })
+})
+
+app.get('/admin/issues', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'] || req.query.key
+  if (process.env.ADMIN_KEY && adminKey !== process.env.ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' })
+  if (!sb) return res.json([])
+  try {
+    const { data } = await sb.from('user_issues').select('*').order('created_at', { ascending: false }).limit(200)
+    res.json(data || [])
+  } catch(e) { res.json([]) }
+})
+
+app.patch('/admin/issues/:id', async (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  if (process.env.ADMIN_KEY && adminKey !== process.env.ADMIN_KEY) return res.status(401).json({ error: 'Unauthorized' })
+  if (!sb) return res.status(503).json({ error: 'No DB' })
+  const { status, admin_notes } = req.body
+  await sb.from('user_issues').update({ status, admin_notes, resolved_at: status === 'resolved' ? new Date().toISOString() : null }).eq('id', req.params.id)
+  res.json({ ok: true })
+})
+
 app.post('/parlays/result', async (req, res) => {
   const { parlay_id, user_id, legs_results, actual_outcome } = req.body
   // legs_results = [{ matchId, pick, actualWinner, homeScore, awayScore, hit: bool }]
