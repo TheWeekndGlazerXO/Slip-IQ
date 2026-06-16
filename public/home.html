@@ -964,13 +964,28 @@ function toggleSidebar() {
   document.getElementById("mainShell").classList.toggle("sidebar-collapsed", sidebarCollapsed);
 }
 
+var _parlayRefreshInterval = null;
 function showPage(name, el) {
   document.querySelectorAll(".page").forEach(function(p){ p.classList.remove("active"); });
   document.querySelectorAll(".nav-item").forEach(function(n){ n.classList.remove("active"); });
   document.getElementById("page-" + name).classList.add("active");
   if (el) el.classList.add("active");
   if (name === "news" && !allNewsArticles.length) loadNews();
-  if (name === "parlays") loadSavedParlays();
+  if (name === "parlays") {
+    loadSavedParlays();
+    // Auto-refresh parlays every 60s while on the page (picks up auto-resolved legs)
+    if (_parlayRefreshInterval) clearInterval(_parlayRefreshInterval);
+    _parlayRefreshInterval = setInterval(function() {
+      if (document.getElementById("page-parlays").classList.contains("active")) {
+        loadSavedParlays();
+      } else {
+        clearInterval(_parlayRefreshInterval);
+        _parlayRefreshInterval = null;
+      }
+    }, 60000);
+  } else {
+    if (_parlayRefreshInterval) { clearInterval(_parlayRefreshInterval); _parlayRefreshInterval = null; }
+  }
 }
 
 // ─── SPORT SWITCHING ─────────────────────────────────────────────────────────
@@ -2492,9 +2507,22 @@ async function loadSavedParlays() {
       '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--gold)">' + parseFloat(co).toFixed(2) + 'x</div><div class="pr-stat-lbl">ODDS</div></div>' +
       '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--accent)">' + legs.length + '</div><div class="pr-stat-lbl">LEGS</div></div>' +
       '<div class="pr-stat"><div class="pr-stat-val" style="color:' + (sc>=70?"var(--green)":sc>=50?"var(--orange)":"var(--red)") + '">' + (sc||"—") + '</div><div class="pr-stat-lbl">SCORE</div></div>' +
-      '<div class="pr-stat"><div class="pr-stat-val" style="color:var(--text2);font-size:10px">—</div><div class="pr-stat-lbl">HITS</div></div>' +
+      (function(){
+        var lr2 = p.leg_results; try { if(typeof lr2==='string') lr2=JSON.parse(lr2); } catch(e){ lr2=null; }
+        var resolved2 = Array.isArray(lr2) ? lr2.filter(function(x){return x&&x.resolvedAt;}) : [];
+        var hits2 = resolved2.filter(function(x){return x.hit;}).length;
+        var hitsCol = p.status==='won' ? 'var(--green)' : p.status==='lost' ? 'var(--red)' : resolved2.length ? 'var(--orange)' : 'var(--text2)';
+        var hitsVal = resolved2.length ? hits2+'/'+legs.length : '—';
+        return '<div class="pr-stat"><div class="pr-stat-val" style="color:'+hitsCol+';font-size:10px">'+hitsVal+'</div><div class="pr-stat-lbl">HITS</div></div>';
+      })() +
       '</div>' +
-      '<div class="pr-legs-preview">' + legs.slice(0,3).map(function(l){ return '<div class="pr-leg-tag">' + (l.label||"").slice(0,14) + '</div>'; }).join("") + (legs.length>3?'<div class="pr-leg-tag">+' + (legs.length-3) + '</div>':"") + '</div>' +
+      '<div class="pr-legs-preview">' + (function(){
+        var lr3 = p.leg_results; try { if(typeof lr3==='string') lr3=JSON.parse(lr3); } catch(e){ lr3=null; }
+        return legs.slice(0,3).map(function(l,li){
+          var res3 = Array.isArray(lr3)&&lr3[li]; var dot = res3&&res3.resolvedAt ? (res3.hit?'✅ ':'❌ ') : '';
+          return '<div class="pr-leg-tag">'+dot+(l.label||'').slice(0,12)+'</div>';
+        }).join('') + (legs.length>3?'<div class="pr-leg-tag">+'+(legs.length-3)+'</div>':'');
+      })() + '</div>' +
       '</div>';
   }).join("");
 }

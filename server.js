@@ -5100,6 +5100,76 @@ async function savePredictionToDb(prediction) {
   } catch(e) {}
 }
 
+// ESPN slugs to poll for completed matches (covers most leagues parlays are built from)
+const ESPN_LEAGUE_SLUGS = [
+  'soccer/fifa.world',       // WC 2026
+  'soccer/eng.1',            // Premier League
+  'soccer/esp.1',            // La Liga
+  'soccer/ger.1',            // Bundesliga
+  'soccer/ita.1',            // Serie A
+  'soccer/fra.1',            // Ligue 1
+  'soccer/uefa.europa',      // Europa League
+  'soccer/uefa.conference',  // Conference League
+  'soccer/ned.1',            // Eredivisie
+  'soccer/bra.1',            // Brasileirão
+  'basketball/nba',
+  'football/nfl',
+]
+
+async function autoResolveParlaysByESPN() {
+  if (!sb) return
+  try {
+    // Fetch all pending parlays with ESPN-prefixed matchIds
+    const { data: parlays } = await sb.from('saved_parlays')
+      .select('id,legs,leg_results,status').eq('status', 'pending').limit(500)
+    if (!parlays?.length) return
+
+    // Collect unique ESPN IDs we need to resolve
+    const neededEspnIds = new Set()
+    for (const p of parlays) {
+      let legs = p.legs
+      try { if (typeof legs === 'string') legs = JSON.parse(legs) } catch(e) { continue }
+      for (const leg of (legs||[])) {
+        const mid = String(leg.matchId || '')
+        if (mid.startsWith('espn_')) neededEspnIds.add(mid.replace('espn_', ''))
+      }
+    }
+    if (!neededEspnIds.size) return
+
+    // Poll ESPN scoreboards to find completed events
+    const completedById = new Map() // espnEventId -> { homeScore, awayScore, home, away }
+    for (const slug of ESPN_LEAGUE_SLUGS) {
+      try {
+        const r = await httpExt(`https://site.api.espn.com/apis/site/v2/sports/${slug}/scoreboard`, { limit: 100 })
+        for (const ev of (r.data?.events || [])) {
+          if (!neededEspnIds.has(String(ev.id))) continue
+          const comp = ev.competitions?.[0]
+          if (!comp?.status?.type?.completed) continue
+          const hC = comp.competitors?.find(c => c.homeAway === 'home')
+          const aC = comp.competitors?.find(c => c.homeAway === 'away')
+          const hs = parseInt(hC?.score ?? 0)
+          const as_ = parseInt(aC?.score ?? 0)
+          const home = hC?.team?.displayName || hC?.team?.name || ''
+          const away = aC?.team?.displayName || aC?.team?.name || ''
+          completedById.set(String(ev.id), { homeScore: hs, awayScore: as_, home, away })
+        }
+      } catch(e) {}
+      await sleep(120)
+    }
+    if (!completedById.size) return
+
+    // Run updateParlaysForFixture for each completed ESPN match
+    for (const [espnId, result] of completedById) {
+      const { homeScore, awayScore, home, away } = result
+      const actualWinner = homeScore > awayScore ? 'home' : homeScore < awayScore ? 'away' : 'draw'
+      const actualTeam   = actualWinner === 'home' ? home : actualWinner === 'away' ? away : 'Draw'
+      // Use "espn_<id>" as the fixtureId to match how they're stored in legs
+      await updateParlaysForFixture(`espn_${espnId}`, 'football', actualWinner, actualTeam, homeScore, awayScore)
+      console.log(`✅ Auto-resolved ESPN ${espnId}: ${home} ${homeScore}-${awayScore} ${away}`)
+    }
+  } catch(e) { console.log('⚠️ autoResolveParlaysByESPN:', e.message?.slice(0,60)) }
+}
+
 async function resolveFinishedPredictions() {
   if (!sb) return
   try {
@@ -7970,6 +8040,9 @@ setInterval(() => warmPredictionsCache(), 3600000)
 // Auto-resolve finished predictions — every 10 minutes for timely parlay updates
 setTimeout(() => resolveFinishedPredictions().catch(() => {}), 20000)
 setInterval(() => resolveFinishedPredictions().catch(() => {}), 10 * 60000)
+// Auto-resolve ESPN-based parlay legs — every 5 minutes
+setTimeout(() => autoResolveParlaysByESPN().catch(() => {}), 30000)
+setInterval(() => autoResolveParlaysByESPN().catch(() => {}), 5 * 60000)
   setTimeout(() => fetchNBAGames().catch(() => {}), 3000)
   setTimeout(() => fetchNFLGames().catch(() => {}), 5000)
   // setTimeout(() => fetchTennisTournaments().catch(() => {}), 7000)
