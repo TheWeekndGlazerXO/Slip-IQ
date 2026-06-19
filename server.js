@@ -653,28 +653,28 @@ const _playerEloOverrides = new Map()   // name → elo
 const _teamEloOverrides   = new Map()   // name → elo
 
 async function loadElosFromSupabase() {
-  if (!supabase) return
+  if (!sb) return
   try {
-    const { data: pRows } = await supabase.from('player_elos').select('player_name,elo').limit(2000)
+    const { data: pRows } = await sb.from('player_elos').select('player_name,elo').limit(2000)
     if (pRows) pRows.forEach(r => _playerEloOverrides.set(r.player_name, r.elo))
-    const { data: tRows } = await supabase.from('team_elos').select('team_name,elo').limit(500)
+    const { data: tRows } = await sb.from('team_elos').select('team_name,elo').limit(500)
     if (tRows) tRows.forEach(r => _teamEloOverrides.set(r.team_name, r.elo))
     console.log(`[ELO] Loaded ${_playerEloOverrides.size} player + ${_teamEloOverrides.size} team overrides`)
   } catch(e) { console.warn('[ELO] Supabase load failed (tables may not exist yet):', e.message) }
 }
 
 async function savePlayerEloToSupabase(name, team, pos, elo) {
-  if (!supabase) return
+  if (!sb) return
   try {
-    await supabase.from('player_elos').upsert({ player_name: name, team_name: team, position: pos, elo, updated_at: new Date().toISOString() }, { onConflict: 'player_name,team_name' })
+    await sb.from('player_elos').upsert({ player_name: name, team_name: team, position: pos, elo, updated_at: new Date().toISOString() }, { onConflict: 'player_name,team_name' })
     _playerEloOverrides.set(name, elo)
   } catch(e) { /* tables may not exist — silently fail */ }
 }
 
 async function saveTeamEloToSupabase(name, elo) {
-  if (!supabase) return
+  if (!sb) return
   try {
-    await supabase.from('team_elos').upsert({ team_name: name, elo, updated_at: new Date().toISOString() }, { onConflict: 'team_name' })
+    await sb.from('team_elos').upsert({ team_name: name, elo, updated_at: new Date().toISOString() }, { onConflict: 'team_name' })
     _teamEloOverrides.set(name, elo)
   } catch(e) { /* tables may not exist — silently fail */ }
 }
