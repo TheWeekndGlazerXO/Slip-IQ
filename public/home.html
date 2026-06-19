@@ -287,6 +287,8 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .status-pending{background:rgba(0,200,248,.15);color:var(--accent);border:1px solid rgba(0,200,248,.3)}
 .status-won{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
 .status-lost{background:rgba(255,59,92,.15);color:var(--red);border:1px solid rgba(255,59,92,.3)}
+.status-live{background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.4);animation:livePulse 1.6s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.55}}
 .parlay-detail{flex:1;overflow-y:auto;padding:14px}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:14px;overflow-y:auto}
 .modal-overlay.open{display:flex}
@@ -2635,9 +2637,10 @@ function switchView(el, view) {
   currentPage = 1; applyFilters();
 }
 
+var _parlayRefreshInterval = null;
 // ─── PARLAYS PAGE ─────────────────────────────────────────────────────────────
-async function loadSavedParlays() {
-  document.getElementById("parlaysList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>';
+async function loadSavedParlays(silent) {
+  if (!silent) document.getElementById("parlaysList").innerHTML = '<div class="loading-container"><div class="spinner"></div><div class="loading-text">LOADING...</div></div>';
   var parlays = [];
   try { var res = await fetch(API + "/parlays/" + USER_ID); var _p = await res.json(); if (Array.isArray(_p)) parlays = _p; } catch(e) {}
   var local = [];
@@ -2646,15 +2649,33 @@ async function loadSavedParlays() {
   local.forEach(function(lp){ if (!serverIds.has(String(lp.id))) parlays.push(lp); });
   parlays.sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
   savedParlays = parlays;
+  // Build a live match ID set for live badge detection
+  var liveMatchIds = new Set((allMatches||[]).filter(function(m){ return m.isLive; }).map(function(m){ return String(m.id); }));
+  var now = Date.now();
   document.getElementById("parlaysSubtitle").textContent = parlays.length + " saved parlays";
   if (!parlays.length) { document.getElementById("parlaysList").innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">No saved parlays yet.</div></div>'; return; }
   document.getElementById("parlaysList").innerHTML = parlays.map(function(p,i){
     var legs; try { legs = typeof p.legs==="string"?JSON.parse(p.legs):p.legs||[]; } catch(e){ legs=[]; } if(!Array.isArray(legs)) legs=[];
     var co = p.combined_odds || legs.reduce(function(x,l){ return x*(l.odds||1); },1).toFixed(2);
     var sc = p.confidence_score||0;
-    var statusCls = "status-"+(p.status||"pending");
+    // Detect effective status: check if any leg is currently live
+    var dbStatus = (p.status||"pending").toLowerCase();
+    var effectiveStatus = dbStatus;
+    if (dbStatus === 'pending') {
+      var hasLiveLeg = legs.some(function(l){ return liveMatchIds.has(String(l.matchId)); });
+      if (hasLiveLeg) effectiveStatus = 'live';
+      else {
+        // Check if any leg's match time has passed (game likely elapsed but not resolved yet)
+        var lr0 = p.leg_results; try { if(typeof lr0==='string') lr0=JSON.parse(lr0); } catch(e){ lr0=null; }
+        var resolved0 = Array.isArray(lr0) ? lr0.filter(function(x){return x&&x.resolvedAt;}) : [];
+        var anyMiss = resolved0.some(function(x){return !x.hit;});
+        if (anyMiss) effectiveStatus = 'lost';
+      }
+    }
+    var statusCls = "status-" + effectiveStatus;
+    var statusLabel = effectiveStatus === 'live' ? '🔴 LIVE' : effectiveStatus.toUpperCase();
     return '<div class="parlay-row" onclick="openSavedParlay(' + i + ')" id="prow-' + i + '">' +
-      '<div class="status-badge ' + statusCls + '">' + (p.status||"PENDING").toUpperCase() + '</div>' +
+      '<div class="status-badge ' + statusCls + '">' + statusLabel + '</div>' +
       '<div style="margin-bottom:7px"><div style="font-size:13px;font-weight:700;color:var(--text);padding-right:70px">' + (p.name||legs.length+"-Leg Parlay") + '</div>' +
       '<div style="font-family:\'JetBrains Mono\';font-size:8px;color:var(--text3);margin-top:1px">' + new Date(p.created_at).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}) + '</div></div>' +
       '<div class="pr-stats">' +
@@ -2672,10 +2693,13 @@ async function loadSavedParlays() {
       '</div>' +
       '<div class="pr-legs-preview">' + (function(){
         var lr3 = p.leg_results; try { if(typeof lr3==='string') lr3=JSON.parse(lr3); } catch(e){ lr3=null; }
-        return legs.slice(0,3).map(function(l,li){
-          var res3 = Array.isArray(lr3)&&lr3[li]; var dot = res3&&res3.resolvedAt ? (res3.hit?'✅ ':'❌ ') : '';
-          return '<div class="pr-leg-tag">'+dot+(l.label||'').slice(0,12)+'</div>';
-        }).join('') + (legs.length>3?'<div class="pr-leg-tag">+'+(legs.length-3)+'</div>':'');
+        return legs.slice(0,4).map(function(l,li){
+          var res3 = Array.isArray(lr3)&&lr3[li];
+          var isLegLive = liveMatchIds.has(String(l.matchId));
+          var dot = res3&&res3.resolvedAt ? (res3.hit?'✅ ':'❌ ') : (isLegLive ? '🔴 ' : '⏳ ');
+          var tagStyle = res3&&res3.resolvedAt ? (res3.hit?'border-color:rgba(0,255,136,.4)':'border-color:rgba(255,59,92,.4)') : (isLegLive?'border-color:rgba(0,255,136,.3)':'');
+          return '<div class="pr-leg-tag" style="'+tagStyle+'">'+dot+(l.label||'').slice(0,14)+'</div>';
+        }).join('') + (legs.length>4?'<div class="pr-leg-tag">+'+(legs.length-4)+'</div>':'');
       })() + '</div>' +
       '</div>';
   }).join("");

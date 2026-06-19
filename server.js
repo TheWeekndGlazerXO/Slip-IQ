@@ -7742,41 +7742,56 @@ app.get("/config.js", (req, res) => {
 })
 
 // ── STRIPE CHECKOUT SESSION ───────────────────────────────
-const STRIPE_PLAN_PRICES_GBP = {
-  starter:  499,  // £4.99
-  basic:    999,  // £9.99
-  plus:    1999,  // £19.99
-  pro:     3999,  // £39.99
-  elite:   7999,  // £79.99
-  platinum:14999, // £149.99
+const STRIPE_PLAN_PRICES_EUR = {
+  starter:   299,  // €2.99
+  basic:     499,  // €4.99
+  plus:      999,  // €9.99
+  pro:      1499,  // €14.99
+  elite:    4999,  // €49.99
+  platinum: 12999, // €129.99
 }
+// alias so existing code that references GBP map still works
+const STRIPE_PLAN_PRICES_GBP = STRIPE_PLAN_PRICES_EUR
 
 app.post('/api/checkout', async (req, res) => {
   if (!STRIPE_SECRET_KEY) return res.status(503).json({ error: 'Stripe not configured' })
-  const { plan, userId, email } = req.body || {}
-  if (!plan || !STRIPE_PLAN_PRICES_GBP[plan]) return res.status(400).json({ error: 'Invalid plan' })
+  const { plan, userId, email, referralCode, referrerUserId, annual } = req.body || {}
+  const planKey = plan?.toLowerCase()
+  if (!planKey || !STRIPE_PLAN_PRICES_EUR[planKey]) return res.status(400).json({ error: 'Invalid plan: ' + plan })
   try {
     const stripe = require('stripe')(STRIPE_SECRET_KEY)
-    const APP_URL = process.env.APP_URL || 'http://localhost:3000'
+    const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const unitAmount = annual
+      ? Math.round(STRIPE_PLAN_PRICES_EUR[planKey] * 12 * 0.9)  // 10% annual discount
+      : STRIPE_PLAN_PRICES_EUR[planKey]
+    const interval = annual ? 'year' : 'month'
+    const planName = planKey.charAt(0).toUpperCase() + planKey.slice(1)
+    const credits = PLAN_CREDITS[planKey]
+    const creditsLabel = credits === Infinity ? 'Unlimited' : `${credits}`
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       customer_email: email || undefined,
+      allow_promotion_codes: true,
       line_items: [{
         price_data: {
-          currency: 'gbp',
-          unit_amount: STRIPE_PLAN_PRICES_GBP[plan],
-          recurring: { interval: 'month' },
+          currency: 'eur',
+          unit_amount: unitAmount,
+          recurring: { interval },
           product_data: {
-            name: `Slip IQ — ${plan.charAt(0).toUpperCase()+plan.slice(1)} Plan`,
-            description: `${PLAN_CREDITS[plan] || 25} credits/month · Billed monthly · Cancel anytime`,
+            name: `Slip IQ — ${planName} Plan`,
+            description: `${creditsLabel} credits/month · Billed ${interval}ly · Cancel anytime`,
           },
         },
         quantity: 1,
       }],
-      metadata: { plan, userId: userId || '', email: email || '' },
-      success_url: `${APP_URL}/store.html?upgraded=${plan}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${APP_URL}/store.html?cancelled=1`,
+      metadata: {
+        plan: planKey, userId: userId || '', email: email || '',
+        referral_code: referralCode || '', referrer_user_id: referrerUserId || '',
+        billing: annual ? 'annual' : 'monthly'
+      },
+      success_url: `${APP_URL}/subscriptions.html?upgraded=${planKey}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${APP_URL}/subscriptions.html?cancelled=1`,
     })
     res.json({ url: session.url })
   } catch(e) {

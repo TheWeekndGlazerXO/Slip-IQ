@@ -522,43 +522,37 @@ async function startCheckout() {
   btn.textContent = "⏳ PREPARING CHECKOUT..."
 
   try {
-    // 1) If referral code was used, record it server-side before Stripe
+    // 1) Record referral server-side before Stripe (non-blocking)
     if (referralCode) {
-      await fetch(`${API}/referral/use`, {
+      fetch(`${API}/referral/use`, {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ code: referralCode, referred_user_email: email, referred_user_id: USER_ID, subscription_plan: selectedPlan })
-      }).catch(() => {}) // non-blocking
+      }).catch(() => {})
     }
 
-    // 2) Build Stripe URL
-    const stripeLinks = STRIPE_LINKS[selectedPlan]
-    const period = isAnnual ? "annual" : "monthly"
-    let stripeUrl = stripeLinks?.[period]
-
-    if (!stripeUrl || stripeUrl.includes("YOUR_")) {
-      // Dev mode — simulate
-      showToast(`✅ Plan selected: ${PLAN_DATA[selectedPlan].name} (Stripe not configured yet)`)
-      btn.disabled = false
-      btn.textContent = "⚡ CONTINUE TO PAYMENT"
-      return
-    }
-
-    // 3) Append metadata to Stripe URL
-    const params = new URLSearchParams({
-      prefilled_email: email,
-      client_reference_id: USER_ID,
-      'metadata[plan]': selectedPlan,
-      'metadata[billing]': period,
-      'metadata[referral_code]': referralCode,
-      'metadata[user_id]': USER_ID,
+    // 2) Call server checkout endpoint — creates Stripe session and returns URL
+    const res = await fetch(`${API}/api/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        plan: selectedPlan,
+        userId: USER_ID,
+        email: email,
+        annual: isAnnual,
+        referralCode: referralCode || '',
+        referrerUserId: ''
+      })
     })
+    const data = await res.json()
+    if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed")
 
-    window.location.href = `${stripeUrl}?${params}`
+    // 3) Redirect to Stripe Checkout
+    window.location.href = data.url
 
   } catch(e) {
     btn.disabled = false
     btn.textContent = "⚡ CONTINUE TO PAYMENT"
-    alert("Something went wrong. Please try again.")
+    alert("Payment error: " + e.message)
   }
 }
 
