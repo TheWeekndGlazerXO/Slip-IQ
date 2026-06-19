@@ -4,6 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slip IQ — Stop Guessing. Start Winning.</title>
+<!-- Auth gate: redirect to login if no session -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/config.js"></script>
+<script>
+(function() {
+  // Prevent flash of content before redirect
+  document.documentElement.style.visibility = 'hidden';
+  try {
+    var url = window.SUPABASE_URL || '';
+    var key = window.SUPABASE_ANON_KEY || '';
+    if (!url || !key) { document.documentElement.style.visibility = ''; return; }
+    var sb = supabase.createClient(url, key);
+    sb.auth.getSession().then(function(res) {
+      var session = res && res.data && res.data.session;
+      if (session) {
+        // Logged in — show the page
+        document.documentElement.style.visibility = '';
+      } else {
+        // Not logged in — redirect to login/signup
+        window.location.replace('/login.html?redirect=' + encodeURIComponent(window.location.pathname));
+      }
+    }).catch(function() {
+      // On error, show page (fail-open so marketing page still works)
+      document.documentElement.style.visibility = '';
+    });
+  } catch(e) {
+    document.documentElement.style.visibility = '';
+  }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
