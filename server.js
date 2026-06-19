@@ -307,6 +307,13 @@ try {
   }
 } catch(e) { console.log("⚠️  Run: npm install @supabase/supabase-js") }
 
+// ── STRIPE ────────────────────────────────────────────────
+if (process.env.STRIPE_SECRET_KEY) {
+  console.log("✅ Stripe ready —", process.env.STRIPE_SECRET_KEY.slice(0,7) + "...")
+} else {
+  console.log("⚠️  Stripe not configured — set STRIPE_SECRET_KEY in Render environment")
+}
+
 // ── EXPRESS ───────────────────────────────────────────────
 const app  = express()
 const PORT = process.env.PORT || 3000
