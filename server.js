@@ -7753,26 +7753,59 @@ const STRIPE_PLAN_PRICES_EUR = {
 // alias so existing code that references GBP map still works
 const STRIPE_PLAN_PRICES_GBP = STRIPE_PLAN_PRICES_EUR
 
+// Ensure SLIP50 coupon exists in Stripe on startup
+let _slip50CouponId = null
+async function ensureSlip50Coupon() {
+  if (!STRIPE_SECRET_KEY) return
+  try {
+    const stripe = require('stripe')(STRIPE_SECRET_KEY)
+    // Try to retrieve existing coupon
+    try {
+      const existing = await stripe.coupons.retrieve('SLIP50')
+      _slip50CouponId = existing.id
+      console.log('[Stripe] SLIP50 coupon ready')
+      return
+    } catch(e) { /* doesn't exist yet */ }
+    // Create it
+    const coupon = await stripe.coupons.create({
+      id: 'SLIP50',
+      percent_off: 50,
+      duration: 'once',
+      name: 'SLIP50 — 50% off first month'
+    })
+    _slip50CouponId = coupon.id
+    console.log('[Stripe] SLIP50 coupon created')
+  } catch(e) { console.warn('[Stripe] Could not ensure SLIP50 coupon:', e.message) }
+}
+setTimeout(() => ensureSlip50Coupon().catch(() => {}), 5000)
+
 app.post('/api/checkout', async (req, res) => {
   if (!STRIPE_SECRET_KEY) return res.status(503).json({ error: 'Stripe not configured' })
-  const { plan, userId, email, referralCode, referrerUserId, annual } = req.body || {}
+  const { plan, userId, email, referralCode, referrerUserId, annual, promoCode } = req.body || {}
   const planKey = plan?.toLowerCase()
   if (!planKey || !STRIPE_PLAN_PRICES_EUR[planKey]) return res.status(400).json({ error: 'Invalid plan: ' + plan })
   try {
     const stripe = require('stripe')(STRIPE_SECRET_KEY)
     const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
     const unitAmount = annual
-      ? Math.round(STRIPE_PLAN_PRICES_EUR[planKey] * 12 * 0.9)  // 10% annual discount
+      ? Math.round(STRIPE_PLAN_PRICES_EUR[planKey] * 12 * 0.9)
       : STRIPE_PLAN_PRICES_EUR[planKey]
     const interval = annual ? 'year' : 'month'
     const planName = planKey.charAt(0).toUpperCase() + planKey.slice(1)
     const credits = PLAN_CREDITS[planKey]
     const creditsLabel = credits === Infinity ? 'Unlimited' : `${credits}`
-    const session = await stripe.checkout.sessions.create({
+
+    // SLIP50: 50% off first month, only Pro/Elite
+    const isSlip50 = (promoCode || '').toUpperCase() === 'SLIP50' && ['plus', 'elite'].includes(planKey)
+
+    const sessionParams = {
       payment_method_types: ['card'],
       mode: 'subscription',
       customer_email: email || undefined,
-      allow_promotion_codes: true,
+      subscription_data: {
+        trial_period_days: 3,   // 3-day free trial on all plans
+        metadata: { plan: planKey, userId: userId || '' }
+      },
       line_items: [{
         price_data: {
           currency: 'eur',
@@ -7780,7 +7813,7 @@ app.post('/api/checkout', async (req, res) => {
           recurring: { interval },
           product_data: {
             name: `Slip IQ — ${planName} Plan`,
-            description: `${creditsLabel} credits/month · Billed ${interval}ly · Cancel anytime`,
+            description: `${creditsLabel} credits/month · 3-day free trial · Billed ${interval}ly`,
           },
         },
         quantity: 1,
@@ -7788,11 +7821,20 @@ app.post('/api/checkout', async (req, res) => {
       metadata: {
         plan: planKey, userId: userId || '', email: email || '',
         referral_code: referralCode || '', referrer_user_id: referrerUserId || '',
-        billing: annual ? 'annual' : 'monthly'
+        billing: annual ? 'annual' : 'monthly', promo: promoCode || ''
       },
       success_url: `${APP_URL}/subscriptions.html?upgraded=${planKey}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${APP_URL}/subscriptions.html?cancelled=1`,
-    })
+    }
+
+    // Apply SLIP50 coupon as a discount (can't combine with allow_promotion_codes)
+    if (isSlip50 && _slip50CouponId) {
+      sessionParams.discounts = [{ coupon: _slip50CouponId }]
+    } else {
+      sessionParams.allow_promotion_codes = true
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams)
     res.json({ url: session.url })
   } catch(e) {
     console.error('Stripe checkout error:', e.message)

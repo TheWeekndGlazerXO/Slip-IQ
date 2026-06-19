@@ -405,7 +405,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 const API = ""
 const USER_ID = "user_" + (localStorage.getItem("slipiq_uid") || (() => { const id = Math.random().toString(36).slice(2); localStorage.setItem("slipiq_uid", id); return id })())
 
-let isAnnual = false, selectedPlan = null, referralDiscount = 0, referralCode = ""
+let isAnnual = false, selectedPlan = null, referralDiscount = 0, referralCode = "", promoCode = ""
 let sidebarCollapsed = false
 
 // ── Stripe payment links — replace with your actual Stripe links
@@ -460,6 +460,16 @@ function selectPlan(planId) {
   selectedPlan = planId
   document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"))
   document.getElementById(`card-${planId}`)?.classList.add("selected")
+  // Re-validate SLIP50 eligibility when plan changes
+  if (promoCode === "SLIP50") {
+    const eligible = ['plus', 'elite'].includes(selectedPlan)
+    const statusEl = document.getElementById("referralStatus")
+    if (eligible) {
+      statusEl.innerHTML = `<span class="referral-ok">✓ SLIP50 applied — 50% off your first month!</span>`
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--orange);font-family:'JetBrains Mono';font-size:10px">⚠ SLIP50 is valid for Pro or Elite plans only</span>`
+    }
+  }
   updateOrderSummary()
   document.getElementById("checkoutBtn").disabled = false
   document.getElementById("checkoutSection").scrollIntoView({ behavior: "smooth", block: "nearest" })
@@ -469,32 +479,53 @@ function updateOrderSummary() {
   if (!selectedPlan) return
   const data = PLAN_DATA[selectedPlan]
   const price = isAnnual ? data.annualPrice : data.monthlyPrice
-  const discountAmt = referralDiscount > 0 ? price * referralDiscount / 100 : 0
+
+  // SLIP50: 50% off first month, only on plus/elite
+  const isSlip50 = promoCode === 'SLIP50' && ['plus', 'elite'].includes(selectedPlan)
+  const effectiveDiscount = isSlip50 ? 50 : referralDiscount
+  const discountAmt = effectiveDiscount > 0 ? price * effectiveDiscount / 100 : 0
   const finalPrice = Math.max(0, price - discountAmt)
 
   document.getElementById("osPlanName").textContent = data.name.toUpperCase()
   document.getElementById("osPlanCredits").textContent = data.credits + " credits"
-  document.getElementById("osPlanPrice").textContent = `$${price.toFixed(2)}`
-  document.getElementById("osSubtotal").textContent = `$${price.toFixed(2)}`
+  document.getElementById("osPlanPrice").textContent = `€${price.toFixed(2)}`
+  document.getElementById("osSubtotal").textContent = `€${price.toFixed(2)}`
   document.getElementById("checkoutSub").textContent = `${data.name} Plan · ${isAnnual ? "Annual" : "Monthly"} · ${data.credits} credits`
 
   if (discountAmt > 0) {
     document.getElementById("osDiscountRow").style.display = "flex"
-    document.getElementById("osDiscount").textContent = `-$${discountAmt.toFixed(2)} (${referralDiscount}% off)`
+    document.getElementById("osDiscountRow").querySelector("span").textContent = isSlip50 ? "Promo SLIP50" : "Referral discount"
+    document.getElementById("osDiscount").textContent = `-€${discountAmt.toFixed(2)} (${effectiveDiscount}% off 1st month)`
   } else {
     document.getElementById("osDiscountRow").style.display = "none"
   }
-  document.getElementById("osTotal").textContent = `$${finalPrice.toFixed(2)}`
+  document.getElementById("osTotal").textContent = price === 0 ? "FREE" : `€${finalPrice.toFixed(2)}/mo`
 
-  const features = data.features || []
-  document.getElementById("osFeatures").innerHTML = features.map(f => `<div class="os-feature">${f}</div>`).join("")
+  const features = [...(data.features || []), "3-day free trial — cancel anytime"]
+  document.getElementById("osFeatures").innerHTML = features.map(f => `<div class="os-feature">${f === "3-day free trial — cancel anytime" ? '<span style="color:var(--green)">✓</span> ' + f : f}</div>`).join("")
 }
 
 async function applyReferral() {
   const code = document.getElementById("referralInput").value.trim().toUpperCase()
-  if (!code) { document.getElementById("referralStatus").innerHTML = ""; return }
+  if (!code) { document.getElementById("referralStatus").innerHTML = ""; referralDiscount = 0; referralCode = ""; promoCode = ""; if (selectedPlan) updateOrderSummary(); return }
   const statusEl = document.getElementById("referralStatus")
+
+  // SLIP50 — handled client-side, no server call needed
+  if (code === "SLIP50") {
+    const eligible = ['plus', 'elite'].includes(selectedPlan)
+    promoCode = "SLIP50"; referralDiscount = 0; referralCode = ""
+    if (eligible) {
+      statusEl.innerHTML = `<span class="referral-ok">✓ SLIP50 applied — 50% off your first month!</span>`
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--orange);font-family:'JetBrains Mono';font-size:10px">⚠ SLIP50 is valid for Pro or Elite plans only</span>`
+    }
+    if (selectedPlan) updateOrderSummary()
+    return
+  }
+
+  // Regular referral code
   statusEl.textContent = "Checking..."
+  promoCode = ""
   try {
     const res = await fetch(`${API}/referral/validate/${code}`)
     const data = await res.json()
@@ -540,6 +571,7 @@ async function startCheckout() {
         email: email,
         annual: isAnnual,
         referralCode: referralCode || '',
+        promoCode: promoCode || '',
         referrerUserId: ''
       })
     })
