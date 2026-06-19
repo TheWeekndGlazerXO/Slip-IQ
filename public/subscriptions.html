@@ -255,7 +255,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="plan-card" id="card-platinum" onclick="selectPlan('platinum')">
       <div class="plan-name" style="background:linear-gradient(135deg,#ffd700,#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Platinum</div>
       <div class="plan-price">
-        <div class="plan-price-num" style="color:var(--gold)" id="price-platinum">€129.99</div>
+        <div class="plan-price-num" style="background:linear-gradient(135deg,#ffd700,#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="price-platinum">€129.99</div>
         <div class="plan-price-period">/month</div>
       </div>
       <div class="plan-credits" style="background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.3)">∞ Unlimited credits</div>
@@ -417,11 +417,11 @@ const STRIPE_LINKS = {
 }
 
 const PLAN_DATA = {
-  free:     { name:"Free",     credits:"25 (one-time)", monthlyPrice:0,   annualPrice:0,    features:["Match predictions","Probability model","Basic parlay builder"] },
-  basic:    { name:"Starter",  credits:"55/month",      monthlyPrice:2.99,annualPrice:2.39, features:["GPT-4o match analysis","Real bookmaker odds","H2H history","News analysis"] },
-  plus:     { name:"Pro",      credits:"115/month",     monthlyPrice:9.99,annualPrice:7.99, features:["Auto-parlay AI builder","Full leagues hub","Player mismatch alerts","Team descriptors","Team stats & ELO"] },
-  elite:    { name:"Elite",    credits:"265/month",     monthlyPrice:24.99,annualPrice:19.99,features:["Advanced AI models","Real xG per match","Manager ELO","Trophy ELO bonuses","Referral commissions"] },
-  platinum: { name:"Platinum", credits:"∞ Unlimited",   monthlyPrice:129.99,annualPrice:116.99,features:["Unlimited AI calls","API access","20+ leagues","White-label option","Dedicated support","Affiliate dashboard"] },
+  free:     { name:"Free",     credits:"20/month",       monthlyPrice:0,    annualPrice:0,     features:["Match predictions","Win probabilities","Basic parlay builder","20 AI credits/mo"] },
+  basic:    { name:"Starter",  credits:"60/month",       monthlyPrice:4.99, annualPrice:4.49,  features:["GPT-4o match analysis","Real bookmaker odds","H2H history","News analysis","5 leagues","60 credits/mo"] },
+  plus:     { name:"Pro",      credits:"200/month",      monthlyPrice:24.99,annualPrice:22.49, features:["Auto-parlay AI builder","All 12 leagues","Player profiles & ELO","1v1 matchup engine","Value bet detection","200 credits/mo"] },
+  elite:    { name:"Elite",    credits:"600/month",      monthlyPrice:49.99,annualPrice:44.99, features:["Everything in Pro","Odds movement alerts","API access","Priority AI responses","Historical model data","600 credits/mo"] },
+  platinum: { name:"Platinum", credits:"∞ Unlimited",    monthlyPrice:129.99,annualPrice:116.99,features:["Unlimited AI credits","20+ leagues","AI Agent mode","White-label option","Dedicated support","Affiliate dashboard"] },
 }
 
 function toggleSidebar() {

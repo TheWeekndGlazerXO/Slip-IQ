@@ -343,9 +343,24 @@ const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
   : true
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 app.use("/webhook/stripe", express.raw({ type: "application/json" }))
-app.use(express.json({ limit: "15mb" }))
-app.use(express.static(path.join(__dirname, "public")))
+app.use(express.json({ limit: "256kb" }))    // tightened from 15mb
+app.use(express.urlencoded({ extended: false, limit: "64kb" }))
+app.use(express.static(path.join(__dirname, "public"), { maxAge: '1h', etag: true }))
 app.use(express.static(__dirname, { extensions: ["html"] }))
+
+// Strip dangerous keys from request bodies
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    const BLOCKED_KEYS = ['__proto__', 'constructor', 'prototype']
+    function deepStrip(obj) {
+      if (!obj || typeof obj !== 'object') return
+      for (const k of BLOCKED_KEYS) delete obj[k]
+      Object.values(obj).forEach(deepStrip)
+    }
+    deepStrip(req.body)
+  }
+  next()
+})
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -740,20 +755,32 @@ function buildLikelyScorers(lineup, teamXg, teamName, n) {
 
 // ── PLAN DEFINITIONS ──────────────────────────────────────
 const PLAN_CREDITS = {
-  free: 25, starter: 55, basic: 55, plus: 115,
-  pro: 265, elite: 900, platinum: Infinity
+  free: 20, starter: 60, basic: 60, plus: 200,
+  pro: 200, elite: 600, platinum: Infinity
 }
 const ACTION_COSTS = {
-  match_analysis: 15, news_analysis: 5,  auto_parlay: 10,
-  parlay_advice:  20, ai_agent: 10,      team_stats: 15,
-  leagues_tab:    15, risk_analysis: 15, sport_analysis: 15,
+  match_analysis: 10, news_analysis: 5,  auto_parlay: 15,
+  parlay_advice:  20, ai_agent: 25,      team_stats: 10,
+  leagues_tab:    10, risk_analysis: 10, sport_analysis: 15,
 }
+// Tier hierarchy — basic=starter, plus=pro (UI display names differ from DB keys)
 const PLAN_HIERARCHY = ['free','starter','basic','plus','pro','elite','platinum']
 const PLAN_RANK = Object.fromEntries(PLAN_HIERARCHY.map((p,i) => [p,i]))
 const FEATURE_MIN_PLAN = {
-  match_analysis: 'free', news_analysis: 'free', risk_analysis: 'free',
-  auto_parlay: 'plus',    parlay_advice: 'plus', team_stats: 'plus',
-  leagues_tab: 'plus',    sport_analysis: 'plus', ai_agent: 'platinum',
+  match_analysis:  'free',     // free tier gets basic AI analysis
+  news_analysis:   'basic',    // Starter+ (€4.99)
+  risk_analysis:   'basic',    // Starter+
+  auto_parlay:     'plus',     // Pro+ (€24.99)
+  parlay_advice:   'plus',     // Pro+
+  team_stats:      'plus',     // Pro+
+  leagues_tab:     'basic',    // Starter+ (limited leagues)
+  sport_analysis:  'plus',     // Pro+
+  player_profiles: 'plus',     // Pro+
+  matchup_engine:  'plus',     // Pro+
+  value_bets:      'plus',     // Pro+
+  odds_movement:   'elite',    // Elite+
+  api_access:      'elite',    // Elite+
+  ai_agent:        'platinum', // Platinum only
 }
 
 function planCanAccess(userPlan, feature) {
@@ -7750,14 +7777,13 @@ app.get("/config.js", (req, res) => {
 
 // ── STRIPE CHECKOUT SESSION ───────────────────────────────
 const STRIPE_PLAN_PRICES_EUR = {
-  starter:   299,  // €2.99
-  basic:     499,  // €4.99
-  plus:      999,  // €9.99
-  pro:      1499,  // €14.99
+  starter:   499,  // €4.99
+  basic:     499,  // €4.99  (same tier, alt key)
+  plus:     2499,  // €24.99
+  pro:      2499,  // €24.99 (same tier, alt key)
   elite:    4999,  // €49.99
   platinum: 12999, // €129.99
 }
-// alias so existing code that references GBP map still works
 const STRIPE_PLAN_PRICES_GBP = STRIPE_PLAN_PRICES_EUR
 
 // Ensure SLIP50 coupon exists in Stripe on startup
