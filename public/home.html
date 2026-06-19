@@ -420,6 +420,45 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .descriptor-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-family:'JetBrains Mono';font-size:8px;margin:2px;border:1px solid rgba(255,255,255,.1)}
 .mismatch-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.2);border-radius:7px;margin-bottom:6px}
 
+/* ── QUICK-PICK PARLAY BUTTON ──────────────────────────── */
+.qp-btn{position:absolute;top:6px;right:7px;z-index:10;background:rgba(0,200,248,.15);border:1px solid rgba(0,200,248,.4);color:var(--accent);font-family:'JetBrains Mono';font-size:15px;font-weight:900;width:24px;height:24px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all .15s;padding:0}
+.qp-btn:hover{background:rgba(0,200,248,.3);transform:scale(1.12)}
+.qp-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:10000;display:none;align-items:flex-end;justify-content:center;padding:0}
+.qp-card{background:var(--panel);border:1px solid var(--border2);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .22s ease}
+.qp-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.qp-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.qp-sub{font-family:'JetBrains Mono';font-size:8px;color:var(--text3);margin-top:1px}
+.qp-close{color:var(--text3);cursor:pointer;font-size:19px;line-height:1}
+.qp-body{overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.qp-section-lbl{font-family:'JetBrains Mono';font-size:8px;letter-spacing:2px;color:var(--text3);margin-bottom:5px}
+.qp-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.qp-grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:5px}
+.qp-market{background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:9px 6px;text-align:center;cursor:pointer;transition:all .15s}
+.qp-market:hover,.qp-market:active{border-color:var(--accent);background:rgba(0,200,248,.08)}
+.qp-m-label{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.qp-m-pct{font-family:'Bebas Neue';font-size:20px;line-height:1}
+.qp-m-odds{font-family:'JetBrains Mono';font-size:8px;color:var(--gold);margin-top:1px}
+.qp-scorer{display:flex;align-items:center;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;cursor:pointer;transition:all .15s;gap:8px;margin-bottom:4px}
+.qp-scorer:hover{border-color:var(--accent);background:rgba(0,200,248,.07)}
+.qp-scorer-avatar{width:26px;height:26px;border-radius:50%;background:rgba(0,200,248,.1);border:1px solid rgba(0,200,248,.25);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.qp-scorer-info{flex:1;min-width:0}
+.qp-scorer-name{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qp-scorer-meta{font-family:'JetBrains Mono';font-size:7px;color:var(--text3);margin-top:1px}
+.qp-scorer-right{text-align:right;flex-shrink:0}
+.qp-scorer-odds-val{font-family:'Bebas Neue';font-size:18px;color:var(--gold);line-height:1}
+.qp-scorer-pct{font-family:'JetBrains Mono';font-size:7px;color:var(--text3)}
+/* ── TUTORIAL MODE ─────────────────────────────────────── */
+.tut-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50000;pointer-events:none}
+.tut-highlight{position:absolute;border:2px solid var(--accent);border-radius:7px;box-shadow:0 0 0 9999px rgba(0,0,0,.72);pointer-events:none;transition:all .3s}
+.tut-tooltip{position:fixed;background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:16px 18px;max-width:290px;z-index:50001;box-shadow:0 12px 40px rgba(0,0,0,.7);pointer-events:all;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tut-t-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent);margin-bottom:6px}
+.tut-t-text{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px}
+.tut-t-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tut-t-step{font-family:'JetBrains Mono';font-size:8px;color:var(--text3)}
+.tut-t-skip{background:none;border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:9px;padding:5px 10px;border-radius:5px;cursor:pointer}
+.tut-t-next{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:5px 14px;border-radius:5px;border:none;cursor:pointer;letter-spacing:1px}
+
 /* ─── MOBILE RESPONSIVE (phones only, ≤768px) ─────────────────────────────── */
 @media (max-width: 768px) {
 
@@ -589,6 +628,7 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
   <div class="nav-item" onclick="showPage('news',this)" id="nav-news"><span class="nav-icon">📰</span><span class="nav-label">News</span></div>
   <div class="nav-item" onclick="showPage('parlays',this)" id="nav-parlays"><span class="nav-icon">🎯</span><span class="nav-label">My Parlays</span></div>
   <a class="nav-item" href="leagues.html"><span class="nav-icon">🏆</span><span class="nav-label">Leagues</span></a>
+  <div class="nav-item" onclick="startTutorial()"><span class="nav-icon">🎓</span><span class="nav-label">Tutorial</span></div>
   <div class="nav-section-lbl">ACCOUNT</div>
   <a class="nav-item" href="account.html"><span class="nav-icon">👤</span><span class="nav-label">Profile</span></a>
   <a class="nav-item" href="store.html"><span class="nav-icon">🛒</span><span class="nav-label">Plans & Credits</span></a>
@@ -1292,6 +1332,7 @@ function card(m, cfg) {
   var ac = m.awayProb === maxP ? "ph" : (m.awayProb || 0) > 27 ? "pm" : "pl";
 
   var html = '<div class="match-card' + (inP ? ' in-parlay' : '') + (wcMatch ? ' wc-match' : '') + '" id="mc-' + m.id + '">';
+  html += '<button class="qp-btn" onclick="event.stopPropagation();openQuickPick(' + mid + ')" title="Pick markets to add to parlay">+</button>';
 
   html += '<div class="mc-header" onclick="openAnalysis(\'' + m.id + '\')">';
   html += '<span class="mc-league" style="' + (wcMatch ? 'color:var(--gold);font-weight:700' : isTop ? 'color:var(--accent)' : '') + '">' + (wcMatch ? '<span class="wc-crown">🏆</span>' : '') + flag + ' ' + (m.league || '') + '</span>';
@@ -2031,10 +2072,6 @@ function toggleParlay(matchId, pick, label, odds, prob) {
   if (!removed) {
     try { openParlayOverlay(); } catch(e) { console.error('[toggleParlay] overlay error:', e); }
   }
-  // Step 4: toast — always fires regardless of everything above
-  try {
-    showParlayToast(removed ? 'Removed from parlay' : (label || pick) + ' added · ' + (parseFloat(odds)||1.5).toFixed(2) + 'x', removed);
-  } catch(e) {}
 }
 
 function removeParlay(mid) {
@@ -3165,6 +3202,150 @@ renderParlay = function() {
     fab.style.display = 'none';
   }
 };
+// ── QUICK-PICK PARLAY OVERLAY ─────────────────────────────
+var _qpMatchId = null;
+function _scorerOdds(player, teamXg) {
+  var pos = (player.position || player.pos || '').toUpperCase();
+  var mult = (['ST','CF','LW','RW','SS','FW','ATT'].some(function(p){ return pos.includes(p); })) ? 0.40
+    : (['CAM','AM','ACM','AML','AMR'].some(function(p){ return pos.includes(p); })) ? 0.18
+    : (['CM','CDM','MF','DM'].some(function(p){ return pos.includes(p); })) ? 0.09 : 0.05;
+  var eloBonus = ((player.elo || 1600) - 1500) / 2500;
+  var prob = Math.min(72, Math.max(5, Math.round((mult + eloBonus) * (teamXg || 1.2) * 100)));
+  return { prob: prob, odds: parseFloat((1 / Math.max(0.05, prob/100) * 1.08).toFixed(2)) };
+}
+function _buildScorerRows(players, xg, matchId, matchHome) {
+  return (players || []).slice(0,5).map(function(p) {
+    var sc = _scorerOdds(p, xg);
+    var pos = (p.position || p.pos || '').toUpperCase().slice(0,3);
+    var icon = ['ST','CF','LW','RW','FW'].some(function(x){ return pos.includes(x); }) ? '⚽' : pos.includes('M') ? '⚡' : '🛡️';
+    var nameEsc = esc(p.name || p.player_name || '');
+    var teamStr = esc(p.team || '');
+    var mid = JSON.stringify(matchId);
+    var labelEsc = esc((p.name || '') + ' — Anytime Scorer');
+    return '<div class="qp-scorer" onclick="addQP(' + mid + ',\'scorer_' + nameEsc + '\',\'' + labelEsc + '\',' + sc.odds + ',' + sc.prob + ')">' +
+      '<div class="qp-scorer-avatar">' + icon + '</div>' +
+      '<div class="qp-scorer-info"><div class="qp-scorer-name">' + nameEsc + '</div><div class="qp-scorer-meta">' + teamStr + ' · ' + pos + '</div></div>' +
+      '<div class="qp-scorer-right"><div class="qp-scorer-odds-val">' + sc.odds + 'x</div><div class="qp-scorer-pct">' + sc.prob + '% chance</div></div>' +
+      '</div>';
+  }).join('');
+}
+function openQuickPick(matchId) {
+  var m = null;
+  for (var i = 0; i < allMatches.length; i++) { if (String(allMatches[i].id) === String(matchId)) { m = allMatches[i]; break; } }
+  if (!m) m = globalMatchCache[String(matchId)];
+  if (!m) return;
+  _qpMatchId = String(matchId);
+  var mid = JSON.stringify(m.id);
+  var hP = m.homeProb || 50, dP = m.drawProb || 25, aP = m.awayProb || 25;
+  var hO = (m.homeOdds > 1.01 ? m.homeOdds : parseFloat((100/Math.max(1,hP)*1.06).toFixed(2)));
+  var dO = (m.drawOdds > 1.01 ? m.drawOdds : parseFloat((100/Math.max(1,dP)*1.06).toFixed(2)));
+  var aO = (m.awayOdds > 1.01 ? m.awayOdds : parseFloat((100/Math.max(1,aP)*1.06).toFixed(2)));
+  var bP = m.bttsProb || 0;
+  var bYO = (m.bttsOdds && m.bttsOdds.yes) || parseFloat((1/Math.max(0.05,bP/100)*1.06).toFixed(2));
+  var bNO = (m.bttsOdds && m.bttsOdds.no) || parseFloat((1/Math.max(0.05,(100-bP)/100)*1.06).toFixed(2));
+  var ouP = (m.ouProbs && m.ouProbs[2.5]) || { overPct: m.over25Prob || 50, underPct: 100-(m.over25Prob||50) };
+  var ouOO = (m.ouOdds && m.ouOdds[2.5] && m.ouOdds[2.5].over) || parseFloat((1/Math.max(0.05,ouP.overPct/100)*1.06).toFixed(2));
+  var ouUO = (m.ouOdds && m.ouOdds[2.5] && m.ouOdds[2.5].under) || parseFloat((1/Math.max(0.05,ouP.underPct/100)*1.06).toFixed(2));
+  var hxg = m.homeXg || m.hxg || 1.3, axg = m.awayXg || m.axg || 1.0;
+  var homeScorerPlayers = [], awayScorerPlayers = [];
+  if (m.likelyScorers && (m.likelyScorers.home || m.likelyScorers.away)) {
+    homeScorerPlayers = (m.likelyScorers.home || []);
+    awayScorerPlayers = (m.likelyScorers.away || []);
+  } else if (m.playersToWatch && m.playersToWatch.length) {
+    m.playersToWatch.forEach(function(p){ (p.team===m.home ? homeScorerPlayers : awayScorerPlayers).push(p); });
+  } else {
+    homeScorerPlayers = (m.homeLineup || []).slice(0,6).map(function(p){ return Object.assign({},p,{team:m.home}); });
+    awayScorerPlayers = (m.awayLineup || []).slice(0,6).map(function(p){ return Object.assign({},p,{team:m.away}); });
+  }
+  var hasDraw = dP > 5 && m.drawOdds;
+  var htm = '<div class="qp-card">' +
+    '<div class="qp-hdr"><div><div class="qp-title">ADD TO PARLAY</div><div class="qp-sub">' + esc(m.home||'') + ' vs ' + esc(m.away||'') + '</div></div><div class="qp-close" onclick="closeQuickPick()">✕</div></div>' +
+    '<div class="qp-body">' +
+    '<div><div class="qp-section-lbl">1X2 — FULL TIME</div>' +
+    '<div class="qp-grid' + (hasDraw ? '3' : '2') + '">' +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'home\',\'' + esc((m.home||'')+ ' Win') + '\',' + hO + ',' + hP + ')"><div class="qp-m-label">' + esc(sn(m.home||'')) + '</div><div class="qp-m-pct" style="color:var(--accent)">' + hP + '%</div><div class="qp-m-odds">' + hO + 'x</div></div>' +
+      (hasDraw ? '<div class="qp-market" onclick="addQP(' + mid + ',\'draw\',\'Draw\',' + dO + ',' + dP + ')"><div class="qp-m-label">Draw</div><div class="qp-m-pct" style="color:var(--gold)">' + dP + '%</div><div class="qp-m-odds">' + dO + 'x</div></div>' : '') +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'away\',\'' + esc((m.away||'')+' Win') + '\',' + aO + ',' + aP + ')"><div class="qp-m-label">' + esc(sn(m.away||'')) + '</div><div class="qp-m-pct" style="color:var(--teal)">' + aP + '%</div><div class="qp-m-odds">' + aO + 'x</div></div>' +
+    '</div></div>' +
+    (bP ? '<div><div class="qp-section-lbl">BOTH TEAMS TO SCORE</div><div class="qp-grid2">' +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'btts_yes\',\'BTTS Yes\',' + bYO + ',' + bP + ')"><div class="qp-m-label">Yes</div><div class="qp-m-pct" style="color:var(--green)">' + bP + '%</div><div class="qp-m-odds">' + bYO + 'x</div></div>' +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'btts_no\',\'BTTS No\',' + bNO + ',' + (100-bP) + ')"><div class="qp-m-label">No</div><div class="qp-m-pct" style="color:var(--red)">' + (100-bP) + '%</div><div class="qp-m-odds">' + bNO + 'x</div></div>' +
+    '</div></div>' : '') +
+    '<div><div class="qp-section-lbl">OVER / UNDER 2.5 GOALS</div><div class="qp-grid2">' +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'over_2.5\',\'Over 2.5\',' + ouOO + ',' + ouP.overPct + ')"><div class="qp-m-label">Over 2.5</div><div class="qp-m-pct" style="color:var(--green)">' + ouP.overPct + '%</div><div class="qp-m-odds">' + ouOO + 'x</div></div>' +
+      '<div class="qp-market" onclick="addQP(' + mid + ',\'under_2.5\',\'Under 2.5\',' + ouUO + ',' + ouP.underPct + ')"><div class="qp-m-label">Under 2.5</div><div class="qp-m-pct" style="color:var(--red)">' + ouP.underPct + '%</div><div class="qp-m-odds">' + ouUO + 'x</div></div>' +
+    '</div></div>';
+  var scorerRows = _buildScorerRows(homeScorerPlayers, hxg, m.id, true) + _buildScorerRows(awayScorerPlayers, axg, m.id, false);
+  if (scorerRows) htm += '<div><div class="qp-section-lbl">ANYTIME GOALSCORER</div>' + scorerRows + '</div>';
+  htm += '</div></div>';
+  var ov = document.getElementById('quickPickOverlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'quickPickOverlay'; ov.className = 'qp-overlay'; ov.addEventListener('click', function(e){ if(e.target===ov) closeQuickPick(); }); document.body.appendChild(ov); }
+  ov.innerHTML = htm;
+  ov.style.display = 'flex';
+}
+function closeQuickPick() {
+  var ov = document.getElementById('quickPickOverlay');
+  if (ov) ov.style.display = 'none';
+}
+function addQP(matchId, pick, label, odds, prob) {
+  closeQuickPick();
+  toggleParlay(matchId, pick, label, odds, prob);
+}
+
+// ── TUTORIAL MODE ─────────────────────────────────────────
+var _tutStep = 0, _tutActive = false;
+var TUTORIAL_STEPS = [
+  { sel:'.sport-bar',       title:'SPORT TABS',       text:'Switch sports — football, basketball, tennis, F1, boxing & MMA. Each tab loads live AI predictions for upcoming matches.' },
+  { sel:'.qp-btn',          title:'+ QUICK ADD',      text:'Tap the + on any match card to open a market picker with 1X2, BTTS, Over/Under odds and likely goalscorers. Pick a market to add it to your parlay.' },
+  { sel:'.prob-cell',       title:'PROBABILITY CELLS',text:'These show win probability and implied odds. Tap any cell to instantly add that outcome to your parlay builder on the right.' },
+  { sel:'#parlayPanel',     title:'PARLAY BUILDER',   text:'All your picks appear here. The AI scores your parlay 0–100, warns of high risk, and lets you save or get a full GPT-4o breakdown.' },
+  { sel:'#autoBtn',         title:'AUTO-BUILD',        text:'Let the AI build an optimised parlay for you. Set leg count, risk level, markets and strategy — then one tap builds the best combination from today\'s matches.' },
+  { sel:'.filter-sidebar',  title:'FILTERS',           text:'Narrow down matches by league, date range, minimum confidence, and sport type. Filter out noise, find your edge.' },
+  { sel:'.view-tabs',       title:'MATCH VIEWS',       text:'Switch between Card view (quick overview) and Detailed view (deep stats, lineups, H2H, all markets). Use Markets tab inside a card for full betting options.' },
+];
+function startTutorial() {
+  _tutStep = 0; _tutActive = true;
+  var tov = document.getElementById('tutOverlay');
+  if (!tov) { tov = document.createElement('div'); tov.id = 'tutOverlay'; tov.className = 'tut-overlay'; document.body.appendChild(tov); }
+  showTutorialStep(0);
+}
+function showTutorialStep(n) {
+  var tov = document.getElementById('tutOverlay');
+  if (!tov || !_tutActive) return;
+  if (n >= TUTORIAL_STEPS.length) { endTutorial(); return; }
+  _tutStep = n;
+  var step = TUTORIAL_STEPS[n];
+  var el = document.querySelector(step.sel);
+  tov.innerHTML = '';
+  if (!el) { showTutorialStep(n+1); return; }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(function() {
+    var rect = el.getBoundingClientRect();
+    var pad = 7;
+    var hl = document.createElement('div');
+    hl.className = 'tut-highlight';
+    hl.style.cssText = 'position:fixed;top:'+(rect.top-pad)+'px;left:'+(rect.left-pad)+'px;width:'+(rect.width+pad*2)+'px;height:'+(rect.height+pad*2)+'px';
+    tov.appendChild(hl);
+    var tt = document.createElement('div');
+    tt.className = 'tut-tooltip';
+    var tipTop = rect.bottom + 12;
+    if (tipTop + 180 > window.innerHeight) tipTop = Math.max(10, rect.top - 185);
+    var tipLeft = Math.max(10, Math.min(window.innerWidth - 310, rect.left));
+    tt.style.cssText = 'top:'+tipTop+'px;left:'+tipLeft+'px';
+    tt.innerHTML = '<div class="tut-t-title">'+step.title+'</div><div class="tut-t-text">'+step.text+'</div>' +
+      '<div class="tut-t-nav"><span class="tut-t-step">'+(n+1)+' / '+TUTORIAL_STEPS.length+'</span>' +
+      '<button class="tut-t-skip" onclick="endTutorial()">SKIP</button>' +
+      '<button class="tut-t-next" onclick="showTutorialStep('+(n+1)+')">'+(n+1<TUTORIAL_STEPS.length?'NEXT →':'FINISH')+'</button></div>';
+    tov.appendChild(tt);
+    tov.style.pointerEvents = 'all';
+  }, 200);
+}
+function endTutorial() {
+  _tutActive = false;
+  var tov = document.getElementById('tutOverlay');
+  if (tov) { tov.innerHTML = ''; tov.style.pointerEvents = 'none'; }
+}
+
 function openReportModal() {
   var m = document.getElementById('reportModal');
   if (m) { m.style.display = 'flex'; document.getElementById('reportText').value = ''; }

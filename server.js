@@ -350,22 +350,55 @@ app.use((req, res, next) => {
 
 // Basic rate limiting for auth-adjacent endpoints
 const rateLimitMap = new Map()
+// Per-route rate limiter (existing behaviour)
 function rateLimit(maxPerMin) {
   return (req, res, next) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'unknown'
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown'
     const key = `${ip}_${req.path}`
     const now = Date.now()
     const window = rateLimitMap.get(key) || { count: 0, start: now }
     if (now - window.start > 60000) { window.count = 0; window.start = now }
     window.count++
     rateLimitMap.set(key, window)
-    if (window.count > maxPerMin) return res.status(429).json({ error: 'Too many requests' })
+    if (window.count > maxPerMin) {
+      res.setHeader('Retry-After', '60')
+      return res.status(429).json({ error: 'Too many requests — slow down.' })
+    }
     next()
   }
 }
 
-// Apply rate limits
-// Stricter rate limits for auth endpoints — replace existing ones:
+// Global per-IP ceiling (300 req/min across ALL routes — stops scrapers/bots)
+const globalRLMap = new Map()
+app.use((req, res, next) => {
+  // Skip static assets
+  if (req.path.match(/\.(html|css|js|ico|png|jpg|svg|woff2?)$/)) return next()
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown'
+  const now = Date.now()
+  const w = globalRLMap.get(ip) || { count: 0, start: now }
+  if (now - w.start > 60000) { w.count = 0; w.start = now }
+  w.count++
+  globalRLMap.set(ip, w)
+  if (w.count > 300) {
+    res.setHeader('Retry-After', '60')
+    return res.status(429).json({ error: 'Rate limit exceeded' })
+  }
+  next()
+})
+
+// Cleanup stale rate-limit entries every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 120000
+  for (const [k, v] of rateLimitMap.entries()) { if (v.start < cutoff) rateLimitMap.delete(k) }
+  for (const [k, v] of globalRLMap.entries())  { if (v.start < cutoff) globalRLMap.delete(k) }
+}, 300000)
+
+// Input validation helpers
+function isValidUUID(s) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) }
+function sanitiseStr(s, maxLen) { return typeof s === 'string' ? s.replace(/[<>"'`]/g, '').slice(0, maxLen || 500) : '' }
+function isValidEmail(s) { return typeof s === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s) && s.length < 254 }
+
+// Apply route-level rate limits
 app.use('/user/ensure',   rateLimit(30));
 app.use('/credits/use',   rateLimit(30));
 app.use('/analyze',       rateLimit(20));
@@ -373,6 +406,8 @@ app.use('/parlay/auto',   rateLimit(10));
 app.use('/parlays/save',  rateLimit(20));
 app.use('/predictions',   rateLimit(60));
 app.use('/admin',         rateLimit(30));
+app.use('/api/checkout',  rateLimit(15));
+app.use('/api/issues',    rateLimit(20));
 // ── ENV ───────────────────────────────────────────────────
 const SM_KEY   = process.env.SPORTMONKS_API_KEY
 const ODDS_KEY = process.env.ODDS_API_KEY
@@ -608,6 +643,31 @@ function buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo) {
   const hTop = getTop(homeLineup, home, hElo)
   const aTop = getTop(awayLineup, away, aElo)
   return [...hTop.map(p=>({...p,team:home})), ...aTop.map(p=>({...p,team:away}))]
+}
+
+// ── LIKELY SCORERS ────────────────────────────────────────
+// Returns top N players by anytime scorer probability for a team
+function buildLikelyScorers(lineup, teamXg, teamName, n) {
+  n = n || 5
+  const POSITION_MULT = { ST:0.40,CF:0.40,LW:0.36,RW:0.36,FW:0.38,SS:0.30,CAM:0.18,ACM:0.18,AML:0.16,AMR:0.16,CM:0.10,CDM:0.07,LB:0.05,RB:0.06,CB:0.04,GK:0.01 }
+  const posKey = pos => {
+    const p = (pos||'').toUpperCase().replace(/[^A-Z]/g,'')
+    for (const [k] of Object.entries(POSITION_MULT)) { if (p.includes(k)) return k }
+    return 'CM'
+  }
+  const players = (lineup || []).filter(p => p && (p.name || p.player_name))
+  if (!players.length) return []
+  const scored = players.map(p => {
+    const pos  = posKey(p.position || p.pos)
+    const mult = POSITION_MULT[pos] || 0.08
+    const eloBonus = ((p.elo || 1600) - 1500) / 2500
+    const isKeyBonus = (p.isKey || p.is_key) ? 0.05 : 0
+    const prob = Math.min(72, Math.max(4, Math.round((mult + eloBonus + isKeyBonus) * (teamXg || 1.2) * 100)))
+    const odds = parseFloat((1 / Math.max(0.04, prob/100) * 1.08).toFixed(2))
+    return { name: p.name || p.player_name, position: p.position || p.pos || pos, elo: p.elo, team: teamName, prob, odds }
+  })
+  scored.sort((a,b) => b.prob - a.prob)
+  return scored.slice(0, n)
 }
 
 // ── PLAN DEFINITIONS ──────────────────────────────────────
@@ -3957,30 +4017,47 @@ function formMomentum(f) {
   return parseFloat((recent - older).toFixed(3)) // positive = improving
 }
 
-function calcXG(tElo, oElo, form, isHome, realXg, teamName) {
+function calcXG(tElo, oElo, form, isHome, realXg, teamName, fatigueFactor) {
   if (realXg && realXg > 0) return realXg
   const w = teamName ? getTeamWeights(teamName) : DEFAULT_TEAM_WEIGHTS()
-  const ed = (tElo - oElo) / 400
-  const fb = (formScore(form) - 0.5) * 0.1
+  const rawEd = (tElo - oElo) / 400
+
+  // Non-linear ELO scaling — amplify large mismatches (Brazil vs Haiti type)
+  // Small diffs linear, big diffs get steeper curve
+  const ed = Math.sign(rawEd) * (Math.abs(rawEd) < 1 ? Math.abs(rawEd) * 0.95 : 0.95 + (Math.abs(rawEd) - 1) * 1.4)
+
+  const formRaw  = formScore(form)
+  const momentum = formMomentum(form)
+  const fb = (formRaw - 0.5) * 0.14 + momentum * 0.06
+
   const base = isHome ? 1.45 : 1.10
-  // Use real per-game avg goals if available, fall back to positional averages
   const realAvgFor = w.avgGoalsScored > 0 ? w.avgGoalsScored
     : isHome ? (w.homeGoalsScoredAvg || 0) : (w.awayGoalsScoredAvg || 0)
   const realXgFor  = w.avgXgFor > 0 ? w.avgXgFor : 0
-  // Blend real data with base: more games = more weight on real avg
-  const dataWeight = Math.min(1, (w.gamesWithStats || 0) / 10) // full trust after 10 games
+  const dataWeight = Math.min(1, (w.gamesWithStats || 0) / 10)
   const blendedBase = dataWeight > 0
     ? base * (1 - dataWeight) + (realAvgFor || realXgFor || base) * dataWeight
     : base
   const homeAwayMult = isHome
     ? (w.homeGoalsScoredAvg > 0 ? Math.min(1.4, w.homeGoalsScoredAvg / 1.45) : 1.0)
     : (w.awayGoalsScoredAvg > 0 ? Math.min(1.3, w.awayGoalsScoredAvg / 1.10) : 1.0)
-  const xgFactor = w.xgFactor || 0.55
-  const possessionBonus = w.avgPossession > 0 ? (w.avgPossession - 0.5) * 0.2 : 0
-  const pressBonus = w.pressingIntensity > 0.5 ? (w.pressingIntensity - 0.5) * 0.1 : 0
-  const setpieceBonus = w.goalsFromSetPiece > 0.2 ? (w.goalsFromSetPiece - 0.2) * 0.3 : 0
-  const homeAdj = isHome ? 0.18 : -0.05
-  const xg = Math.max(0.3, (blendedBase + ed * 0.9 + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus) * homeAwayMult)
+
+  const possessionBonus = w.avgPossession > 0 ? (w.avgPossession - 0.5) * 0.22 : 0
+  const pressBonus      = w.pressingIntensity > 0.5 ? (w.pressingIntensity - 0.5) * 0.12 : 0
+  const setpieceBonus   = w.goalsFromSetPiece > 0.2 ? (w.goalsFromSetPiece - 0.2) * 0.3 : 0
+  const counterBonus    = w.counterAttackRate > 0.35 && !isHome ? (w.counterAttackRate - 0.35) * 0.15 : 0
+  const csDefPenalty    = w.cleanSheetRate > 0.3 ? (w.cleanSheetRate - 0.3) * -0.2 : 0 // strong defence suppresses opp xG
+
+  const homeAdj    = isHome ? 0.20 : -0.05
+  const fatigueAdj = fatigueFactor ? -0.08 * fatigueFactor : 0 // each extra recent game reduces xG slightly
+
+  // Underdog floor is lower — don't prop up a heavy underdog with min 0.3
+  const eloGap = Math.abs(tElo - oElo)
+  const floor  = eloGap > 400 && rawEd < 0 ? 0.12 : eloGap > 200 && rawEd < 0 ? 0.18 : 0.25
+
+  const xg = Math.max(floor,
+    (blendedBase + ed + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus + counterBonus + csDefPenalty + fatigueAdj) * homeAwayMult
+  )
   return parseFloat(xg.toFixed(2))
 }
 
@@ -4508,6 +4585,10 @@ function buildESPNFootballPrediction(event, oddsMap) {
       ouOdds:         markets.ouOdds,
       bttsOdds:       markets.bttsOdds,
       correctScores:  markets.correctScores,
+      likelyScorers: {
+        home: buildLikelyScorers(homeLineup, hxg, home),
+        away: buildLikelyScorers(awayLineup, axg, away),
+      },
       smPredictions:  {},
       bookmaker:      hasRealOdds ? 'Real Odds' : 'Model',
       dcOdds:         markets.dcOdds  || {},
@@ -5058,6 +5139,10 @@ if (isPriorityLeague) {
       homeLiveStats: hLiveStats || null,
       awayLiveStats: aLiveStats || null,
       playersToWatch: buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo),
+      likelyScorers: {
+        home: buildLikelyScorers(homeLineup, hxg, home),
+        away: buildLikelyScorers(awayLineup, axg, away),
+      },
       // Real avg goals for frontend scoreline formula
       homeAvgGoalsScored:   hW?.avgGoalsScored   || null,
       homeAvgGoalsConceded: hW?.avgGoalsConceded || null,
