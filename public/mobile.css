@@ -28,11 +28,12 @@
       width: 100% !important;
     }
   
-    /* Allow body to scroll vertically (some pages set overflow:hidden) */
-    html, body { overflow: hidden !important; }
-  
+    /* Allow vertical scrolling; only block horizontal overflow */
+    html { overflow-x: hidden !important; }
+    body { overflow-x: hidden !important; overflow-y: auto !important; }
+
     /* Push page content above the fixed bottom nav */
-    .main { padding-bottom: 56px !important; }
+    .main { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
   
     /* ── TOPBAR ──────────────────────────────────────────────── */
     .topbar,
@@ -386,11 +387,41 @@
     }
     .ph-name { font-size: 20px !important; }
   
-    /* Plan cards on store: single col on very small screens */
+    /* ── TOUCH IMPROVEMENTS ─────────────────────────────────── */
+    /* Larger tap targets */
+    .prob-cell { min-height: 42px !important; }
+    button, .nav-item, .sport-tab, .view-tab { min-height: 36px; }
+
+    /* Remove blue flash on tap for all buttons */
+    button, a { -webkit-tap-highlight-color: transparent; }
+
+    /* Scrollable match cards container */
+    .matches-scroll { -webkit-overflow-scrolling: touch; }
+
+    /* Prevent text selection on double-tap */
+    .match-card, .prob-cell, .sport-tab { user-select: none; -webkit-user-select: none; }
+
+    /* Better modal on mobile — always slides up from bottom */
+    .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+    .modal { border-radius: 14px 14px 0 0 !important; max-height: 90vh !important; }
+
+    /* Better quick-pick overlay on mobile */
+    .parlay-overlay-card { border-radius: 18px 18px 0 0 !important; max-height: 88vh !important; }
+
+    /* Scrollable tab bars */
+    .view-tabs, .sport-bar, .tab-bar, .info-tabs, .modal-tabs {
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .view-tab, .sport-tab, .tab-btn, .info-tab, .modal-tab { scroll-snap-align: start; }
   }
-  
+
   @media (max-width: 480px) {
     .plans-grid { grid-template-columns: 1fr !important; }
     .grid-4 { grid-template-columns: 1fr 1fr !important; }
     .teams-grid { grid-template-columns: 1fr !important; }
+
+    /* Very small screen: make subscription page single column */
+    .order-summary { margin-top: 16px !important; }
+    .checkout-grid { flex-direction: column !important; }
   }

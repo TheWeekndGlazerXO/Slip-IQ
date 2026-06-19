@@ -7924,12 +7924,55 @@ app.post("/webhook/stripe", async (req, res) => {
       }
     }
 
-    if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
+    if (event.type === "customer.subscription.deleted") {
+      // Hard cancellation — downgrade to free immediately
       const sub = event.data.object
       const custId = sub.customer
-      const status = sub.status === 'active' ? 'active' : 'cancelled'
       if (sb) {
-        await sb.from('users').update({ plan_status: status, updated_at: new Date().toISOString() }).eq('stripe_customer_id', custId).catch(()=>{})
+        await sb.from('users').update({
+          plan: 'free',
+          plan_status: 'cancelled',
+          stripe_subscription_id: null,
+          credits_total: PLAN_CREDITS['free'] || 20,
+          credits_used: 0,
+          credits_reset_at: new Date(Date.now() + 30*86400000).toISOString(),
+          updated_at: new Date().toISOString()
+        }).eq('stripe_customer_id', custId).catch(()=>{})
+        console.log(`⬇️  Subscription deleted → downgraded to free: ${custId}`)
+      }
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object
+      const custId = sub.customer
+      const stripeStatus = sub.status  // active | trialing | past_due | canceled | unpaid
+      if (!sb) return res.json({ received: true })
+
+      if (stripeStatus === 'active' || stripeStatus === 'trialing') {
+        // Check if the plan tier changed (e.g. upgrade from pro→elite via Stripe portal)
+        const priceId = sub.items?.data?.[0]?.price?.unit_amount
+        // Find which plan key matches this price
+        const matchedPlan = Object.entries(STRIPE_PLAN_PRICES_EUR).find(([,amt]) => amt === priceId)?.[0]
+        const updates = { plan_status: stripeStatus === 'trialing' ? 'trialing' : 'active', updated_at: new Date().toISOString() }
+        if (matchedPlan) {
+          updates.plan = matchedPlan
+          updates.credits_total = PLAN_CREDITS[matchedPlan] || 20
+          updates.credits_used = 0
+          updates.credits_reset_at = new Date(Date.now() + 30*86400000).toISOString()
+          console.log(`⬆️  Subscription updated → ${matchedPlan} (${stripeStatus}): ${custId}`)
+        }
+        await sb.from('users').update(updates).eq('stripe_customer_id', custId).catch(()=>{})
+      } else if (stripeStatus === 'past_due' || stripeStatus === 'unpaid') {
+        await sb.from('users').update({ plan_status: stripeStatus, updated_at: new Date().toISOString() }).eq('stripe_customer_id', custId).catch(()=>{})
+      } else if (stripeStatus === 'canceled') {
+        // Stripe sets this when period ends after cancellation
+        await sb.from('users').update({
+          plan: 'free', plan_status: 'cancelled',
+          stripe_subscription_id: null,
+          credits_total: PLAN_CREDITS['free'] || 20, credits_used: 0,
+          updated_at: new Date().toISOString()
+        }).eq('stripe_customer_id', custId).catch(()=>{})
+        console.log(`⬇️  Subscription period ended → downgraded to free: ${custId}`)
       }
     }
 

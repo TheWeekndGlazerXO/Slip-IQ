@@ -480,6 +480,10 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 /* ─── MOBILE RESPONSIVE (phones only, ≤768px) ─────────────────────────────── */
 @media (max-width: 768px) {
 
+/* Allow vertical scrolling; hide horizontal overflow */
+html { overflow-x: hidden !important; }
+body { overflow-x: hidden !important; overflow-y: auto !important; }
+
 /* Hide desktop sidebar entirely */
 .nav-rail { display: none !important; }
 .main { margin-left: 0 !important; }
@@ -538,29 +542,159 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 /* Match cards: slightly more compact */
 .mc-team-name { font-size: 12px; }
 .prob-pct { font-size: 15px; }
-.matches-scroll { padding: 7px 8px; }
+.matches-scroll { padding: 7px 8px; overflow-y: auto; max-height: calc(100vh - 220px); }
+
+/* Prob cells: bigger tap target on mobile */
+.prob-cell { min-height: 44px; padding: 6px 8px !important; }
+
+/* Touch-friendly pagination */
+.pg-btn { min-height: 36px; padding: 6px 14px !important; font-size: 10px !important; }
+
+/* Filter sidebar collapsible on mobile */
+.filter-sidebar { max-height: 120px; overflow: hidden; transition: max-height .3s; }
+.filter-sidebar.fs-expanded { max-height: 400px; }
 
 /* Hide desktop parlay panel — overlay handles it on mobile */
 .parlay-panel { display: none !important; }
 
-/* Floating parlay FAB (shows legs count) */
+/* ── Mobile parlay mini FAB — always visible on home page ── */
 .parlay-mobile-fab {
   position: fixed;
-  bottom: 70px;
+  bottom: 66px;
   right: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   background: var(--grad);
   color: #000;
-  font-family: 'JetBrains Mono';
-  font-size: 10px;
-  font-weight: 700;
-  padding: 10px 14px;
-  border-radius: 20px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0,200,248,.4);
+  box-shadow: 0 4px 18px rgba(0,200,248,.45);
   z-index: 148;
-  display: none; /* shown by JS when legs > 0 */
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .15s;
 }
+.parlay-mobile-fab:active { transform: scale(0.92); }
+.parlay-mobile-fab .fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--gold);
+  color: #000;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  display: none;
+}
+/* ── Mobile parlay popup bottom sheet ── */
+.mobile-parlay-popup {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  border-radius: 18px 18px 0 0;
+  z-index: 9500;
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.22,.68,0,1.2);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mobile-parlay-popup.open { transform: translateY(0); }
+.mpp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 9499;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.mpp-backdrop.open { opacity: 1; pointer-events: all; }
+.mpp-handle {
+  width: 36px; height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+.mpp-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.mpp-title {
+  font-family: 'Bebas Neue'; font-size: 20px; letter-spacing: 2px;
+  color: var(--accent);
+}
+.mpp-close {
+  background: rgba(255,59,92,.1); border: 1px solid rgba(255,59,92,.25);
+  color: var(--red); font-family: 'JetBrains Mono'; font-size: 10px;
+  padding: 4px 10px; border-radius: 5px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mpp-scroll { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.mpp-section-lbl {
+  font-family: 'JetBrains Mono'; font-size: 8px; letter-spacing: 1.5px;
+  color: var(--text3); text-transform: uppercase; margin: 8px 0 4px;
+}
+.mpp-cfg-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;
+}
+.mpp-cfg-item label {
+  display: block; font-family: 'JetBrains Mono'; font-size: 8px;
+  color: var(--text3); margin-bottom: 3px; text-transform: uppercase;
+}
+.mpp-cfg-item input, .mpp-cfg-item select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 5px; font-family: 'JetBrains Mono';
+  font-size: 11px; padding: 6px 8px; box-sizing: border-box; outline: none;
+  -webkit-appearance: none;
+}
+.mpp-auto-btn {
+  width: 100%; padding: 13px;
+  background: var(--grad); color: #000;
+  font-family: 'JetBrains Mono'; font-size: 12px; font-weight: 700;
+  letter-spacing: 1.5px; border: none; border-radius: 10px;
+  cursor: pointer; margin-bottom: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.mpp-auto-btn:active { opacity: .85; }
+.mpp-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mpp-save-btn, .mpp-clear-btn {
+  padding: 11px; font-family: 'JetBrains Mono'; font-size: 11px;
+  font-weight: 700; border-radius: 8px; border: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mpp-save-btn { background: rgba(0,200,248,.15); border: 1px solid rgba(0,200,248,.35); color: var(--accent); }
+.mpp-clear-btn { background: rgba(255,59,92,.1); border: 1px solid rgba(255,59,92,.25); color: var(--red); }
+.mpp-legs-empty {
+  text-align: center; padding: 20px 0; font-family: 'JetBrains Mono';
+  font-size: 9px; color: var(--text3); letter-spacing: 1px;
+}
+.mpp-odds-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; background: rgba(0,200,248,.05);
+  border: 1px solid rgba(0,200,248,.12); border-radius: 8px; margin-bottom: 8px;
+}
+.mpp-odds-big { font-family: 'Bebas Neue'; font-size: 28px; color: var(--gold); line-height: 1; }
+.mpp-odds-lbl { font-family: 'JetBrains Mono'; font-size: 8px; color: var(--text3); }
+.mpp-score-val { font-family: 'Bebas Neue'; font-size: 28px; color: var(--accent); }
 
 /* Move AI chat fab up so it doesn't clash with parlay fab */
 .chat-fab { bottom: 12px; right: 12px; }
@@ -620,6 +754,61 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 
 <div class="save-toast" id="saveToast">Saved!</div>
 <div class="parlay-toast" id="parlayToast"><span id="parlayToastIcon">+</span><span id="parlayToastMsg">Added to parlay</span></div>
+
+<!-- MOBILE PARLAY POPUP BOTTOM SHEET -->
+<div class="mpp-backdrop" id="mppBackdrop" onclick="closeMobileParlayPopup()"></div>
+<div class="mobile-parlay-popup" id="mobileParlayPopup">
+  <div class="mpp-handle"></div>
+  <div class="mpp-hdr">
+    <div class="mpp-title">⚡ PARLAY BUILDER</div>
+    <button class="mpp-close" onclick="closeMobileParlayPopup()">✕ CLOSE</button>
+  </div>
+  <div class="mpp-scroll">
+    <!-- Odds summary row -->
+    <div class="mpp-odds-row" id="mppOddsRow" style="display:none">
+      <div>
+        <div class="mpp-odds-big" id="mppOddsVal">—</div>
+        <div class="mpp-odds-lbl">COMBINED ODDS</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mpp-score-val" id="mppScoreVal">—</div>
+        <div class="mpp-odds-lbl">SCORE</div>
+      </div>
+    </div>
+    <!-- Legs list -->
+    <div class="mpp-section-lbl">SELECTIONS</div>
+    <div id="mppLegsList">
+      <div class="mpp-legs-empty">Tap any % or outcome to add legs</div>
+    </div>
+    <!-- Settings -->
+    <div class="mpp-section-lbl">AUTO-BUILD SETTINGS</div>
+    <div class="mpp-cfg-grid">
+      <div class="mpp-cfg-item">
+        <label>MIN LEGS</label>
+        <input type="number" id="mppLegMin" min="2" max="8" value="2">
+      </div>
+      <div class="mpp-cfg-item">
+        <label>MAX LEGS</label>
+        <input type="number" id="mppLegMax" min="2" max="12" value="6">
+      </div>
+      <div class="mpp-cfg-item" style="grid-column:1/-1">
+        <label>TIME FRAME</label>
+        <select id="mppTimeframe">
+          <option value="1">Today only</option>
+          <option value="3">Next 3 days</option>
+          <option value="7" selected>Next 7 days</option>
+        </select>
+      </div>
+    </div>
+    <!-- Auto-build button -->
+    <button class="mpp-auto-btn" id="mppAutoBtn" onclick="mobileAutoParlay()">⚡ AUTO-BUILD OPTIMAL PARLAY</button>
+    <!-- Save / Clear -->
+    <div class="mpp-action-row">
+      <button class="mpp-save-btn" onclick="saveCurrentParlay();closeMobileParlayPopup()">🎯 SAVE PARLAY</button>
+      <button class="mpp-clear-btn" onclick="parlaySelections=[];renderParlay();closeMobileParlayPopup()">🗑 CLEAR</button>
+    </div>
+  </div>
+</div>
 <!-- MULTI-PARLAY MODAL -->
 <div class="multi-parlay-modal" id="multiParlayModal" onclick="if(event.target===this)closeMultiParlay()">
   <div class="mp-modal-box">
@@ -675,13 +864,13 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
     </div>
     <!-- SPORT TABS -->
     <div class="sport-bar" id="sportBar">
-      <div class="sport-tab active" id="st-football"          onclick="switchSport('football')">⚽ FOOTBALL</div>
-      <div class="sport-tab"        id="st-basketball"        onclick="switchSport('basketball')">🏀 NBA</div>
-      <div class="sport-tab"        id="st-american_football" onclick="switchSport('american_football')">🏈 NFL</div>
-      <!--<div class="sport-tab"        id="st-tennis"            onclick="switchSport('tennis')">🎾 TENNIS</div>-->
-      <!--<div class="sport-tab"        id="st-f1"                onclick="switchSport('f1')">🏎️ F1</div>-->
-      <!--<div class="sport-tab"        id="st-boxing"            onclick="switchSport('boxing')">🥊 BOXING</div>-->
-      <!--<div class="sport-tab"        id="st-mma"               onclick="switchSport('mma')">🥋 MMA</div>-->
+      <div class="sport-tab active" id="st-football" onclick="switchSport('football')">⚽ FOOTBALL</div>
+      <!--<div class="sport-tab" id="st-basketball"         onclick="switchSport('basketball')">🏀 NBA</div>-->
+      <!--<div class="sport-tab" id="st-american_football"  onclick="switchSport('american_football')">🏈 NFL</div>-->
+      <!--<div class="sport-tab" id="st-tennis"             onclick="switchSport('tennis')">🎾 TENNIS</div>-->
+      <!--<div class="sport-tab" id="st-f1"                 onclick="switchSport('f1')">🏎️ F1</div>-->
+      <!--<div class="sport-tab" id="st-boxing"             onclick="switchSport('boxing')">🥊 BOXING</div>-->
+      <!--<div class="sport-tab" id="st-mma"                onclick="switchSport('mma')">🥋 MMA</div>-->
     </div>
   </div>
 
@@ -3162,30 +3351,20 @@ function injectMobileNav() {
 
   var nav = document.createElement('div');
   nav.className = 'mobile-nav';
-  nav.innerHTML = `
-    <button class="mobile-nav-item active" onclick="showPage('home',this);updateMobileNav(this)" id="mnav-home">
-      <span>⚽</span><span>MATCHES</span>
-    </button>
-    <button class="mobile-nav-item" onclick="showPage('news',this);updateMobileNav(this)" id="mnav-news">
-      <span>📰</span><span>NEWS</span>
-    </button>
-    <button class="mobile-nav-item" onclick="window.location.href='leagues.html'" id="mnav-leagues">
-      <span>🏆</span><span>LEAGUES</span>
-    </button>
-    <button class="mobile-nav-item" onclick="showPage('parlays',this);updateMobileNav(this)" id="mnav-parlays">
-      <span>🎯</span><span>PARLAYS</span>
-    </button>
-    <button class="mobile-nav-item" onclick="window.location.href='account.html'" id="mnav-account">
-      <span>👤</span><span>ACCOUNT</span>
-    </button>
-  `;
+  nav.innerHTML =
+    '<button class="mobile-nav-item active" onclick="showPage(\'home\',this);updateMobileNav(this)" id="mnav-home"><span>⚽</span><span>MATCHES</span></button>' +
+    '<button class="mobile-nav-item" onclick="showPage(\'news\',this);updateMobileNav(this)" id="mnav-news"><span>📰</span><span>NEWS</span></button>' +
+    '<button class="mobile-nav-item" onclick="window.location.href=\'leagues.html\'" id="mnav-leagues"><span>🏆</span><span>LEAGUES</span></button>' +
+    '<button class="mobile-nav-item" onclick="showPage(\'parlays\',this);updateMobileNav(this)" id="mnav-parlays"><span>🎯</span><span>PARLAYS</span></button>' +
+    '<button class="mobile-nav-item" onclick="window.location.href=\'account.html\'" id="mnav-account"><span>👤</span><span>ACCOUNT</span></button>';
   document.body.appendChild(nav);
 
+  // Permanent mini FAB for parlay builder
   var fab = document.createElement('button');
   fab.className = 'parlay-mobile-fab';
   fab.id = 'parlayMobileFab';
-  fab.onclick = openParlayOverlay;
-  fab.textContent = '🎯 0 LEGS';
+  fab.onclick = openMobileParlayPopup;
+  fab.innerHTML = '⚡<span class="fab-badge" id="fabBadge">0</span>';
   document.body.appendChild(fab);
 }
 function updateMobileNav(el) {
@@ -3193,20 +3372,81 @@ function updateMobileNav(el) {
   if (el) el.classList.add('active');
 }
 
-// Patch renderParlay to update the mobile FAB
+// ── Mobile parlay popup ──────────────────────────────────────────────────────
+function openMobileParlayPopup() {
+  var popup = document.getElementById('mobileParlayPopup');
+  var bd    = document.getElementById('mppBackdrop');
+  if (!popup) return;
+  _syncMppLegs();
+  popup.classList.add('open');
+  if (bd) bd.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileParlayPopup() {
+  var popup = document.getElementById('mobileParlayPopup');
+  var bd    = document.getElementById('mppBackdrop');
+  if (popup) popup.classList.remove('open');
+  if (bd)    bd.classList.remove('open');
+  document.body.style.overflow = '';
+}
+function _syncMppLegs() {
+  var list = document.getElementById('mppLegsList');
+  var oddsRow = document.getElementById('mppOddsRow');
+  var oddsVal = document.getElementById('mppOddsVal');
+  var scoreVal = document.getElementById('mppScoreVal');
+  if (!list) return;
+  if (!parlaySelections.length) {
+    list.innerHTML = '<div class="mpp-legs-empty">Tap any % or outcome to add legs</div>';
+    if (oddsRow) oddsRow.style.display = 'none';
+    return;
+  }
+  if (oddsRow) oddsRow.style.display = 'flex';
+  var co = parlaySelections.reduce(function(p,s){ return p*(s.odds||1); }, 1).toFixed(2);
+  if (oddsVal) oddsVal.textContent = co + 'x';
+  // Score from renderParlay internal calc or DOM
+  var scoreEl = document.getElementById('parlayScore');
+  if (scoreVal) scoreVal.textContent = scoreEl ? scoreEl.textContent : '—';
+  list.innerHTML = parlaySelections.map(function(s, i) {
+    var statusIcon = s.status === 'won' ? '✅' : s.status === 'lost' ? '❌' : s.isLive ? '🔴' : '⏳';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-family:JetBrains Mono,monospace">' +
+      '<div style="font-size:9px;color:var(--text3);min-width:16px">' + statusIcon + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.label||s.pick||'') + '</div>' +
+        '<div style="font-size:9px;color:var(--text3)">' + (s.odds||'?') + 'x · ' + (s.prob||'?') + '%</div></div>' +
+      '<button onclick="parlaySelections.splice('+i+',1);renderParlay();_syncMppLegs()" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:0 4px">×</button>' +
+    '</div>';
+  }).join('');
+}
+async function mobileAutoParlay() {
+  // Sync popup settings back to the desktop hidden inputs autoParlay() reads
+  var mMin = document.getElementById('mppLegMin');
+  var mMax = document.getElementById('mppLegMax');
+  var mTf  = document.getElementById('mppTimeframe');
+  if (mMin) { var legMinEl = document.getElementById('legMin'); if (legMinEl) legMinEl.value = mMin.value; }
+  if (mMax) { var legMaxEl = document.getElementById('legMax'); if (legMaxEl) legMaxEl.value = mMax.value; }
+  if (mTf)  { var tfEl = document.getElementById('parlayTimeframe'); if (tfEl) tfEl.value = mTf.value; }
+  var btn = document.getElementById('mppAutoBtn');
+  if (btn) { btn.textContent = '⏳ BUILDING...'; btn.disabled = true; }
+  try {
+    await autoParlay();
+    _syncMppLegs();
+  } finally {
+    if (btn) { btn.textContent = '⚡ AUTO-BUILD OPTIMAL PARLAY'; btn.disabled = false; }
+  }
+}
+
+// Patch renderParlay to keep FAB badge and popup in sync
 var _origRenderParlay = renderParlay;
 renderParlay = function() {
   _origRenderParlay.apply(this, arguments);
-  var fab = document.getElementById('parlayMobileFab');
-  if (!fab) return;
   var count = parlaySelections.length;
-  if (count > 0) {
-    fab.style.display = 'block';
-    var co = parlaySelections.reduce(function(p,s){ return p*s.odds; }, 1).toFixed(2);
-    fab.textContent = '🎯 ' + count + ' LEGS · ' + co + 'x';
-  } else {
-    fab.style.display = 'none';
+  var badge = document.getElementById('fabBadge');
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
   }
+  // If popup is open, re-sync it
+  var popup = document.getElementById('mobileParlayPopup');
+  if (popup && popup.classList.contains('open')) _syncMppLegs();
 };
 // ── QUICK-PICK PARLAY OVERLAY ─────────────────────────────
 var _qpMatchId = null;
