@@ -1379,24 +1379,26 @@ function card(m, cfg) {
   var hasDraw = cfg.hasDraw && m.drawProb && m.drawOdds;
   html += '<div class="mc-probs' + (hasDraw ? '' : ' two-col') + '">';
 
-  var mid = JSON.stringify(m.id);
+  var safeId = String(m.id).replace(/"/g, '&quot;');
   var _hOdds = (m.homeOdds && m.homeOdds > 1.01) ? m.homeOdds : parseFloat((100/Math.max(1,m.homeProb||50)*1.06).toFixed(2));
   var _dOdds = (m.drawOdds && m.drawOdds > 1.01) ? m.drawOdds : parseFloat((100/Math.max(1,m.drawProb||25)*1.06).toFixed(2));
   var _aOdds = (m.awayOdds && m.awayOdds > 1.01) ? m.awayOdds : parseFloat((100/Math.max(1,m.awayProb||50)*1.06).toFixed(2));
-  html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'home\',\'' + esc((m.home || '') + ' Win') + '\',' + _hOdds + ',' + (m.homeProb || 50) + ')">';
+  var hLabel = esc((m.home||'Home') + ' Win');
+  var aLabel = esc((m.away||'Away') + ' Win');
+
+  html += '<div class="prob-cell' + (hSel ? ' sel' : '') + '" data-tp-id="' + safeId + '" data-tp-pick="home" data-tp-label="' + hLabel + '" data-tp-odds="' + _hOdds + '" data-tp-prob="' + (m.homeProb||50) + '">';
   html += '<div class="prob-outcome">' + sn(m.home) + '</div>';
   html += '<div class="prob-pct ' + hc + '">' + (m.homeProb > 0 ? m.homeProb : m.homeProb === 0 ? '< 1' : '—') + '%</div>';
   html += '<div class="prob-odds">' + _hOdds + '</div></div>';
 
   if (hasDraw) {
-    html += '<div class="prob-cell' + (dSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'draw\',\'Draw\',' + _dOdds + ',' + (m.drawProb||25) + ')">';
+    html += '<div class="prob-cell' + (dSel ? ' sel' : '') + '" data-tp-id="' + safeId + '" data-tp-pick="draw" data-tp-label="Draw" data-tp-odds="' + _dOdds + '" data-tp-prob="' + (m.drawProb||25) + '">';
     html += '<div class="prob-outcome">Draw</div>';
     html += '<div class="prob-pct ' + dc + '">' + (m.drawProb > 0 ? m.drawProb : '< 1') + '%</div>';
     html += '<div class="prob-odds">' + _dOdds + '</div></div>';
   }
 
-  html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" onclick="toggleParlay(' + mid + ',\'away\',\'' + esc((m.away || '') + ' Win') + '\',' + _aOdds + ',' + (m.awayProb || 50) + ')">';
-  
+  html += '<div class="prob-cell' + (aSel ? ' sel' : '') + '" data-tp-id="' + safeId + '" data-tp-pick="away" data-tp-label="' + aLabel + '" data-tp-odds="' + _aOdds + '" data-tp-prob="' + (m.awayProb||50) + '">';
   html += '<div class="prob-outcome">' + sn(m.away) + '</div>';
   html += '<div class="prob-pct ' + ac + '">' + (m.awayProb > 0 ? m.awayProb : m.awayProb === 0 ? '< 1' : '—') + '%</div>';
   html += '<div class="prob-odds">' + _aOdds + '</div></div>';
@@ -3406,6 +3408,20 @@ document.addEventListener('click', function(e) {
   if (!btn) return;
   e.stopPropagation();
   try { openQuickPick(btn.getAttribute('data-qp-id')); } catch(ex) { console.error('[QP]', ex); }
+}, true);
+
+// Event delegation for prob-cell clicks (home/draw/away %) — data-tp-* attrs
+document.addEventListener('click', function(e) {
+  var cell = e.target.closest ? e.target.closest('[data-tp-id]') : null;
+  if (!cell) return;
+  e.stopPropagation();
+  var id    = cell.getAttribute('data-tp-id');
+  var pick  = cell.getAttribute('data-tp-pick');
+  var label = cell.getAttribute('data-tp-label');
+  var odds  = parseFloat(cell.getAttribute('data-tp-odds'));
+  var prob  = parseFloat(cell.getAttribute('data-tp-prob'));
+  if (!id || !pick) return;
+  try { toggleParlay(id, pick, label, odds, prob); } catch(ex) { console.error('[PC]', ex); }
 }, true);
 
 window.addEventListener("DOMContentLoaded", function() {
