@@ -4022,9 +4022,10 @@ function calcXG(tElo, oElo, form, isHome, realXg, teamName, fatigueFactor) {
   const w = teamName ? getTeamWeights(teamName) : DEFAULT_TEAM_WEIGHTS()
   const rawEd = (tElo - oElo) / 400
 
-  // Non-linear ELO scaling — amplify large mismatches (Brazil vs Haiti type)
-  // Small diffs linear, big diffs get steeper curve
-  const ed = Math.sign(rawEd) * (Math.abs(rawEd) < 1 ? Math.abs(rawEd) * 0.95 : 0.95 + (Math.abs(rawEd) - 1) * 1.4)
+  // Quadratic ELO scaling: (rawEd + rawEd²) * 1.2
+  // 100-ELO gap → small nudge; 500-ELO gap → Brazil~5.0 vs Haiti~0.1
+  const absEd = Math.abs(rawEd)
+  const ed = Math.sign(rawEd) * (absEd + absEd * absEd) * 1.2
 
   const formRaw  = formScore(form)
   const momentum = formMomentum(form)
@@ -4051,9 +4052,11 @@ function calcXG(tElo, oElo, form, isHome, realXg, teamName, fatigueFactor) {
   const homeAdj    = isHome ? 0.20 : -0.05
   const fatigueAdj = fatigueFactor ? -0.08 * fatigueFactor : 0 // each extra recent game reduces xG slightly
 
-  // Underdog floor is lower — don't prop up a heavy underdog with min 0.3
+  // Tiered floor — massive underdogs get very low predicted xG
   const eloGap = Math.abs(tElo - oElo)
-  const floor  = eloGap > 400 && rawEd < 0 ? 0.12 : eloGap > 200 && rawEd < 0 ? 0.18 : 0.25
+  const floor  = eloGap > 500 && rawEd < 0 ? 0.07
+    : eloGap > 350 && rawEd < 0 ? 0.12
+    : eloGap > 200 && rawEd < 0 ? 0.18 : 0.25
 
   const xg = Math.max(floor,
     (blendedBase + ed + fb + homeAdj + possessionBonus + pressBonus + setpieceBonus + counterBonus + csDefPenalty + fatigueAdj) * homeAwayMult

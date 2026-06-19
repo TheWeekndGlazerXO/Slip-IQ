@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slipiq-v6';
+const CACHE_NAME = 'slipiq-v7';
 const STATIC_ASSETS = [
   '/home.html', '/leagues.html', '/mobile.css', '/mobile-nav.js',
   '/config.js',
