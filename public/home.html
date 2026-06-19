@@ -2045,9 +2045,12 @@ function toggleParlay(matchId, pick, label, odds, prob) {
   // Step 2: re-render — isolated so errors here can't block overlay or toast
   try { renderParlay(); } catch(e) { console.error('[toggleParlay] renderParlay error:', e); }
   try { renderPage(); }   catch(e) { console.error('[toggleParlay] renderPage error:', e); }
-  // Step 3: open overlay on add — completely isolated
+  // Step 3: expand sidebar panel if collapsed so user sees the leg was added
   if (!removed) {
-    try { openParlayOverlay(); } catch(e) { console.error('[toggleParlay] overlay error:', e); }
+    try {
+      var panel = document.getElementById('parlayPanel');
+      if (panel && panel.classList.contains('collapsed')) toggleParlayPanel(false);
+    } catch(e) { console.error('[toggleParlay] panel expand error:', e); }
   }
 }
 
@@ -2370,7 +2373,7 @@ var sportFetches = otherSports.map(function(sport) {
     });
     renderParlay();
     renderPage();
-    openParlayOverlay();
+    toggleParlayPanel(false);
     showToast("⚡ " + parlaySelections.length + " legs built @ " + (data.combinedOdds||'?') + "x · Score: " + (data.score||'?') + "/100");
   } catch(err) {
     showToast("⚠️ Auto-build failed: " + err.message);
@@ -2513,7 +2516,7 @@ function useMultiParlay(legs) {
     renderParlay();
     renderPage();
     closeMultiParlay();
-    openParlayOverlay();
+    toggleParlayPanel(false);
     showParlayToast(parlaySelections.length + '-leg parlay loaded', false);
   } catch(e) {
     console.error('useMultiParlay error:', e);
