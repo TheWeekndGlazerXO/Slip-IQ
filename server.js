@@ -645,6 +645,67 @@ function buildPlayersToWatch(home, away, homeLineup, awayLineup, hElo, aElo) {
   return [...hTop.map(p=>({...p,team:home})), ...aTop.map(p=>({...p,team:away}))]
 }
 
+// ── DYNAMIC ELO — SUPABASE PERSISTENCE ───────────────────
+// Loads overrides from `player_elos` and `team_elos` tables (if they exist).
+// Falls back silently to WC2026_SQUADS hardcoded values.
+// Update route: POST /admin/update-elo  { type:'player'|'team', name, elo }
+const _playerEloOverrides = new Map()   // name → elo
+const _teamEloOverrides   = new Map()   // name → elo
+
+async function loadElosFromSupabase() {
+  if (!supabase) return
+  try {
+    const { data: pRows } = await supabase.from('player_elos').select('player_name,elo').limit(2000)
+    if (pRows) pRows.forEach(r => _playerEloOverrides.set(r.player_name, r.elo))
+    const { data: tRows } = await supabase.from('team_elos').select('team_name,elo').limit(500)
+    if (tRows) tRows.forEach(r => _teamEloOverrides.set(r.team_name, r.elo))
+    console.log(`[ELO] Loaded ${_playerEloOverrides.size} player + ${_teamEloOverrides.size} team overrides`)
+  } catch(e) { console.warn('[ELO] Supabase load failed (tables may not exist yet):', e.message) }
+}
+
+async function savePlayerEloToSupabase(name, team, pos, elo) {
+  if (!supabase) return
+  try {
+    await supabase.from('player_elos').upsert({ player_name: name, team_name: team, position: pos, elo, updated_at: new Date().toISOString() }, { onConflict: 'player_name,team_name' })
+    _playerEloOverrides.set(name, elo)
+  } catch(e) { /* tables may not exist — silently fail */ }
+}
+
+async function saveTeamEloToSupabase(name, elo) {
+  if (!supabase) return
+  try {
+    await supabase.from('team_elos').upsert({ team_name: name, elo, updated_at: new Date().toISOString() }, { onConflict: 'team_name' })
+    _teamEloOverrides.set(name, elo)
+  } catch(e) { /* tables may not exist — silently fail */ }
+}
+
+// Patch player lookup to use Supabase override first
+function getPlayerElo(name, fallbackElo) {
+  return _playerEloOverrides.has(name) ? _playerEloOverrides.get(name) : (fallbackElo || 1600)
+}
+function getTeamEloOverride(name) {
+  return _teamEloOverrides.has(name) ? _teamEloOverrides.get(name) : (NATIONAL_TEAM_ELO[name] || null)
+}
+
+// Load on startup
+loadElosFromSupabase()
+// Re-sync every 12 hours
+setInterval(loadElosFromSupabase, 12 * 60 * 60 * 1000)
+
+// Admin endpoint to update an ELO dynamically
+app.post('/admin/update-elo', rateLimit(30), requireAccess, async (req, res) => {
+  const { type, name, team, pos, elo } = req.body
+  if (!['player','team'].includes(type) || !name || typeof elo !== 'number') return res.status(400).json({ error: 'Invalid params' })
+  if (type === 'player') {
+    await savePlayerEloToSupabase(name, team || '', pos || '', elo)
+    res.json({ ok: true, player: name, elo })
+  } else {
+    await saveTeamEloToSupabase(name, elo)
+    if (NATIONAL_TEAM_ELO[name] !== undefined) NATIONAL_TEAM_ELO[name] = elo
+    res.json({ ok: true, team: name, elo })
+  }
+})
+
 // ── LIKELY SCORERS ────────────────────────────────────────
 // Returns top N players by anytime scorer probability for a team
 function buildLikelyScorers(lineup, teamXg, teamName, n) {
@@ -1633,9 +1694,9 @@ const WC2026_SQUADS = {
       {name:"John Souttar",pos:"CB",club:"Rangers",elo:1700},
       {name:"Ryan Christie",pos:"CAM",club:"Bournemouth",elo:1740},
       {name:"Lewis Ferguson",pos:"CM",club:"Bologna",elo:1760},
-      {name:"John McGinn",pos:"CM",club:"Aston Villa",elo:1800},
+      {name:"John McGinn",pos:"CM",club:"Aston Villa",elo:1840},
       {name:"Kenny McLean",pos:"CM",club:"Norwich",elo:1710},
-      {name:"Scott McTominay",pos:"CDM",club:"Napoli",elo:1820},
+      {name:"Scott McTominay",pos:"CDM",club:"Napoli",elo:1890},
       {name:"Che Adams",pos:"ST",club:"Torino",elo:1740},
       {name:"Lyndon Dykes",pos:"ST",club:"Charlton",elo:1700},
       {name:"Lawrence Shankland",pos:"ST",club:"Rangers",elo:1730},
@@ -2545,7 +2606,9 @@ function getElo(name, league, approxPos) {
   const ce = getClubElo(name)
   if (ce && ce > 1000) return Math.round(ce + bonus)
   if (ELO_BASE[name]) return Math.round(ELO_BASE[name] + bonus)
-  // National team ELOs (FIFA rankings based — prevents 1500 fallback for WC teams)
+  // National team ELOs — check Supabase override first
+  const teamEloOv = _teamEloOverrides.get(name)
+  if (teamEloOv) return Math.round(teamEloOv + bonus)
   if (NATIONAL_TEAM_ELO[name]) return Math.round(NATIONAL_TEAM_ELO[name] + bonus)
   const lo = name.toLowerCase()
   for (const k of Object.keys(NATIONAL_TEAM_ELO)) {
@@ -4729,11 +4792,11 @@ function buildExpectedLineupFromSquad(teamName, teamElo) {
 
   // Fall back to hardcoded WC2026_SQUADS for national teams
   if (!squad.length && WC2026_SQUADS[teamName]) {
-    squad = WC2026_SQUADS[teamName].players.map(p => ({
-      player_name: p.name, position: p.pos, elo: p.elo,
-      team_name: teamName, club: p.club,
-      is_key: p.elo >= 1850, _fromWCSquads: true,
-    }))
+    squad = WC2026_SQUADS[teamName].players.map(p => {
+      const eloOverride = _playerEloOverrides.get(p.name)
+      const elo = eloOverride !== undefined ? eloOverride : p.elo
+      return { player_name: p.name, position: p.pos, elo, team_name: teamName, club: p.club, is_key: elo >= 1850, _fromWCSquads: true }
+    })
   }
 
   if (!squad.length) {
