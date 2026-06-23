@@ -11,7 +11,7 @@
 <style>
 :root{--bg:#04080f;--bg2:#070d1a;--panel:#0a1628;--border:#0e2040;--border2:#152d55;--accent:#00c8f8;--teal:#00e5c8;--green:#00ff88;--red:#ff3b5c;--gold:#ffd700;--orange:#ff8c42;--purple:#a855f7;--text:#e8f4ff;--text2:#7a9bbf;--text3:#3a5a7a;--grad:linear-gradient(135deg,#00c8f8,#00e5c8);--sidebar:224px}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden}
+html,body{min-height:100%;overflow-x:hidden}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column}
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,248,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,248,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
 
@@ -34,7 +34,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .nav-rail.col .upg-btn{font-size:0;padding:9px 0}.nav-rail.col .upg-btn::before{content:"⭐";font-size:16px}
 
 /* MAIN */
-.main{margin-left:var(--sidebar);transition:margin-left .25s;display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;overflow:hidden}
+.main{margin-left:var(--sidebar);transition:margin-left .25s;display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;overflow:hidden}
 .main.col{margin-left:52px}
 .topbar{height:50px;background:var(--panel);border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
 .topbar-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:3px;color:var(--text)}
@@ -113,6 +113,33 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 /* UNLIMITED BADGE */
 .unlimited-badge{font-family:'Bebas Neue';font-size:36px;color:var(--gold);line-height:1;margin:8px 0 4px;letter-spacing:2px}
+
+/* ── ELITE MOBILE ───────────────────────────────── */
+@media(max-width:768px){
+  html,body{overflow-y:auto!important}
+  .nav-rail{display:none!important}
+  .main{margin-left:0!important;min-height:auto;overflow:visible!important;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  /* Topbar */
+  .topbar{padding:0 12px!important}
+  .topbar-title{font-size:18px!important;letter-spacing:2px}
+  /* Content scrolls natively */
+  .content{overflow-y:visible!important;padding:14px 12px!important}
+  /* Profile hero: stack on mobile */
+  .profile-hero{flex-wrap:wrap;padding:16px!important;gap:12px!important;margin-bottom:14px}
+  .avatar{width:52px!important;height:52px!important;font-size:22px!important;flex-shrink:0}
+  .ph-name{font-size:20px!important}
+  .sign-out-btn{margin-left:0!important;margin-top:4px}
+  /* Cards grid: 1 col */
+  .profile-grid{grid-template-columns:1fr!important;gap:10px!important}
+  .card{padding:14px 12px!important}
+  /* Credits big number */
+  .credit-big{font-size:42px!important}
+  /* Upgrade nudge: stack */
+  .upgrade-nudge{flex-direction:column;gap:10px!important;padding:12px!important}
+  .un-btn{width:100%;text-align:center;padding:12px!important;min-height:44px}
+  /* Buttons */
+  .btn-primary,.btn-secondary{padding:12px 20px!important;font-size:11px!important;min-height:44px}
+}
 </style>
 </head>
 <body>
@@ -432,6 +459,7 @@ async function confirmDeleteAccount(){
 
 function escH(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
 </script>
+<script>window._MOBILE_NAV_ACTIVE='account';</script>
 <script src="/mobile-nav.js"></script>
 </body>
 </html>

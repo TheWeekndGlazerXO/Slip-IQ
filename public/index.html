@@ -35,6 +35,7 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="/mobile.css">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -967,6 +968,96 @@ footer {
 @media (max-width: 480px) {
   .tiers-grid { grid-template-columns: 1fr; }
 }
+
+/* ── ELITE MOBILE ─────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; overflow-y: auto; }
+
+  nav {
+    padding: 0 14px;
+    height: 50px;
+  }
+  .nav-logo { font-size: 16px; }
+  .nav-links { display: none !important; }
+
+  /* Full-width sticky CTA bar at top on mobile */
+  .mobile-cta-bar {
+    display: flex !important;
+    position: sticky;
+    top: 50px;
+    z-index: 90;
+    background: rgba(4,8,15,.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,200,248,.15);
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .mobile-cta-bar a {
+    flex: 1;
+    text-align: center;
+    padding: 11px 10px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-decoration: none;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-cta-bar .mcta-primary {
+    background: linear-gradient(135deg,#00c8f8,#00e5c8);
+    color: #000;
+  }
+  .mobile-cta-bar .mcta-secondary {
+    background: rgba(0,200,248,.1);
+    border: 1px solid rgba(0,200,248,.3);
+    color: #00c8f8;
+  }
+
+  /* Hero */
+  .hero { padding: 28px 16px 24px; }
+  .hero-headline { font-size: 42px !important; letter-spacing: 1px; }
+  .hero-sub { font-size: 14px !important; }
+  .hero-btns { flex-direction: column; gap: 10px; width: 100%; }
+  .hero-btns a { width: 100%; text-align: center; padding: 14px !important; font-size: 13px !important; }
+  .hero-stats { flex-wrap: wrap; gap: 16px; padding: 20px 14px; }
+  .hstat { min-width: 80px; }
+  .hstat-num { font-size: 26px; }
+
+  /* Trust bar */
+  .trust-bar { padding: 10px 0; }
+  .trust-item { padding: 0 10px; font-size: 11px; }
+
+  /* Sections */
+  section { padding: 40px 14px; }
+  .section-title { font-size: 28px !important; }
+  .section-sub { font-size: 13px; }
+
+  /* How grid */
+  .how-grid { grid-template-columns: 1fr !important; gap: 16px; }
+
+  /* Features */
+  .features-grid { grid-template-columns: 1fr !important; }
+
+  /* Tier cards */
+  .tiers-grid { grid-template-columns: 1fr !important; gap: 12px; }
+  .tier-card { padding: 20px 16px !important; }
+  .tier-name { font-size: 20px !important; }
+  .tier-price-num { font-size: 36px !important; }
+  .tier-btn { min-height: 44px; padding: 12px !important; font-size: 11px !important; }
+
+  /* Footer */
+  footer { padding: 32px 14px 80px; }
+  .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 24px; }
+}
+@media (max-width: 380px) {
+  .hero-headline { font-size: 34px !important; }
+  .tier-price-num { font-size: 30px !important; }
+}
 </style>
 </head>
 <body>
@@ -974,6 +1065,12 @@ footer {
 <div class="orb orb1"></div>
 <div class="orb orb2"></div>
 <div class="orb orb3"></div>
+
+<!-- MOBILE CTA BAR (hidden on desktop via CSS) -->
+<div class="mobile-cta-bar" style="display:none">
+  <a href="home.html" class="mcta-secondary">⚽ OPEN APP</a>
+  <a href="subscriptions.html" class="mcta-primary">⚡ START FREE →</a>
+</div>
 
 <!-- NAV -->
 <nav>

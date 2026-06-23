@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="stylesheet" href="/mobile.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slip IQ — Plans & Credits</title>
@@ -127,6 +128,53 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 /* TOAST */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel);border:1px solid var(--green);color:var(--green);font-family:'JetBrains Mono';font-size:11px;padding:10px 20px;border-radius:8px;z-index:500;transition:transform .3s;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── MOBILE ───────────────────────────────────────── */
+@media(max-width:768px){
+  html,body{overflow-x:hidden;overflow-y:auto}
+  /* Hide desktop nav rail */
+  .nav-rail{display:none!important}
+  .main{margin-left:0!important;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))!important}
+  /* Page header */
+  .page-wrap{padding:20px 14px 60px}
+  .page-title{font-size:34px!important;letter-spacing:2px}
+  .page-sub{font-size:13px}
+  /* Plan cards: 1 per row on phone */
+  .plans-grid{grid-template-columns:1fr!important;gap:12px!important}
+  .plan-card{padding:20px 16px!important}
+  .plan-name{font-size:22px!important}
+  .plan-price-num{font-size:40px!important}
+  .plan-btn{padding:13px!important;font-size:12px!important;min-height:44px}
+  /* Billing toggle: bigger tap targets */
+  .billing-toggle{gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:24px}
+  .toggle-wrap{width:52px;height:28px}
+  .toggle-knob{width:22px;height:22px}
+  /* Checkout: stack everything */
+  .checkout-section{grid-template-columns:1fr!important;padding:18px 14px!important;gap:20px!important;border-radius:12px!important}
+  .checkout-title{font-size:22px!important}
+  .form-input{font-size:16px!important;padding:12px 14px!important;min-height:44px} /* prevent iOS zoom */
+  .checkout-btn{padding:16px!important;font-size:14px!important;min-height:50px}
+  /* Order summary */
+  .order-summary{border-radius:10px!important;padding:16px!important}
+  /* Credits grid: 2 col */
+  .credits-grid{grid-template-columns:1fr 1fr!important;gap:10px}
+  .cc-btn{min-height:40px;font-size:10px!important}
+  /* FAQ */
+  .faq-item{padding:14px!important}
+  .faq-q{font-size:13px}
+  /* Referral row */
+  .referral-row{flex-direction:column;gap:8px}
+  .referral-apply{padding:11px 16px;min-height:44px}
+  /* Credits section */
+  .credits-title{font-size:22px!important}
+  /* Toast: position above mobile nav */
+  .toast{bottom:74px!important}
+}
+@media(max-width:380px){
+  .plans-grid{gap:8px!important}
+  .plan-card{padding:16px 12px!important}
+  .credits-grid{grid-template-columns:1fr!important}
+}
 </style>
 </head>
 <body>
@@ -620,5 +668,7 @@ updatePrices()
 selectPlan("plus")
 document.getElementById("btnMonthly").style.background = "rgba(0,200,248,.2)"
 </script>
+<script>window._MOBILE_NAV_ACTIVE='plans';</script>
+<script src="/mobile-nav.js"></script>
 </body>
 </html>

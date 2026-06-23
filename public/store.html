@@ -111,6 +111,47 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 /* RESPONSIVE */
 @media(max-width:900px){.plans-grid{grid-template-columns:1fr 1fr;gap:10px}.credits-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.plans-grid{grid-template-columns:1fr}.addons-grid{grid-template-columns:1fr}}
+
+/* ── ELITE MOBILE ───────────────────────────────────── */
+@media(max-width:768px){
+  html,body{overflow-x:hidden;overflow-y:auto!important}
+  /* Header */
+  .header{padding:0 12px!important;height:50px}
+  .logo{font-size:20px!important}
+  .nav-link{display:none}
+  /* Hero */
+  .hero{padding:32px 16px 24px!important}
+  .hero-title{font-size:36px!important;letter-spacing:2px}
+  .hero-sub{font-size:12px!important;max-width:100%}
+  /* Section */
+  .section{padding:14px 12px 80px!important}
+  .section-title{font-size:16px!important}
+  /* Plan cards */
+  .plans-grid{grid-template-columns:1fr!important;gap:10px!important}
+  .plan-card{padding:18px 16px!important}
+  .plan-name{font-size:22px!important}
+  .plan-price{font-size:38px!important}
+  .plan-btn{min-height:44px;padding:11px!important;font-size:12px!important}
+  .plan-features li{font-size:11px!important}
+  /* Credits */
+  .credits-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .credit-card{padding:14px!important}
+  .credit-amount{font-size:24px!important}
+  /* Addons */
+  .addons-grid{grid-template-columns:1fr!important;gap:8px!important}
+  .addon-card{padding:12px!important}
+  /* Auth modal */
+  .auth-card{padding:22px 18px!important;border-radius:16px 16px 0 0!important;margin-top:auto}
+  .auth-overlay{align-items:flex-end!important}
+  /* FAQ */
+  .faq-q{font-size:12px!important}
+  /* Input: prevent iOS font zoom */
+  .auth-input{font-size:16px!important;min-height:44px}
+}
+@media(max-width:380px){
+  .plans-grid{gap:8px!important}
+  .credits-grid{grid-template-columns:1fr!important}
+}
 </style>
 </head>
 <body>
@@ -503,6 +544,7 @@ async function startCheckout(plan) {
   }
 }
 </script>
+<script>window._MOBILE_NAV_ACTIVE='plans';</script>
 <script src="/mobile-nav.js"></script>
 </body>
 </html>
