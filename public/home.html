@@ -477,6 +477,13 @@ input[type=checkbox]{accent-color:var(--accent);width:12px;height:12px;cursor:po
 .tut-t-skip{background:none;border:1px solid var(--border2);color:var(--text3);font-family:'JetBrains Mono';font-size:9px;padding:5px 10px;border-radius:5px;cursor:pointer}
 .tut-t-next{background:var(--grad);color:#000;font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:5px 14px;border-radius:5px;border:none;cursor:pointer;letter-spacing:1px}
 
+/* Mobile-only elements: hidden on desktop by default */
+.mobile-parlay-popup,
+.mpp-backdrop,
+.parlay-mobile-fab {
+  display: none;
+}
+
 /* ─── MOBILE RESPONSIVE (phones only, ≤768px) ─────────────────────────────── */
 @media (max-width: 768px) {
 
@@ -616,6 +623,7 @@ body { overflow-x: hidden !important; overflow-y: auto !important; }
 }
 .mobile-parlay-popup.open { transform: translateY(0); }
 .mpp-backdrop {
+  display: block;
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.6);
